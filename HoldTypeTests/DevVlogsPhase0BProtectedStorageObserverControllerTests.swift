@@ -37,11 +37,17 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
               "valid", "all_succeeded", "observed", "outside_only", "certain", "clear"],
              "run_owned_canonical_recovery_write_correlated"),
             (["clear", "continuous", "passed", "unchanged", "passed", "changed",
+              "valid", "all_succeeded", "observed", "outside_only", "certain", "uncertain"],
+             "still_unknown"),
+            (["clear", "continuous", "passed", "unchanged", "passed", "unchanged",
+              "invalid", "none", "absent", "none", "certain", "uncertain"],
+             "environment_conflict"),
+            (["clear", "continuous", "passed", "unchanged", "passed", "changed",
               "invalid", "none", "absent", "mixed", "certain", "clear"], "still_unknown"),
             (["clear", "continuous", "passed", "unchanged", "passed", "unchanged",
               "invalid", "none", "absent", "none", "certain", "clear"], "observer_invalid"),
             (["clear", "continuous", "passed", "unchanged", "passed", "unchanged",
-              "valid", "succeeded_outside_or_indeterminate", "observed", "outside_only",
+              "valid", "all_succeeded", "observed", "outside_or_indeterminate",
               "certain", "clear"], "evidence_conflict"),
             (["clear", "continuous", "passed", "unchanged", "passed", "unchanged",
               "valid", "failed", "observed", "private_only", "certain", "clear"],
@@ -65,11 +71,135 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         }
     }
 
+    @Test func productionParserBindsRunAndFeedsExactFactsToClassification() throws {
+        let owner = observerLine(2, "owner_initialized", "none", "recovery_directory",
+                                 "private_task_home", "observed")
+        let outside = [
+            observerLine(2, "owner_initialized", "none", "recovery_directory",
+                         "private_task_home", "observed"),
+            observerLine(3, "mutation_begin", "replace_recovery_index", "recovery_index",
+                         "outside_private_task_home", "attempted"),
+            observerLine(4, "mutation_end", "replace_recovery_index", "recovery_index",
+                         "outside_private_task_home", "succeeded"),
+        ]
+        #expect(try parseStream([readyLine, owner]).output == "valid none observed none\n")
+        #expect(try parseStream([readyLine] + outside).output
+                == "valid all_succeeded observed outside_only\n")
+        #expect(try classifyStream([readyLine] + outside, concurrent: "clear").output
+                == "run_owned_canonical_recovery_write_correlated\n")
+        #expect(try classifyStream([readyLine] + outside, concurrent: "uncertain").output
+                == "still_unknown\n")
+
+        var wrongRun = outside
+        wrongRun[1] = observerLine(3, "mutation_begin", "replace_recovery_index",
+            "recovery_index", "outside_private_task_home", "attempted", runID: otherRunID)
+        let invalid: [[String]] = [
+            [readyLine] + wrongRun,
+            [readyLine, owner, observerLine(3, "mutation_end", "replace_recovery_index",
+                "recovery_index", "private_task_home", "succeeded")],
+            [readyLine, owner, observerLine(3, "mutation_begin", "replace_recovery_index",
+                "recovery_audio", "private_task_home", "attempted")],
+            [readyLine, owner.replacingOccurrences(of: "\"sequence\":2",
+                with: "\"sequence\":2,\"sequence\":2")],
+            [readyLine, observerLine(3, "owner_initialized", "none", "recovery_directory",
+                "private_task_home", "observed")],
+        ]
+        for lines in invalid { #expect(try parseStream(lines).status != 0) }
+    }
+
+    @Test func absoluteInnerAndOuterBoundsStopTermIgnoringCommands() throws {
+        let timeout = try timeoutExecutable()
+        let result = try run(["/bin/zsh", "-c", """
+            source \(shellQuote(scriptPath))
+            timeout_executable=\(shellQuote(timeout))
+            deadline=$(( SECONDS + 2 )); cleanup_reserve_seconds=0
+            set +e
+            run_timed_command 30 0 1 /bin/zsh -c 'trap "" TERM; while true; do :; done'
+            inner_status=$?
+            marker=$(/usr/bin/mktemp /private/tmp/holdtype-observer-expired.XXXXXXXX)
+            /bin/unlink "$marker"; deadline=$SECONDS
+            run_timed_command 30 0 1 /usr/bin/touch "$marker"; expired_status=$?
+            outer_timeout_seconds=1; outer_kill_after_seconds=1
+            outer_supervise /bin/zsh -c 'trap "" TERM; while true; do :; done'
+            outer_status=$?
+            set -e
+            [[ $inner_status != 0 && $expired_status == 124 && ! -e "$marker" &&
+               $outer_status != 0 ]] && print bounds=pass
+            """])
+        #expect(result.status == 0)
+        #expect(result.output == "bounds=pass\n")
+    }
+
+    @Test func privateArtifactReplacementAndDiagnosticsFailClosed() throws {
+        let timeout = try timeoutExecutable()
+        let result = try run(["/bin/zsh", "-c", """
+            source \(shellQuote(scriptPath)); timeout_executable=\(shellQuote(timeout))
+            deadline=$(( SECONDS + 60 )); cleanup_reserve_seconds=0
+            validate_guard() { return 0 }
+            setup() {
+                run_root=$(/usr/bin/mktemp -d /private/tmp/holdtype-observer-pins.XXXXXXXX)
+                /bin/chmod 700 "$run_root"; task_home="$run_root/home"
+                derived_data="$task_home/DerivedData"; temporary_root="$task_home/tmp"
+                bin_root="$run_root/bin"; logs_root="$run_root/logs"; probe="$bin_root/probe"
+                /bin/mkdir -m 700 "$task_home" "$derived_data" "$temporary_root" \
+                    "$bin_root" "$logs_root" "$run_root/sibling"
+                print fixture >"$probe"; /bin/chmod 700 "$probe"
+                run_root_identity=$(identity "$run_root" 700)
+                task_home_identity=$(identity "$task_home" 700)
+                derived_data_identity=$(identity "$derived_data" 700)
+                temporary_root_identity=$(identity "$temporary_root" 700)
+                bin_root_identity=$(identity "$bin_root" 700)
+                logs_root_identity=$(identity "$logs_root" 700)
+                probe_identity=$(regular_file_identity "$probe" 700)
+            }
+            for name in temporary_root logs_root bin_root probe; do
+                setup; target=${(P)name}; /bin/mv "$target" "${target}.original"
+                if [[ "$name" == probe ]]; then print replacement >"$target"
+                else /bin/mkdir -m 700 "$target"; fi
+                /bin/chmod 700 "$target"
+                set +e; validate_roots; validation_status=$?; set -e
+                [[ $validation_status == 70 && -e "${target}.original" && -e "$target" &&
+                   -d "$run_root/sibling" ]] || exit 71
+                /bin/rm -rf -- "$run_root"
+            done
+            setup; bounded_status=0
+            run_bounded_to_log 5 "$logs_root/private.log" /bin/zsh -c \
+                'print -u2 /private/tmp/private-sentinel; /bin/sleep 0.2; exit 8' \
+                >"$run_root/bounded.output" 2>&1 || bounded_status=$?
+            cleanup_command_status=0
+            run_cleanup_command /bin/zsh -c \
+                'print -u2 /private/tmp/private-sentinel; exit 9' \
+                >"$run_root/cleanup.output" 2>&1 || cleanup_command_status=$?
+            [[ $bounded_status == 8 && ! -s "$run_root/bounded.output" &&
+               $cleanup_command_status == 9 && ! -s "$run_root/cleanup.output" ]] || exit 72
+            /bin/rm -rf -- "$run_root"
+            deadline=$(( SECONDS + 10 )); set +e
+            output=$(run_metadata_probe /bin/zsh -c \
+                'print -u2 /private/tmp/private-sentinel; exit 7' 2>&1); command_status=$?
+            outer_timeout_seconds=5; outer_kill_after_seconds=1; set +e
+            outer_output=$(outer_supervise /bin/zsh -c \
+                'print -u2 /private/tmp/private-sentinel; exit 9' 2>&1); outer_status=$?
+            set -e
+            [[ $command_status == 7 && -z "$output" && $outer_status == 9 &&
+               -z "$outer_output" ]] && print pins_and_redaction=pass
+            """])
+        #expect(result.status == 0)
+        #expect(result.output == "pins_and_redaction=pass\n")
+    }
+
+    @Test func summaryTruthfullyDisclosesTheRejectedLiveHomeDiagnostic() throws {
+        let summary = try String(contentsOfFile: summaryPath, encoding: .utf8)
+        #expect(summary.contains("inherited the live user\nHome"))
+        #expect(summary.contains("No\nprotected content was inspected"))
+        #expect(summary.contains("no `Recovery.json` stat, open, read,\nwrite"))
+        #expect(!summary.contains("No observer runtime, external volume,\nlive user Home"))
+    }
+
     @Test func exactEvidenceAllowlistAndGuardFirstOrderingAreSourcePinned() throws {
         let source = try String(contentsOfFile: scriptPath, encoding: .utf8)
         let guardStart = try #require(source.range(of: "/usr/bin/caffeinate -dimsu -w $$ &"))
         let privateRoot = try #require(source.range(of: "/usr/bin/mktemp -d"))
-        let compile = try #require(source.range(of: "run_bounded 60 /usr/bin/clang"))
+        let compile = try #require(source.range(of: "run_bounded_to_log 60"))
         let build = try #require(source.range(of: "build-for-testing"))
         let hosted = try #require(source.range(of: "test-without-building"))
         #expect(guardStart.lowerBound < privateRoot.lowerBound)
@@ -89,6 +219,7 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         let stable = try run(["/bin/zsh", "-c", """
             source \(shellQuote(scriptPath))
             run_metadata_probe() { "$@" }
+            run_cleanup_command() { "$@" }
             run_root=$(/usr/bin/mktemp -d /private/tmp/holdtype-observer-cleanup.XXXXXXXX)
             /bin/chmod 700 "$run_root"
             run_root_identity=$(identity "$run_root" 700)
@@ -102,6 +233,7 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         let replacement = try run(["/bin/zsh", "-c", """
             source \(shellQuote(scriptPath))
             run_metadata_probe() { "$@" }
+            run_cleanup_command() { "$@" }
             fixture=$(/usr/bin/mktemp -d /private/tmp/holdtype-observer-race.XXXXXXXX)
             /bin/chmod 700 "$fixture"
             run_root="$fixture/run"; /bin/mkdir -m 700 "$run_root"
@@ -225,6 +357,66 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
     private var probePath: String {
         repositoryRoot.appendingPathComponent(
             "script/dev_vlogs_phase_0_b_protected_storage_probe.c").path
+    }
+    private var summaryPath: String {
+        repositoryRoot.appendingPathComponent(
+            "docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md").path
+    }
+    private var runID: String { "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" }
+    private var otherRunID: String { "11111111-2222-4333-8444-555555555555" }
+    private var readyLine: String {
+        observerLine(1, "observer_ready", "none", "observer", "not_applicable", "ready")
+    }
+
+    private func observerLine(
+        _ sequence: Int,
+        _ event: String,
+        _ action: String,
+        _ category: String,
+        _ scope: String,
+        _ result: String,
+        runID: String? = nil
+    ) -> String {
+        "HTDV_P0B_PROTECTED_STORAGE_OBSERVER_V1 "
+            + "{\"schema_version\":1,\"run_id\":\"\(runID ?? self.runID)\","
+            + "\"case_id\":\"protected_metadata\",\"sequence\":\(sequence),"
+            + "\"event\":\"\(event)\",\"action\":\"\(action)\","
+            + "\"category\":\"\(category)\",\"target_scope\":\"\(scope)\","
+            + "\"result\":\"\(result)\"}"
+    }
+
+    private func parseStream(_ lines: [String]) throws -> (status: Int32, output: String) {
+        try runStream(lines, command: "validate_observer_stream \"$stream\" \(runID)")
+    }
+
+    private func classifyStream(
+        _ lines: [String],
+        concurrent: String
+    ) throws -> (status: Int32, output: String) {
+        try runStream(lines, command:
+            "classify_observer_stream_result \"$stream\" \(runID) unchanged passed changed \(concurrent)")
+    }
+
+    private func runStream(
+        _ lines: [String],
+        command: String
+    ) throws -> (status: Int32, output: String) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "holdtype-observer-stream-\(UUID().uuidString.lowercased())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let stream = root.appendingPathComponent("events.log")
+        try (lines.joined(separator: "\n") + "\n").write(to: stream, atomically: true,
+                                                          encoding: .utf8)
+        return try run(["/bin/zsh", "-c", """
+            source \(shellQuote(scriptPath)); run_metadata_probe() { "$@" }
+            stream=\(shellQuote(stream.path)); \(command)
+            """])
+    }
+
+    private func timeoutExecutable() throws -> String {
+        let candidates = ["/opt/homebrew/bin/timeout", "/usr/local/bin/timeout", "/usr/bin/timeout"]
+        return try #require(candidates.first(where: FileManager.default.isExecutableFile(atPath:)))
     }
 
     private func makeFixture() throws -> (root: URL, home: URL) {

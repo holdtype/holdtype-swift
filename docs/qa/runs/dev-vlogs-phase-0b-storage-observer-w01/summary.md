@@ -1,8 +1,15 @@
 # Phase 0B protected-storage observer W01
 
-Status: implementation evidence only. No observer runtime, external volume,
-live user Home, protected recovery path, Camera, TCC, Keychain, provider, or
-media action was performed.
+Status: implementation evidence only. No observer `--execute` runtime,
+external volume, protected-content inspection, Camera, TCC, Keychain,
+provider, or media action was performed.
+
+One rejected pre-repair diagnostic test-host route inherited the live user
+Home and let Xcode select its default DerivedData/result-metadata location.
+The inert route failed closed before constructing a recovery owner. No
+protected content was inspected, and no `Recovery.json` stat, open, read,
+write, repair, or deletion was performed. Final hosted verification used only
+the controller-owned private Home, TMPDIR, explicit DerivedData, and result bundle.
 
 ## Implemented boundary
 
@@ -29,8 +36,12 @@ media action was performed.
   controller injects and verifies the closed host environment in one
   identity-pinned, task-owned copy of the generated `.xctestrun`; the outer
   build retains its normal signing Home. Its
-  classifier is single-result and first-applicable; cleanup quarantines and
-  revalidates the exact run-root identity before deletion.
+  parser binds every event to the expected run, returns the exact observed
+  owner/mutation/scope/result facts, and feeds the single-result,
+  first-applicable classifier. One monotonic 900-second inner deadline and a
+  real 930-second outer supervisor bound every stage and cleanup. TMPDIR,
+  logs, bin, and the compiled probe are creation-identity pinned; cleanup
+  quarantines and revalidates the exact run-root identity before deletion.
 
 ## Implementation verification
 
