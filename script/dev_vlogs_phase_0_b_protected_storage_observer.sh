@@ -308,6 +308,58 @@ write_evidence_file() {
     regular_file_identity "$target" 600 >/dev/null || return 70
 }
 
+replace_evidence_file() {
+    local evidence_root="$1" root_identity="$2" events_identity="$3"
+    local relative="$4" content="$5" target parent current
+    remaining_budget 0 >/dev/null || return 124
+    current=$(identity "$evidence_root" 755) || return 70
+    [[ "$current" == "$root_identity" ]] || return 70
+    target="$evidence_root/$relative"; parent="${target:h}"
+    if [[ "$relative" == events/* ]]; then
+        current=$(identity "$parent" 755) || return 70
+        [[ "$current" == "$events_identity" ]] || return 70
+    else
+        [[ "$parent" == "$evidence_root" ]] || return 70
+    fi
+    regular_file_identity "$target" 600 >/dev/null || return 70
+    if ! { print -rn -- "$content" >"$target"; } 2>/dev/null; then return 70; fi
+    run_metadata_probe /bin/chmod 600 "$target" >/dev/null || return 70
+    regular_file_identity "$target" 600 >/dev/null || return 70
+}
+
+render_failure_safe_evidence() {
+    local evidence_root="$1" root_identity="$2" events_identity="$3" writer="$4"
+    local relative artifacts_content
+    artifacts_content="path,status"$'\n'
+    for relative in "${(@f)$(evidence_relative_paths)}"; do
+        artifacts_content+="$relative,incomplete_retained"$'\n'
+    done
+    "$writer" "$evidence_root" "$root_identity" "$events_identity" summary.md \
+        $'# Phase 0B protected-storage observer R01\n\nterminal_class: evidence_write_failed\nterminal_phase: evidence\nbuild_window: uncertain\nhosted_window: not_run\ncleanup: incomplete_retained\nevidence_state: uncommitted\n' || return $?
+    "$writer" "$evidence_root" "$root_identity" "$events_identity" source-feasibility.md \
+        $'# Source feasibility\n\ncontroller: script/dev_vlogs_phase_0_b_protected_storage_observer.sh\nprobe: script/dev_vlogs_phase_0_b_protected_storage_probe.c\nobserver: HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BProtectedStorageObserver.swift\nroute_schema: stderr-json-v1\nterminal_class: evidence_write_failed\n' || return $?
+    "$writer" "$evidence_root" "$root_identity" "$events_identity" environment.json \
+        $'{"schema_version":1,"mode":"nonexternal","private_home":true,"cleanup":"incomplete_retained"}\n' || return $?
+    "$writer" "$evidence_root" "$root_identity" "$events_identity" matrix.csv \
+        $'case_id,terminal_class,terminal_phase,cleanup\nprotected_metadata,evidence_write_failed,evidence,incomplete_retained\n' || return $?
+    "$writer" "$evidence_root" "$root_identity" "$events_identity" measurements.csv \
+        $'phase,result\nbuild,uncertain\nhosted,not_run\n' || return $?
+    "$writer" "$evidence_root" "$root_identity" "$events_identity" artifacts.csv \
+        "$artifacts_content" || return $?
+    "$writer" "$evidence_root" "$root_identity" "$events_identity" residuals.md \
+        $'# Residuals\n\nArbitrary non-run-owned writers remain unattributed and classify as still_unknown.\n' || return $?
+    "$writer" "$evidence_root" "$root_identity" "$events_identity" \
+        events/storage-observer-r01.jsonl "" || return $?
+}
+
+promote_evidence_file() {
+    local relative="$4"
+    if (( $+functions[observer_evidence_promotion_test_hook] )); then
+        observer_evidence_promotion_test_hook "$relative" || return 70
+    fi
+    replace_evidence_file "$@"
+}
+
 validate_runtime_evidence() {
     local evidence_root="$1" stage="${2:-complete}"
     run_metadata_probe /usr/bin/python3 - "$evidence_root" "$EUID" "$terminal_class" \
@@ -323,11 +375,17 @@ paths = ["summary.md", "source-feasibility.md", "environment.json", "matrix.csv"
 allowed_terminal = {"environment_conflict", "guard_discontinuity", "build_failed",
  "build_window_change_correlated", "run_owned_canonical_recovery_write_correlated",
  "still_unknown", "evidence_conflict", "observer_invalid", "metadata_uncertain",
- "hosted_test_failed", "pass_unchanged", "owner_exposed_no_mutation", "cleanup_uncertain"}
+ "hosted_test_failed", "pass_unchanged", "owner_exposed_no_mutation", "cleanup_uncertain",
+ "evidence_write_failed"}
 allowed_phase = {"initializing", "baseline", "guard", "setup", "probe_build", "build",
- "hosted_setup", "hosted", "cleanup", "signal", "controller"}
+ "hosted_setup", "hosted", "cleanup", "signal", "controller", "evidence"}
 allowed_compare = {"uncertain", "not_run", "unchanged", "changed", "missing_unchanged"}
-if terminal not in allowed_terminal or phase not in allowed_phase or stage not in {"pending", "complete"}:
+if stage not in {"pending", "complete"}:
+    raise SystemExit(65)
+if stage == "pending":
+    terminal, phase, build, hosted, cleanup = ("evidence_write_failed", "evidence",
+                                               "uncertain", "not_run", "incomplete_retained")
+if terminal not in allowed_terminal or phase not in allowed_phase:
     raise SystemExit(65)
 if build not in allowed_compare or hosted not in allowed_compare:
     raise SystemExit(65)
@@ -338,21 +396,20 @@ try:
     event_entries = list(os.scandir(root / "events"))
 except OSError:
     raise SystemExit(65)
-root_names = paths[:7] + ["events"] if stage == "complete" else paths[1:7] + ["events"]
+root_names = paths[:7] + ["events"]
 if sorted(entry.name for entry in entries) != sorted(root_names):
     raise SystemExit(65)
 if [entry.name for entry in event_entries] != ["storage-observer-r01.jsonl"]:
     raise SystemExit(65)
-checked_paths = paths if stage == "complete" else paths[1:]
+checked_paths = paths
 for relative in checked_paths:
     value = os.lstat(root / relative)
     if not stat.S_ISREG(value.st_mode) or stat.S_IMODE(value.st_mode) != 0o600:
         raise SystemExit(65)
     if value.st_uid != uid or value.st_nlink != 1:
         raise SystemExit(65)
-if stage == "complete":
-    summary = (root / "summary.md").read_text()
-    expected_summary = f"""# Phase 0B protected-storage observer R01
+summary = (root / "summary.md").read_text()
+expected_summary = f"""# Phase 0B protected-storage observer R01
 
 terminal_class: {terminal}
 terminal_phase: {phase}
@@ -360,8 +417,9 @@ build_window: {build}
 hosted_window: {hosted}
 cleanup: {cleanup}
 """
-    if summary != expected_summary:
-        raise SystemExit(65)
+if stage == "pending": expected_summary += "evidence_state: uncommitted\n"
+if summary != expected_summary:
+    raise SystemExit(65)
 source = (root / "source-feasibility.md").read_text()
 expected_source = f"""# Source feasibility
 
@@ -398,27 +456,18 @@ for line in (root / paths[-1]).read_text().splitlines():
         raise SystemExit(65)
     try: json.loads(line.split(" ", 1)[1])
     except (json.JSONDecodeError, IndexError): raise SystemExit(65)
+if stage == "pending" and (root / paths[-1]).read_text(): raise SystemExit(65)
 PY
-    if [[ -s "$evidence_root/events/storage-observer-r01.jsonl" ]]; then
+    if [[ "$stage" == complete && -s "$evidence_root/events/storage-observer-r01.jsonl" ]]; then
         [[ -n "${run_id:-}" ]] || return 70
         validate_observer_stream "$evidence_root/events/storage-observer-r01.jsonl" \
             "${run_id:-}" facts >/dev/null || return 70
     fi
 }
 
-discard_uncommitted_summary() {
-    local evidence_root="$1" root_identity="$2" summary_identity="$3" current
-    current=$(identity "$evidence_root" 755) || return 70
-    [[ "$current" == "$root_identity" ]] || return 70
-    current=$(regular_file_identity "$evidence_root/summary.md" 600) || return 70
-    [[ "$current" == "$summary_identity" ]] || return 70
-    run_metadata_probe /bin/unlink "$evidence_root/summary.md" >/dev/null || return 70
-    [[ ! -e "$evidence_root/summary.md" && ! -L "$evidence_root/summary.md" ]] || return 70
-}
-
 write_runtime_evidence() {
     local evidence_root="${1:-$repository_root/docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01}"
-    local relative root_identity events_identity summary_identity artifacts_content
+    local relative root_identity events_identity artifacts_content validation_status
     local summary_content source_content environment_content matrix_content measurements_content
     remaining_budget 0 >/dev/null || return 124
     [[ ! -e "$evidence_root" && ! -L "$evidence_root" ]] || return 70
@@ -454,36 +503,37 @@ hosted,$hosted_comparison
     for relative in "${(@f)$(evidence_relative_paths)}"; do
         artifacts_content+="$relative,$cleanup_state"$'\n'
     done
-    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
-        source-feasibility.md "$source_content" || return $?
-    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
-        environment.json "$environment_content" || return $?
-    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
-        matrix.csv "$matrix_content" || return $?
-    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
-        measurements.csv "$measurements_content" || return $?
-    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
-        artifacts.csv "$artifacts_content" || return $?
-    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" residuals.md \
-        $'# Residuals\n\nArbitrary non-run-owned writers remain unattributed and classify as still_unknown.\n' \
-        || return $?
-    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
-        events/storage-observer-r01.jsonl "$retained_observer_events" || return $?
-    validate_runtime_evidence "$evidence_root" pending || return $?
-    write_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
-        summary.md "$summary_content" || return $?
-    summary_identity=$(regular_file_identity "$evidence_root/summary.md" 600) || return 70
+    render_failure_safe_evidence "$evidence_root" "$root_identity" "$events_identity" \
+        write_evidence_file || return $?
     if (( $+functions[observer_evidence_postcondition_test_hook] )); then
-        observer_evidence_postcondition_test_hook "$evidence_root" || {
-            discard_uncommitted_summary "$evidence_root" "$root_identity" "$summary_identity" \
-                || return 70
-            return 70
-        }
+        observer_evidence_postcondition_test_hook "$evidence_root" || return 70
+    fi
+    validate_runtime_evidence "$evidence_root" pending || return $?
+    promote_evidence_file "$evidence_root" "$root_identity" "$events_identity" \
+        source-feasibility.md "$source_content" || validation_status=$?
+    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
+        "$events_identity" environment.json "$environment_content" || validation_status=$?
+    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
+        "$events_identity" matrix.csv "$matrix_content" || validation_status=$?
+    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
+        "$events_identity" measurements.csv "$measurements_content" || validation_status=$?
+    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
+        "$events_identity" artifacts.csv "$artifacts_content" || validation_status=$?
+    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
+        "$events_identity" residuals.md $'# Residuals\n\nArbitrary non-run-owned writers remain unattributed and classify as still_unknown.\n' || validation_status=$?
+    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
+        "$events_identity" events/storage-observer-r01.jsonl "$retained_observer_events" || validation_status=$?
+    (( ${validation_status:-0} == 0 )) && promote_evidence_file "$evidence_root" "$root_identity" \
+        "$events_identity" summary.md "$summary_content" || validation_status=$?
+    if (( ${validation_status:-0} != 0 )); then
+        render_failure_safe_evidence "$evidence_root" "$root_identity" "$events_identity" \
+            replace_evidence_file || return 70
+        return "$validation_status"
     fi
     validate_runtime_evidence "$evidence_root" || {
-        local validation_status=$?
-        discard_uncommitted_summary "$evidence_root" "$root_identity" "$summary_identity" \
-            || return 70
+        validation_status=$?
+        render_failure_safe_evidence "$evidence_root" "$root_identity" "$events_identity" \
+            replace_evidence_file || return 70
         return "$validation_status"
     }
 }

@@ -197,13 +197,15 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         #expect(normalized.contains("host metadata access was not proven absent"))
         #expect(!summary.contains("inert route failed closed"))
     }
-
     @Test func terminalEvidenceCleanupAndFailureOverridesAreBehavioral() throws {
         let ready = shellQuote(readyLine + "\n")
         let result = try run(["/bin/zsh", "-c", """
             source \(shellQuote(scriptPath)); run_metadata_probe() { "$@" }
             deadline=$(( SECONDS + 60 )); fixture=$(/usr/bin/mktemp -d /private/tmp/holdtype-observer-terminal.XXXXXXXX)
             /bin/chmod 700 "$fixture"; stop_supervisor() { trace+=s }; cleanup_run_root() { trace+=r }; stop_guard() { trace+=g }
+            assert_failure_safe() {
+                local file content; for file in "$1"/**/*(.N); do content=$(/bin/cat "$file"); [[ "$content" != *'cleanup: complete'* && "$content" != *'"cleanup":"complete"'* && "$content" != *,complete* && "$content" != *pass_unchanged* && "$content" != *run_owned_canonical_recovery_write_correlated* && "$content" != *build_window_change_correlated* && "$content" != *owner_exposed_no_mutation* ]] || return 1; done
+            }
             for item in environment_conflict:baseline:uncertain:not_run:70 \
                 guard_discontinuity:guard:uncertain:not_run:70 build_failed:build:uncertain:not_run:70 \
                 build_window_change_correlated:build:changed:not_run:70 \
@@ -245,12 +247,17 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             retained_observer_events=""; mid="$fixture/mid"; mid_status=0
             finalize_controller "$mid" || mid_status=$?; unfunction observer_evidence_write_test_hook
             [[ $mid_status == 74 && "$terminal_class" == evidence_write_failed && -d "$mid" &&
-               ! -e "$mid/summary.md" ]] || exit 76
+               $(/usr/bin/find "$mid" -type f | /usr/bin/wc -l) -gt 0 ]] && assert_failure_safe "$mid" || exit 76
             observer_evidence_postcondition_test_hook() { print unexpected >"$1/unexpected" }
             terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
             post="$fixture/post"; post_status=0
             finalize_controller "$post" || post_status=$?
-            [[ $post_status == 74 && -e "$post/unexpected" && ! -e "$post/summary.md" ]] || exit 77
+            [[ $post_status == 74 && -e "$post/unexpected" ]] && assert_failure_safe "$post" || exit 77
+            unfunction observer_evidence_postcondition_test_hook; observer_evidence_promotion_test_hook() { [[ "$1" != measurements.csv ]] }
+            terminal_class=pass_unchanged; terminal_phase=hosted; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
+            promotion="$fixture/promotion"; promotion_status=0
+            finalize_controller "$promotion" || promotion_status=$?; unfunction observer_evidence_promotion_test_hook
+            [[ $promotion_status == 74 ]] && assert_failure_safe "$promotion" || exit 78
             print terminal_evidence=pass; /bin/rm -rf -- "$fixture"
             """])
         #expect(result.status == 0)
@@ -270,7 +277,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             """])
         #expect(stable.status == 0)
         #expect(stable.output == "stable_removed\n")
-
         let replacement = try run(["/bin/zsh", "-c", """
             source \(shellQuote(scriptPath))
             run_metadata_probe() { "$@" }
@@ -328,7 +334,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         #expect(result.status == 0)
         #expect(result.output == "xctestrun_environment=pass\n")
     }
-
     @Test func syntheticProbeCoversMissingPresentSymlinkAndModePredicates() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }
@@ -375,7 +380,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             withDestinationURL: fixture.root.appendingPathComponent("unopened-target"))
         #expect(try run([binary], environment: environment).status == 65)
     }
-
     @Test func probeSourcePinsNoEnumerationNoIndexOpenAndPrePostIdentityCheck() throws {
         let source = try String(contentsOfFile: probePath, encoding: .utf8)
         for forbidden in ["readdir(", "opendir(", "fopen(", "read(", "Data(contentsOf:"] {
@@ -386,7 +390,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         #expect(source.contains("same_identity(&before, &after)"))
         #expect(!source.contains("openat(current, \"Recovery.json\""))
     }
-
     private var repositoryRoot: URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     }
@@ -407,7 +410,6 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
     private var readyLine: String {
         observerLine(1, "observer_ready", "none", "observer", "not_applicable", "ready")
     }
-
     private func observerLine(
         _ sequence: Int,
         _ event: String,
@@ -424,11 +426,9 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             + "\"category\":\"\(category)\",\"target_scope\":\"\(scope)\","
             + "\"result\":\"\(result)\"}"
     }
-
     private func parseStream(_ lines: [String]) throws -> (status: Int32, output: String) {
         try runStream(lines, command: "validate_observer_stream \"$stream\" \(runID)")
     }
-
     private func classifyStream(
         _ lines: [String],
         concurrent: String

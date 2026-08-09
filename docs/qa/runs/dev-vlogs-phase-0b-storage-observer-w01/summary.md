@@ -46,8 +46,10 @@ result bundle.
   closed-schema stream validates; malformed and pre-hosted outcomes retain an
   empty event file. Every evidence directory/file operation is checked, and
   success requires the exact eight regular mode-0600 closed-schema files with
-  no extras; a partial or failed postcondition is retained without a success
-  claim.
+  no extras. Before that commit, every partial uses only the closed
+  `evidence_write_failed`/`incomplete_retained` uncommitted schema; write,
+  promotion, or postcondition failure restores that failure-safe state and
+  retains no success or cleanup-complete claim.
 - A single terminal state machine reaps the supervisor, resolves exact root
   cleanup while the guard remains proven, reaps the guard, then attempts the
   closed eight-file evidence write. Cleanup or
