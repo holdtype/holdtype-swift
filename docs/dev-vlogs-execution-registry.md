@@ -243,8 +243,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4@079fc03` | read-only exact repair review | rejected | receipt below | Return identity-bound atomic-commit R5; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R5` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R4 | controller, controller tests and W01 summary only | rejected | `0058993`; receipt below | Atomic swap exists; creation, cleanup, commit reconciliation and success truth remain unsafe. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R5@0058993` | read-only exact repair review | rejected | receipt below | Return syscall-boundary and terminal-truth R6; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R6` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R5 | controller, controller tests and W01 summary only | review | `cbbd9e0`; receipt below | Exclusive fd creation, post-swap reconciliation, safe cleanup and residual-aware success implemented; independent review running. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R6@cbbd9e0` | read-only exact repair review | running | — | Review must remain private-hosted and no-runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R6` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R5 | controller, controller tests and W01 summary only | rejected | `cbbd9e0`; receipt below | Exclusive writes pass; post-swap reserve and partial-cleanup restoration remain unsafe. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R6@cbbd9e0` | read-only exact repair review | rejected | receipt below | Return exact three-path R7; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R7` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R6 | controller, controller tests and W01 summary only | running | — | Reserve post-swap recovery, recover partial cleanup safely, and make injected tests real. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R7` terminal artifact | read-only exact repair review | queued | — | Review must remain private-hosted and no-runtime. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7556,5 +7558,48 @@ remained private; protected content was not inspected. The summary records the
 excluded route and final qualifying runs are private.
 residual: Independent review only; no runtime authority.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6
+status: rejected
+reviewed_commit: cbbd9e0741210688734584db9b56c651bc2a5860
+parent: 2b6a9e381942e71f3db7f81549c7366b060dda5b
+
+accepted_evidence: Exact three paths/current blobs/modes, seven frozen W01
+blobs, descriptor-relative exclusive file creation, ordinary exported
+post-swap reconciliation, whole-tree replacement handling, public success
+suppression, private controller 11/11, static/build/Release/redaction and
+residue checks pass. The excluded default-Xcode result-metadata route is
+truthfully disclosed and was not inspected or cleaned.
+
+blocking_findings:
+1. Atomic swap may consume the whole remaining deadline, leaving no reserved
+budget to reconcile a committed swap after helper timeout. A real low-budget
+post-swap timeout retained authoritative success schema with cleanup complete
+plus the displaced failure-safe sibling.
+2. Cleanup validates all files then unlinks sequentially. A later unlink
+failure leaves a partial tree; restore checks only directory identity and can
+swap that partial tree back as authoritative instead of a complete pending
+failure-safe schema.
+3. Committed post-swap exit/timeout tests did not export the hook consumed by
+Python, so they exercised the normal path rather than the claimed injection.
+
+smallest_repair: Reserve bounded reconciliation/recovery budget before commit;
+after cleanup failure restore only a complete identity-pinned pending schema or
+invoke the existing fresh failure-safe recovery path; add deterministic
+mid-cleanup failure coverage; export or command-scope post-swap hooks and assert
+the injected path/status. Preserve exact three paths and accepted prior
+behavior.
+
+scope_check: Read-only review; no product/spec/Release/protected drift,
+observer --execute, external volume or protected runtime.
+deviations: none.
+residual: Non-run-owned writers remain still_unknown; runtime unauthorized.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R7, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7.
 runtime_or_visual_handoff: none
 ```
