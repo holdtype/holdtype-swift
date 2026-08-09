@@ -1,0 +1,7 @@
+case_id,metric,value,unit,disposition
+external_ssd_hfsplus,wrapper_elapsed,not_retained_observer_error,seconds,evidence_only
+external_ssd_hfsplus,preflight_available_capacity,314221048,KiB,evidence_only
+external_ssd_hfsplus,controlled_fixture_size,not_created,bytes,evidence_only
+external_hdd_apfs,wrapper_elapsed,not_run,seconds,evidence_only
+external_hdd_apfs,preflight_available_capacity,not_measured,KiB,evidence_only
+external_hdd_apfs,controlled_fixture_size,not_created,bytes,evidence_only

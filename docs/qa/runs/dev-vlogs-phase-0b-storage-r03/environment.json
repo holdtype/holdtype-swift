@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "packet_id": "DV-P0B-STORAGE-R03",
+  "captured_at_utc": "2026-08-09T17:25:44Z",
+  "product_commit": "10c2a5a42027a12478c463d91b7d1e33a11a9bd0",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "host": {
+    "os": "macOS",
+    "os_version": "26.6",
+    "os_build": "25G72",
+    "architecture": "arm64",
+    "machine_model": "Mac16,11",
+    "xcode_version": "26.6",
+    "xcode_build": "17F113"
+  },
+  "accepted_provenance": {
+    "external_seam_reviewed_commit": "a50026aa53d93c0808ac84259f05759073434fdb",
+    "value_free_inert_host_commit": "7b1ba8deae6099ba7416751a894e0ca3ad1582fb",
+    "private_home_repair_commit": "029f8364bb80b58c9f77cb49dbaea05869c989fb",
+    "registry_authority_commit": "10c2a5a42027a12478c463d91b7d1e33a11a9bd0",
+    "current_wrapper_git_blob": "d99418bfe8fca99696ed1563e214e51044760a64",
+    "current_canonical_test_git_blob": "a4badc6e05ddf593eeecc3dc77afee5e167b3042",
+    "current_router_git_blob": "7132e7e6d439f7ec9616d4b6252152d6cd76fd49",
+    "current_inert_host_git_blob": "104a17760bed084622b5665e1c253660ad590187",
+    "current_inert_host_test_git_blob": "6e2bded671f082299f5797fdbdf4f83bd0898508",
+    "syntax_check": "pass",
+    "help_check": "pass"
+  },
+  "bounds_seconds": {
+    "build": 600,
+    "test": 180,
+    "outer": 840
+  },
+  "single_guard": {
+    "command": "caffeinate -dimsu",
+    "persistent_session": true,
+    "identity_continuous": true,
+    "liveness_checks_before_initial_serialization": 9,
+    "liveness_checks_total": 11,
+    "replaced": false,
+    "stopped_and_reaped": true
+  },
+  "cells": [
+    {
+      "case_id": "external_ssd_hfsplus",
+      "destination_class": "external_ssd_hfsplus",
+      "filesystem_class": "hfsplus",
+      "metadata_preflight": "pass",
+      "wrapper_invocations": 1,
+      "wrapper_success_terminal_count": 0,
+      "functional_result": "fail"
+    },
+    {
+      "case_id": "external_hdd_apfs",
+      "destination_class": "external_hdd_apfs",
+      "filesystem_class": "apfs",
+      "metadata_preflight": "not_run",
+      "wrapper_invocations": 0,
+      "wrapper_success_terminal_count": 0,
+      "functional_result": "not_available"
+    }
+  ],
+  "protected_metadata": {
+    "aggregate_count": 70,
+    "count_and_path_set": "unchanged",
+    "type_mode_size_mtime_dev_inode": "unchanged",
+    "result": "unchanged",
+    "exact_private_delta_retained": false
+  },
+  "private_home": {
+    "foundation_confinement_result": "not_proven_host_launch_failed",
+    "wrapper_cleanup_result": "failed_residual_found",
+    "exact_worker_cleanup_result": "complete"
+  },
+  "redaction": {
+    "mount_roots_retained": false,
+    "volume_labels_retained": false,
+    "volume_identifiers_retained": false,
+    "device_nodes_retained": false,
+    "scratch_identifiers_retained": false,
+    "process_identifiers_retained": false,
+    "protected_paths_or_filenames_retained": false,
+    "protected_inodes_or_mtimes_retained": false,
+    "user_paths_retained": false,
+    "private_signing_material_retained": false
+  }
+}
