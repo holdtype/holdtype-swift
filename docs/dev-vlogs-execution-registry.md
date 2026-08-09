@@ -53,6 +53,21 @@ capture/runtime packets are stale until `DV-DRAFT-4` records and independently
 reviews the new source rule. Native 1080p or another negotiated format is not a
 new HoldType preset or control; HoldType simply does not downsample it.
 
+On 2026-08-09 the user accepted a narrow Phase 0B Debug trust boundary for the
+camera-permission and hardware-evidence lanes. A random private mode-0700
+run-owned Debug root may be treated as trusted against malicious same-UID
+namespace replacement, while every detected identity, schema, ownership, or
+cleanup mismatch must still fail closed and retain the exact residual. This
+decision does not weaken product storage/delete requirements or authorize
+shipping behavior.
+
+On 2026-08-09 the user authorized bounded Phase 0B storage runtime only inside
+new run-owned scratch directories under exactly
+`/Volumes/TB4-Movies-Archive` and `/Volumes/Movie_Archive`. No write or delete
+is authorized outside those newly created scratch directories. Physical
+unplug, mount, eject, remount, traversal of existing user content, and any
+other external root remain unauthorized.
+
 ## Contract Epoch
 
 | Epoch | Authority | Status | Notes |
@@ -140,7 +155,7 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W06-R4` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R3 review | permission script, LaunchServices tests, W01 summary only | rejected | `f989aa8`; receipt below | Full-pipeline timeout closed; exact-object deletion remains unproven. |
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `f989aa8` | read-only exact three-path repair commit | rejected | receipt below | Pathname deletion still follows final validation; do not dispatch runtime. |
 | `DV-P0B-CAMERA-AUTH-E07` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | rejected W06 R4 review | read-only Darwin cleanup API and current script/test evidence | blocked | receipt below | Darwin has no supported exact-fd unlink/rmdir; protocol authority is required before a fail-closed retained-root lane. |
-| `DV-P0B-CAMERA-AUTH-CLEANUP-DECISION` | user decision | `DV-DRAFT-4@2f3266a`; Phase 0B E08 | blocked E07 and W07 R1 review | no writable scope | pending | — | Choose a narrow Debug-only same-UID trusted boundary for permission/handoff evidence, or a privileged/different-UID cleanup boundary. |
+| `DV-P0B-CAMERA-AUTH-CLEANUP-DECISION` | user decision | `DV-DRAFT-4@2f3266a`; Phase 0B E08 | blocked E07 and W07 R1 review | no writable scope | accepted | user decision recorded above | Random private mode-0700 run-owned Debug roots are trusted only for Phase 0B; detected mismatch still fails closed. |
 | `DV-P0B-CAPTURE-E08` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a`; accepted capture W02/R03 and hardware supervisor | user reports Camera permission enabled on 2026-08-09 | read-only exact accepted capture/auth/script/runtime evidence | accepted_with_residual | receipt below | One direct no-retry Continuity 10-second hardware attempt is dependency-ready; permission-only cleanup remains blocked separately. |
 | `DV-P0B-CAPTURE-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a`; accepted E08/W02/R03 hardware path | accepted `DV-P0B-CAPTURE-E08`; fresh explicit Continuity uniqueID required | eight redacted capture-R06 QA files; raw media in exact internal run root only | rejected | `7fbeab8`; receipt below | Functional fail is supported, but evidence incorrectly attributes all unavailable details to watcher loss. |
 | `DV-P0B-CAPTURE-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R06@7fbeab8` | read-only exact evidence commit plus accepted current capture/finalizer/probe/comparator provenance | rejected | receipt below | Three-path evidence-only causal-wording repair required; no runtime retry. |
@@ -150,7 +165,7 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAPTURE-W07-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 repair `fc514a7` | read-only exact eight-path repair commit | rejected | receipt below | Three-path handoff-only repair required; no hardware retry. |
 | `DV-P0B-CAPTURE-W07-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W07 review | script, hardware handoff tests, W01 summary only | rejected | `eede551`; receipt below | Snapshot survives cleanup, but post-exit exact identity/delete, same-size mutation, schema completeness, and signal cleanup remain open. |
 | `DV-P0B-CAPTURE-W07-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 R1 repair `eede551` | read-only exact three-path repair | rejected | receipt below | R2 must not begin until the same-UID cleanup trust boundary is decided. |
-| `DV-P0B-CAPTURE-W07-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W07 R1 review; cleanup decision | script, hardware handoff tests, W01 summary only | blocked | — | Repair schema/mutation/signal/consumer authority after user selects a viable cleanup threat model. |
+| `DV-P0B-CAPTURE-W07-R2` | unassigned repair owner | `DV-DRAFT-4@2f3266a` | rejected W07 R1 review; accepted cleanup decision | script, hardware handoff tests, W01 summary only | queued | — | Repair schema/mutation/signal/consumer authority under the narrow Debug trust boundary, then independent review. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -160,6 +175,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
 | `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
 | `DV-P0B-STORAGE-INVENTORY-R01` | `/root/dv_p0b_storage_inventory_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4 | read-only mounted-volume metadata only | accepted_with_residual | receipt below | Writable external SSD and HDD candidates are currently mounted; exact-root runtime awaits explicit user authorization. |
+| `DV-P0B-STORAGE-R01` | unassigned runtime owner | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4; accepted inventory; exact user authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted QA evidence root only | queued | — | Run serialized bounded SSD/HDD cells, then independent review; unplug/remount remains not_available. |
+| `DV-P0B-STORAGE-R01-REVIEW` | unassigned reviewer | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | terminal `DV-P0B-STORAGE-R01` | read-only exact runtime evidence and accepted seam provenance | queued | — | Accept only truthful external-root evidence and exact cleanup/scope proof. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -285,23 +302,29 @@ new HoldType preset or control; HoldType simply does not downsample it.
   retained snapshot still lacks immutable post-exit identity/exact cleanup and
   the schema admits impossible partial evidence. Exact cleanup again reaches
   the Darwin same-UID platform limit already established by E07; W07-R2 is
-  blocked on the shared trust-boundary decision rather than repeating another
-  pathname-delete repair. No hardware retry precedes that decision and repair.
+  unblocked by the user's narrow Debug-only trust-boundary decision. W07-R2
+  must keep detected mismatches fail-closed, must not claim resistance to a
+  malicious same-UID namespace actor, and must receive independent review
+  before any hardware retry.
   The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
-  Actual external runtime still requires explicit authorization of each exact
-  mount root. The accepted seam remains unaffected by the quality delta.
+  The user has now authorized bounded runtime under only the two exact roots
+  recorded above, and only inside newly created run-owned scratch directories.
+  The accepted seam remains unaffected by the quality delta. No physical
+  unplug/remount or write/delete outside those scratch directories is
+  authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
-  inventory confirmed currently mounted writable candidates in both classes;
-  their exact roots were returned privately to `/root` and were not persisted
-  in the registry. External runtime remains blocked until the user explicitly
-  authorizes each exact root and its run-owned scratch boundary.
+  inventory confirmed currently mounted writable candidates in both classes.
+  The user explicitly authorized `/Volumes/TB4-Movies-Archive` and
+  `/Volumes/Movie_Archive`, limited to new run-owned scratch directories with
+  no write/delete outside them. `DV-P0B-STORAGE-R01` is dependency-ready after
+  the serialized W07-R2 review lane.
 - The exact `build-macos-apps:swiftui-patterns` skill is now exposed by the
   current Build macOS Apps package and has been read together with its
   windowing, settings, split-view, menu-bar, and commands references. The
