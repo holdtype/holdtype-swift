@@ -165,7 +165,8 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W07-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 repair `fc514a7` | read-only exact eight-path repair commit | rejected | receipt below | Three-path handoff-only repair required; no hardware retry. |
 | `DV-P0B-CAPTURE-W07-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W07 review | script, hardware handoff tests, W01 summary only | rejected | `eede551`; receipt below | Snapshot survives cleanup, but post-exit exact identity/delete, same-size mutation, schema completeness, and signal cleanup remain open. |
 | `DV-P0B-CAPTURE-W07-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 R1 repair `eede551` | read-only exact three-path repair | rejected | receipt below | R2 must not begin until the same-UID cleanup trust boundary is decided. |
-| `DV-P0B-CAPTURE-W07-R2` | `/root/dv_p0b_capture_w07_r2` | `DV-DRAFT-4@2f3266a` | rejected W07 R1 review; accepted cleanup decision | script, hardware handoff tests, W01 summary only | running | — | Repair schema/mutation/signal/consumer authority under the narrow Debug trust boundary, then independent review. |
+| `DV-P0B-CAPTURE-W07-R2` | `/root/dv_p0b_capture_w07_r2` | `DV-DRAFT-4@2f3266a` | rejected W07 R1 review; accepted cleanup decision | script, hardware handoff tests, W01 summary only | review | `b34dc16`; receipt below | Three-path repair is terminal; independent review decides acceptance. |
+| `DV-P0B-CAPTURE-W07-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | W07 R2 repair `b34dc16` | read-only exact three-path repair commit and protected-owner provenance | running | — | Verify trusted-boundary truthfulness, exact schema/mutation/consumer cleanup, build isolation, and scope. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -3158,6 +3159,40 @@ and carry the residual to a DV-DRAFT-4-pinned DV-P0B-REVIEW. No blind retry is
 authorized. A later live proof would first require a separately authorized
 same-signed-identity Camera permission/status action.
 runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W07-R2`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-R2
+status: done
+
+outcome: The Debug-only retained hardware handoff now binds one closed JSONL
+snapshot to descriptor-stable SHA-256 and explicit identity authority, survives
+raw EXIT cleanup, and supports one bounded post-exit consumer. Detected schema,
+identity, digest, ownership, or cleanup mismatch fails closed and retains the
+private token residual.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; accepted W07
+Swift diagnostics; rejected W07-R1 review; user-accepted narrow Debug trust
+boundary.
+changed_paths: script/dev_vlogs_phase_0b_spike.sh;
+HoldTypeTests/DevVlogsPhase0BHardwareEvidenceHandoffTests.swift;
+docs/qa/runs/dev-vlogs-phase-0b-capture-w01/summary.md.
+checks_run: Structure and syntax; production publisher/consumer/mutation hooks;
+focused 7/7, interacting 16/16, full Phase 0B 75/75; signed Debug build-only;
+bounded Release/settings/artifact isolation; protected 9/9 blob hashes; diff,
+redaction, exact-path, process, and root audits.
+scope_check: Exact three-path commit; no hardware, permission, TCC, media,
+external storage, product, project, plist, entitlement, UI, Release-semantic,
+or iOS change. Worktree and run-owned process/root state clean.
+deviations: Intermediate test defects were repaired before terminal checks.
+residual: The trusted Debug root does not claim resistance to a malicious
+same-UID namespace actor and does not weaken later product deletion/storage
+requirements. Real hardware evidence remains separate.
+next_dependency: DV-P0B-CAPTURE-W07-REVIEW-R2
+runtime_or_visual_handoff: none
+commit: b34dc16713961478c0f25db15666267695286ff4
+parent: c2a14f824d0333ed1270fdd35fd7e58421994108
 ```
 
 ## Rejected Receipts
