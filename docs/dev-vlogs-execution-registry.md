@@ -160,7 +160,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
 | `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
-| `DV-P0B-UI` | unassigned | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW`; required skill available | bounded prototype/evidence paths assigned later | queued | — | Do not dispatch until `build-macos-apps:swiftui-patterns` is available and read. |
+| `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
+| `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | running | pending | Produce the minimal bounded `DV-P0B-E05` implementation and QA envelope; no product UI or runtime. |
+| `DV-P0B-UI` | unassigned | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01`; accepted `DV-P0B-UI-E02` required | bounded prototype/evidence paths assigned after E02 | queued | — | Dispatch only from the reviewed E02 envelope; Phase 0B evidence only, not product UI. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
@@ -292,12 +294,13 @@ new HoldType preset or control; HoldType simply does not downsample it.
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. Exact authorized scratch
   bases and runtime availability remain pending for the storage packet.
-- `build-macos-apps:swiftui-patterns` was unavailable during planning; do not
-  dispatch UI design or implementation until resolved. Read-only availability
-  evidence found no installed package, official current catalog entry, alias,
-  supersession, or supported activation path. User authority must supply the
-  package identity or change this exact workflow gate; generic UI guidance is
-  not a substitute.
+- The exact `build-macos-apps:swiftui-patterns` skill is now exposed by the
+  current Build macOS Apps package and has been read together with its
+  windowing, settings, split-view, menu-bar, and commands references. The
+  historical unavailable-skill receipt remains valid for its earlier
+  environment, but the gate is now resolved. `DV-P0B-UI-E02` is the only
+  running UI packet and is read-only; it must return the exact bounded E05
+  prototype/QA envelope before any UI spike is dispatched.
 - Direct publication is outside the goal and must never be dispatched.
 
 ## Accepted Receipts
@@ -2771,6 +2774,36 @@ deviations: none
 residual: DV-P0B-E05 and all Dev Vlogs UI work remain blocked.
 next_dependency: User supplies the official skill package identity or
 explicitly authorizes changing the repository's exact UI-skill gate.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-UI-SKILL-R01`
+
+```text
+packet_id: DV-P0B-UI-SKILL-R01
+status: done
+verdict: accept
+
+outcome: The current environment exposes the exact repository-required
+build-macos-apps:swiftui-patterns skill. The coordinating /root read the full
+skill and its windowing, settings, split-view, menu-bar, and commands
+references, so the historical skill-availability blocker is resolved.
+authority_used: AGENTS.md Mandatory UI Skill Gate; Dev Vlogs DV-CAMERA-7,
+DV-UI-1 through DV-UI-8, and DV-ACC-UI-1; Phase 0B E05; Build macOS Apps
+package 0.1.4 skill at its current exposed filesystem identity.
+changed_paths: Registry only.
+checks_run: Current task skill catalog exposure; exact SKILL.md full read;
+complete directly relevant reference read; governing goal/spec/plan/protocol
+restart gate.
+skill_disposition: Dedicated on-demand SwiftUI Window, NavigationSplitView,
+explicit window-local state, concise menu entry, and SwiftUI-native visible
+content are the governing desktop patterns. AppKit visible UI is not allowed;
+any preview rendering adapter requires bounded platform evidence first.
+scope_check: Coordination evidence only; no source, UI, build, runtime,
+Camera, TCC, storage, or product implementation action.
+deviations: none
+residual: The UI source/platform ownership map and bounded E05 spike remain.
+next_dependency: DV-P0B-UI-E02, then independent review before E05 execution.
 runtime_or_visual_handoff: none
 ```
 
