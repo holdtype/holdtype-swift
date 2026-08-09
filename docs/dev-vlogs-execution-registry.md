@@ -209,8 +209,10 @@ other external root remain unauthorized.
 | `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | accepted_with_residual | `771b309`; receipt below | Terminal not_available: exact selection/Start passed, but app-scoped Camera was notDetermined and live preview evidence remains unavailable. |
 | `DV-P0B-UI` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-R01@771b309` | read-only exact runtime evidence | accepted_with_residual | receipt below | E05 may close as terminal not_available; no blind retry or live-preview pass claim. |
 | `DV-P0B-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | terminal capture/media, UI, storage evidence and reviews | read-only | rejected_for_phase0c | receipt below | Phase 0B terminal evidence has functional/protected blockers; explicit user disposition required. |
-| `DV-P0B-E07-E01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-REVIEW`; resumed evidence cycle | read-only exact dictation/capture ownership, fake/sanitized route, paired-action matrix, and future writable envelope | review | receipt below | Test-only paired fixture is feasible without product/Debug source changes. |
-| `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | running | — | Accept a non-invented paired E07 route and exact future packet before implementation. |
+| `DV-P0B-E07-E01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-REVIEW`; resumed evidence cycle | read-only exact dictation/capture ownership, fake/sanitized route, paired-action matrix, and future writable envelope | rejected | receipt below | Canonical test-only route is feasible; durable observer/evidence/review contract is incomplete. |
+| `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | rejected | receipt below | Return registry-only observer/barrier/schema repair; W01 remains blocked. |
+| `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | running | — | Record exact observer API, slow barrier, snapshot/evidence schemas, protected blobs and stop/review matrix. |
+| `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1` terminal artifact | read-only exact design review | queued | — | W01 stays blocked until acceptance. |
 | `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
@@ -4034,6 +4036,36 @@ runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-E07-E01-REVIEW` at `79aa32d`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW
+status: done
+verdict: reject
+
+outcome: A test-only paired route through the canonical
+DictationSessionController is feasible without product changes, a second
+recorder or a shipping lease. The durable design is not yet an exact writable
+contract, so W01 must not begin.
+accepted_direction: Existing injected recorder, journal, provider,
+correction/translation, output, History/cache and cleanup boundaries can prove
+standard/corrected/translated success, cancel and six vlog-failure pairs. Two
+new <=500-line test files fit the filesystem-synchronized test target.
+findings: The design does not enumerate the eight QA child paths or closed
+schemas; define the observer API/order and one-shot completed-artifact access;
+define a controllable slow-preparation barrier proving dictation reaches
+Recording before release; or record exact snapshot fields, protected blobs,
+suite selectors, redaction checks and hard review/stop conditions.
+scope_check: Read-only source/design review; no edit, build, test, runtime,
+process, provider, Keychain, hardware, media or storage action.
+residual: A later pass remains deterministic fake-backed E07 only; shipping
+lease, hardware preservation/timing, storage closure and thresholds remain
+separate.
+next_dependency: Same owner returns registry-only DV-P0B-E07-E01-R1, then
+independent review. W01 remains blocked.
+runtime_or_visual_handoff: none
+```
 
 ### `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` at `9229bcf`
 
