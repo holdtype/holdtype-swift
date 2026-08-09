@@ -190,8 +190,9 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W04-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04@03fac5c` | read-only exact two-path repair commit | rejected | receipt below | Repair the wrapper cleanup race and add an exact replacement fixture. |
 | `DV-P0B-STORAGE-W04-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W04 review | external-storage wrapper and canonical feasibility test only | accepted_with_residual | `029f836`; receipt below | Replacement-safe task-HOME cleanup accepted; runtime evidence remains. |
 | `DV-P0B-STORAGE-W04-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04-R1@029f836` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final protected-scope runtime is dependency-ready. |
-| `DV-P0B-STORAGE-R03` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W04 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R03 QA root only | review / functional_fail | `dc81960`; receipt below | Private HOME changed Xcode's default DerivedData lookup; host did not launch and HDD was not run. |
-| `DV-P0B-STORAGE-R03-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R03@dc81960` | read-only exact seven-file runtime evidence and accepted wrapper provenance | running | — | Review failure truth, unchanged protected metadata, cleanup, and exact DerivedData dependency. |
+| `DV-P0B-STORAGE-R03` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W04 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R03 QA root only | accepted_evidence / functional_fail | `dc81960`; receipt below | Truthful SSD host-launch fail; HDD stopped; protected scope remains not_proven. |
+| `DV-P0B-STORAGE-R03-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R03@dc81960` | read-only exact seven-file runtime evidence and accepted wrapper provenance | accepted_with_residual | receipt below | Add one explicit task-owned DerivedData path shared by both Xcode phases. |
+| `DV-P0B-STORAGE-W05` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R03 evidence review | external-storage wrapper and canonical feasibility test only | running | — | Share one pinned task-owned DerivedData path across build/test while keeping hosted private HOME. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -361,7 +362,8 @@ other external root remain unauthorized.
   independently accepted. Final protected-scope runtime R03 stopped after its
   sole SSD invocation: build-for-testing passed, but private HOME changed the
   default DerivedData lookup and the hosted test could not launch; HDD was not
-  run. Evidence is in review. Mechanics remain accepted and no restorative
+  run. Evidence is accepted as a truthful functional fail. A two-path explicit
+  DerivedData repair is running. Mechanics remain accepted and no restorative
   action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
@@ -3591,6 +3593,35 @@ next_dependency: DV-P0B-STORAGE-R03-REVIEW
 runtime_or_visual_handoff: none
 commit: dc81960300bc0a48ce858e7e00cb71d09f6d13e1
 parent: 10c2a5a42027a12478c463d91b7d1e33a11a9bd0
+```
+
+### `DV-P0B-STORAGE-R03-REVIEW`
+
+```text
+packet_id: DV-P0B-STORAGE-R03-REVIEW
+status: done
+verdict: accept_with_residual
+functional_cell_verdicts: external_ssd_hfsplus=fail accepted as truthful;
+external_hdd_apfs=not_available accepted as truthful
+packet_scope_verdict: incomplete / not_proven
+
+outcome: R03 truthfully records a Debug-spike host-launch failure. Protected
+metadata remained unchanged, but hosted confinement was not exercised because
+HoldType.app never launched. Previously accepted mechanics remain unchanged.
+checks_run: Exact seven-file commit/parent/current-blob and structured evidence
+audit; guard, redaction, cleanup, protected metadata, accepted wrapper and
+project test-host provenance. No build, runtime, external, or protected access.
+causal_finding: Build runs under invoking HOME and hosted test under private
+HOME/CFFIXED_USER_HOME, while neither phase pins DerivedData. TEST_HOST depends
+on BUILT_PRODUCTS_DIR, matching the retained missing-prebuilt-host terminal.
+scope_check: Read-only; no repository edit, volume, live HOME/protected path,
+process, app, TCC, Keychain, media, or restorative action.
+residual: Hosted Foundation confinement remains not_proven.
+exact_next_dependency: Create one wrapper-owned DerivedData descendant and pass
+the identical explicit path to build-for-testing and test-without-building,
+while retaining private HOME only on hosted test; review before runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: dc81960300bc0a48ce858e7e00cb71d09f6d13e1
 ```
 
 ## Rejected Receipts
