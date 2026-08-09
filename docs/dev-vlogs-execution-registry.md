@@ -223,8 +223,8 @@ other external root remain unauthorized.
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01@0e3b3ad` terminal receipt | read-only exact E07 artifact/provenance review | rejected | receipt below | Return exact two-test-path R1 to the original owner; runtime remains blocked. |
 | `DV-P0B-E07-W01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW` | two E07 Swift test paths plus manifest-only `environment.json` update | rejected | `8f21b2e`; receipt below | Cancellation, cleanup and metric order pass; pass/fail cross-schema remains open. |
 | `DV-P0B-E07-W01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R1@8f21b2e` | read-only exact repair review | rejected | receipt below | Return validator-only R2; E07/runtime remain blocked. |
-| `DV-P0B-E07-W01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW-R1` | two E07 Swift test paths plus manifest-only `environment.json` update | review | `719e995`; receipt below | Pass/fail summary-matrix-event cross-agreement repaired; independent review pending. |
-| `DV-P0B-E07-W01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R2@719e995` | read-only exact repair review | running | — | Independent acceptance required before E07 can unblock capture review. |
+| `DV-P0B-E07-W01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW-R1` | two E07 Swift test paths plus manifest-only `environment.json` update | accepted | `719e995`; receipt below | Deterministic fake-backed E07 accepted; shipping audio lease and real runtime remain separate. |
+| `DV-P0B-E07-W01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R2@719e995` | read-only exact repair review | accepted | receipt below | E07 gate accepted; capture runtime may be admitted separately after current evidence repair wave. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
 | `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
@@ -237,7 +237,7 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R1@2a25dd3` | read-only exact repair review | rejected | receipt below | Return bounded three-path R2; no observer runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R2` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R1 | controller, controller tests and W01 summary only | running | — | Close terminal evidence/cleanup state machine, exact JSON types, outer binding and summary truth. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2` terminal artifact | read-only exact repair review | queued | — | No runtime before acceptance. |
-| `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; resumed evidence cycle; accepted E07 W01 review | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | blocked | — | Wait for E07 acceptance and serialized runtime admission; no storage runtime or permission-only route. |
+| `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
@@ -7110,5 +7110,47 @@ residual: Non-run-owned writers may remain still_unknown; implementation
 acceptance and all observer runtime remain blocked.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R2, then independent
 DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-E07-W01-REVIEW-R2
+status: accepted
+reviewed_commit: 719e995afd437b3d6509d04a3c8b740ca9d63607
+parent: 671dc89c538341ad7cb12280f876c071282b6c91
+
+outcome: The Review-R1 validator blocker is closed. Pass/fail state is fully
+cross-bound across summary, environment, ten ordered matrix rows and ten
+ordered pair events.
+
+accepted_evidence: Pass requires all rows true/pass, all pair events equal/true
+and no unequal case. Fail requires a nonempty canonically ordered set of named
+cases matching exactly the matrix false/fail and event unequal/false cases.
+Missing, duplicate, unknown, reordered, contradictory, wrong-name,
+all-pass-under-fail and failed-under-pass forms reject. Exact ten-case and
+80-event order, nine measurement rows and eight exact not-measured metrics
+remain closed. Accepted R1 gate, observer, access-release-before-cleaned and
+cleanup semantics are unchanged.
+
+integrity: Exact three paths/modes/current blobs pass. Seven retained QA blobs
+are unchanged; environment.json changes only the manifest digest. Independent
+recomputation equals
+c021dcfb47a124f6a08ec665c24020c6dde88613d6112f62ede39e5761fe225a.
+Protected dictation owners and W07 script match pinned provenance.
+
+checks: Commit/parent/later-drift, static validator/adversarial forms,
+cardinality/order/cross-agreement/redaction, structure, DEBUG/line bounds,
+target membership, forbidden APIs, focused signed Debug 11/11 and diff hygiene
+passed.
+
+scope_check: Deterministic fake-backed E07 only. No app, camera, microphone,
+provider, Keychain, media, external storage, permission or product runtime.
+deviations: none.
+residual: No shipping audio lease or real hardware/media/storage/provider
+behavior is proven.
+next_dependency: Record acceptance; DV-P0B-CAPTURE-R07 is dependency-ready
+subject to separate serialized coordinator authorization.
 runtime_or_visual_handoff: none
 ```
