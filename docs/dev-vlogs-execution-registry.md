@@ -142,7 +142,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-E07` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | rejected W06 R4 review | read-only Darwin cleanup API and current script/test evidence | blocked | receipt below | Darwin has no supported exact-fd unlink/rmdir; protocol authority is required before a fail-closed retained-root lane. |
 | `DV-P0B-CAMERA-AUTH-CLEANUP-DECISION` | user decision | `DV-DRAFT-4@2f3266a`; Phase 0B E08 | blocked E07 | no writable scope | pending | — | Choose a narrow permission-only retained-root residual or a privileged/different-UID cleanup boundary. |
 | `DV-P0B-CAPTURE-E08` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a`; accepted capture W02/R03 and hardware supervisor | user reports Camera permission enabled on 2026-08-09 | read-only exact accepted capture/auth/script/runtime evidence | accepted_with_residual | receipt below | One direct no-retry Continuity 10-second hardware attempt is dependency-ready; permission-only cleanup remains blocked separately. |
-| `DV-P0B-CAPTURE-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a`; accepted E08/W02/R03 hardware path | accepted `DV-P0B-CAPTURE-E08`; fresh explicit Continuity uniqueID required | eight redacted capture-R06 QA files; raw media in exact internal run root only | running | — | One 10-second attempt, no fallback/retry/requestAccess; retain only redacted evidence, then exact cleanup. |
+| `DV-P0B-CAPTURE-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a`; accepted E08/W02/R03 hardware path | accepted `DV-P0B-CAPTURE-E08`; fresh explicit Continuity uniqueID required | eight redacted capture-R06 QA files; raw media in exact internal run root only | review | `7fbeab8`; receipt below | Explicit Continuity capture reached playable camera/final probes and passthrough, then failed strict stored-sample preservation; watcher missed detailed events. |
+| `DV-P0B-CAPTURE-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R06@7fbeab8` | read-only exact evidence commit plus accepted current capture/finalizer/probe/comparator provenance | running | — | Classify preservation failure and watcher loss; return exact repair/evidence dependency before any retry. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -252,7 +253,12 @@ new HoldType preset or control; HoldType simply does not downsample it.
   permission. `DV-P0B-CAPTURE-E08` accepted one direct controlled hardware
   capture through the separately accepted hardware supervisor, without
   invoking or relaxing the blocked permission-only cleanup path. `DV-P0B-
-  CAPTURE-R06` is running one no-retry Continuity 10-second cell. The
+  CAPTURE-R06` completed one no-retry Continuity 10-second cell. Camera
+  authorization was reached as authorized; camera-only and final media probes
+  were playable and passthrough completed, but the strict stored-sample
+  comparator failed and the watcher missed detailed event/media metrics. Raw
+  media and run-owned processes were cleaned. Independent review is running;
+  no retry precedes its classification. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2495,6 +2501,45 @@ cleanup semantics.
 next_dependency: User/protocol authority must choose a fail-closed retained-
 root residual for the permission-only evidence lane or a privileged/different-
 UID cleanup boundary. No further script-only exact-delete repair is supported.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R06`
+
+```text
+packet_id: DV-P0B-CAPTURE-R06
+status: failed
+functional_result: fail
+authorization_result: authorized
+
+outcome: One freshly enumerated explicit eligible Continuity Camera was
+selected with no fallback. Exactly one ten-second hardware invocation reached a
+playable camera-only probe, passthrough-only finalization, and a playable final
+video/audio probe, then closed video_preservation_failed. No retry occurred.
+media_results: Camera-only 1 video/0 audio passed; final 1 video/1 audio passed;
+passthrough passed; stored_sample_exact_v1 failed. Ready clip count was zero.
+Realized dimensions, FPS, codecs, transform, sample/byte/duration details are
+unavailable because the watcher missed the run-owned event path and accepted
+cleanup removed raw media.
+measurements_disposition: evidence_only/unavailable; no sync/drift claim.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; E08; accepted
+W02 and R03 hardware owners.
+changed_paths: Exactly eight redacted files under
+docs/qa/runs/dev-vlogs-phase-0b-capture-r06/**; commit 7fbeab8.
+checks_run: Governing gate; ancestry/blob/tail/signing preflight; structured
+evidence parsing and cross-counts; redaction, media/MIME, exact-path, diff,
+process, root, and protected-count audits.
+cleanup_receipt: Scoped caffeinate stopped; zero run-owned process/root; raw
+media absent; pre-existing HoldType preserved; protected counts unchanged; no
+external or remote I/O.
+scope_check: Evidence only; no source, spec, project, script, TCC, UI, Keychain,
+provider, or external-storage change.
+deviations: Three bounded wrapper preflights ended before enumeration and were
+cleaned. The successful enumerator used a bundled Apple-native ad-hoc helper.
+The material evidence deviation is the watcher-path miss. No extra capture.
+residual: Debug-spike video-preservation failure and watcher-loss defect prevent
+exact mismatch and realized-metric diagnosis.
+next_dependency: DV-P0B-CAPTURE-R06-REVIEW
 runtime_or_visual_handoff: none
 ```
 
