@@ -215,7 +215,7 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1@d14a927` | read-only exact design review | rejected | receipt below | Repair continuation storage, observable cleanup evidence and protocol-overload wording. |
 | `DV-P0B-E07-E01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R1 | registry design receipt only | rejected | `1616247`; receipt below | Cleanup/overload repaired; slow-gate race contract still inconsistent. |
 | `DV-P0B-E07-E01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R2@1616247` | read-only exact design review | rejected | receipt below | Return minimal waiter-consumption and joined-cancellation R3. |
-| `DV-P0B-E07-E01-R3` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R2 | registry design receipt only | running | — | Repair only slow-gate idempotency, cancellation join and post-resume check. |
+| `DV-P0B-E07-E01-R3` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R2 | registry design receipt only | review | exact receipt below | Slow-gate idempotency and synchronous cancellation closure repaired; Review-R3 required. |
 | `DV-P0B-E07-E01-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R3` terminal artifact | read-only exact design review | queued | — | W01 remains blocked until acceptance. |
 | `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted current E07 design review | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
@@ -506,33 +506,19 @@ authoritative. Every baseline/spike equality, cancel/provider/output rule,
 observer access rule, evidence schema and protected boundary remains R1-exact.
 
 repair_1_slow_gate_continuations:
-- DevVlogsPhase0BE07SlowPreparationGate publicly exposes only GateSnapshot
-  enterCount:Int, resolutionCount:Int, waiterCount:Int and isResolved:Bool.
-- Its only continuation storage is exactly private optional one-shot
-  entryContinuation:CheckedContinuation<Void, Error>? and
-  resolutionContinuation:CheckedContinuation<GateResolution, Error>?.
-- waitUntilEntered returns immediately after entry, otherwise installs the
-  entry continuation only on the unused nonterminal single-use gate.
-- enterAndWaitForResolution increments entry, installs the resolution
-  continuation and waiter count, then takes/clears the entry continuation
-  before resuming its local value. resolve sets the terminal scalar snapshot,
-  then takes/clears the resolution continuation before resuming its local value
-  with the exact GateResolution.
-- Every continuation is resumed at most once and only after its property is
-  nil. Normal return, resolution, error and cancellation leave both nil.
-  Each cancellation handler may create exactly one scoped relay Task that calls
-  only the existing resolve(.timedOut); it adds no method, helper, global or
-  stored task. Pre-entry cancellation clear/resumes the entry continuation by
-  throwing CancellationError. Resolution-wait cancellation clear/resumes with
-  timedOut, after which enterAndWaitForResolution immediately checks
-  Task.isCancelled and throws CancellationError. The first actor-isolated
-  terminal transition wins; a losing cancellation relay performs no resume.
-  Later wait/enter throws CancellationError and later resolve throws
-  duplicateResolution.
-- snapshot() throws -> GateSnapshot returns only the four scalars and throws
-  HarnessError.outstandingResource if a terminal gate retains a continuation.
-  There is no additional public field, continuation, long-lived/untracked task,
-  global, polling, sleep, clock, helper or real wait.
+- R3 replaces only this slow-gate slice. The actor owns one nonisolated
+  Synchronization.Mutex tuple containing the two named optional continuations,
+  entryWaitOpen, resolutionWaitOpen, cancellationRequested and isClosed.
+- waitUntilEntered is idempotent after entry; duplicateEntry applies only to a
+  concurrent second pre-entry waiter or second enterAndWaitForResolution.
+- Cancellation handlers synchronously take/clear and resume outside the mutex;
+  no relay Task exists. Both methods recheck Task.isCancelled after resumption
+  and close their open state before terminal return/throw.
+- GateSnapshot is the original four scalars plus pendingContinuationCount,
+  openSuspendingMethodCount and isClosed. Pre-resolution is
+  1/0/1/false/1/1/false; terminal is 1/1/0/true/0/0/true.
+- The full exact actor/mutex transition contract, hard stops and review checks
+  are recorded in DV-P0B-E07-E01-R3; no other R2 clause changes.
 
 repair_2_observable_action_resource_closure:
 - Remove the rejected R1 private-session counter entirely from
@@ -559,11 +545,11 @@ repair_3_protocol_overloads:
   prohibited.
 
 hard_stops:
-- Gate does not have exactly the two named private optional continuation
-  properties; adds public continuation state; resumes while stored or more than
-  once; retains one on any exit; cancellation is nonterminal; or uses a
-  task beyond the one existing-resolve cancellation relay, global, poll, sleep,
-  clock or helper: reject or functional fail.
+- Gate lacks the exact Mutex tuple/state/projection in R3; post-entry wait is
+  non-idempotent; duplicateEntry rejects an idempotent call; a handler creates a
+  Task; post-resume cancellation is not rechecked/closed; or a terminal
+  snapshot is not continuation/open counts zero and isClosed true: reject or
+  functional fail.
 - terminalActionCompletedWithObservedResourcesClosed is false, absent or
   fabricated from a harness counter/private-session inference rather than the
   named public/injected evidence: functional fail and reject cleanup evidence.
@@ -571,11 +557,10 @@ hard_stops:
   overload beyond exact protocol witnesses: structural stop.
 - Every unchanged R1 stop condition remains binding.
 
-independent_review_matrix: Review-R2 checks the exact one-path R2 diff and
-unchanged R1 envelope; the four-field public GateSnapshot; exactly two private
-optional continuations; store-before-entry-notify; clear-before-exact-once
-resume; the single existing-resolve cancellation relay, first-terminal-wins
-race behavior and nil on every exit; observable Boolean
+independent_review_matrix: Review-R3 checks the exact R3 slow-gate delta and
+unchanged R1/R2 envelope; idempotent post-entry wait; exact Mutex tuple and
+seven-field snapshot; synchronous clear-before-resume cancellation; post-resume
+recheck; zero/zero/closed terminal projection; observable Boolean
 derivation with no private-session/fabricated-cleanup claim; exact two
 startRecording witnesses and no extra overload; all prior case/snapshot/
 schema/provenance/timeout/redaction/dirty-state checks. Any hard stop rejects.
@@ -4355,59 +4340,90 @@ and observer capturing, observer cancel/cleanup and duplicate rejection, then
 canonical baseline cancel. Observer failure never cancels canonical audio.
 
 slow_barrier:
-DevVlogsPhase0BE07SlowPreparationGate's public GateSnapshot has only
-enterCount:Int, resolutionCount:Int, waiterCount:Int and isResolved:Bool. Its
-only continuation storage is exactly these two private optional one-shot
-properties and no others:
-- entryContinuation: CheckedContinuation<Void, Error>?
-- resolutionContinuation: CheckedContinuation<GateResolution, Error>?
+DevVlogsPhase0BE07SlowPreparationGate remains an actor. It imports
+Synchronization and owns exactly one additional private synchronization value:
+waitState, a nonisolated let Mutex whose tuple contains only
+entryContinuation:CheckedContinuation<Void, Error>?,
+resolutionContinuation:CheckedContinuation<GateResolution, Error>?,
+entryWaitOpen:Bool, resolutionWaitOpen:Bool,
+cancellationRequested:Bool and isClosed:Bool. There is no relay Task, task
+handle, third continuation, helper type/method, global, polling, sleep or clock.
 
-The actor-isolated gate is single-use. waitUntilEntered returns immediately
-when enterCount is already one; otherwise it stores entryContinuation only when
-both continuation fields are nil and the gate is not terminal. A second entry
-wait or a second enter throws duplicateEntry. enterAndWaitForResolution first
-increments enterCount, installs resolutionContinuation, sets waiterCount to
-one, then takes and clears entryContinuation before resuming that local value
-with Void. This ordering guarantees that an awakened entry waiter can observe
-the installed resolution waiter.
+GateSnapshot contains exactly the original enterCount:Int,
+resolutionCount:Int, waiterCount:Int and isResolved:Bool plus the closed
+projection pendingContinuationCount:Int, openSuspendingMethodCount:Int and
+isClosed:Bool. The two counts are calculated inside waitState.withLock and do
+not expose continuations. isClosed becomes true only when a terminal normal,
+error or cancellation result exists, both continuation fields are nil and both
+open flags are false.
 
-resolve(.ready|.timedOut) requires the installed resolution continuation. It
-sets resolutionCount to one, waiterCount to zero and isResolved to true, then
-takes and clears resolutionContinuation before resuming that local value with
-the exact GateResolution. A second resolution throws duplicateResolution. No
-stored continuation is resumed while still stored, and each stored value is
-resumed exactly once.
+waitUntilEntered() async throws is explicitly idempotent after enterCount is
+one: any number of later calls returns after Task.checkCancellation and a
+withLock check that no gate cancellation won. duplicateEntry applies only when
+a second waiter arrives while entryWaitOpen is already true before entry, or
+when enterAndWaitForResolution is called a second time. No waiter-consumption
+field exists or is needed.
 
-Both suspending methods use cancellation handlers whose only relay is one
-scoped Task that invokes the existing resolve(.timedOut) method; no new method,
-helper, global or stored task is allowed. When cancellation occurs before
-entry, that reserved pre-entry resolve path sets resolutionCount to one,
-waiterCount to zero and isResolved to true, takes/clears entryContinuation and
-resumes that local value once by throwing CancellationError. A direct harness
-resolve before entry is forbidden. When cancellation occurs while awaiting
-resolution, resolve performs its normal clear-before-resume with timedOut and
-enterAndWaitForResolution checks Task.isCancelled immediately after suspension,
-then throws CancellationError instead of returning the GateResolution. The
-relay performs no work after the existing resolve returns. Every later wait or
-enter after cancellation throws CancellationError; every later resolve throws
-duplicateResolution and cannot install or resume another continuation.
+Before entry, waitUntilEntered atomically sets entryWaitOpen and installs the
+entry continuation under waitState. Its cancellation handler synchronously
+locks waitState and, only while entryWaitOpen is true and isClosed is false,
+records cancellationRequested and takes/clears the entry continuation; after
+unlocking it resumes that local value by throwing CancellationError as the
+handler's final side effect. If entryWaitOpen is already false, the handler is
+a no-op. It creates no Task. A do/catch finalization path runs after normal or
+throwing resumption. In one waitState.withLock transition, waitUntilEntered
+reads Task.isCancelled without throwing, rechecks cancellationRequested and
+closes entryWaitOpen. If either cancellation value is true, that transition
+takes and clears both continuation fields and captures any resolution
+continuation for one outside-lock CancellationError resume; the actor then
+updates its terminal counters and returns only by throwing CancellationError.
+If both values are false, the same transition closes entryWaitOpen and returns
+only after confirming its entry continuation is nil. That mutex-protected
+recheck-and-close is the joined return boundary. A cancellation handler that
+obtains the mutex afterward sees entryWaitOpen false, is a no-op and cannot
+retroactively change the completed observation.
 
-If cancellation races a normal entry notification or resolution, the actor's
-first terminal transition wins; the losing relay observes the cleared field
-and terminal state, performs no resume and returns. Normal return, resolution,
-error and cancellation leave both private continuation fields nil. No
-additional continuation, long-lived/untracked task, global, helper, polling,
-sleep, clock or real wait is permitted.
+enterAndWaitForResolution() async throws rejects enterCount other than zero.
+The actor first sets its entry/waiter counts to one; one following withLock
+transition sets resolutionWaitOpen, installs the resolution continuation and
+takes/clears the entry continuation before resuming that entry local outside
+the lock. Its
+cancellation handler synchronously locks waitState and, only while
+resolutionWaitOpen is true and isClosed is false, records
+cancellationRequested and takes/clears the resolution continuation; after
+unlocking it resumes that local by throwing CancellationError as its final side
+effect. If resolutionWaitOpen is already false, the handler is a no-op. A
+do/catch finalization path runs after any resume. In one waitState.withLock
+transition the method reads Task.isCancelled without throwing, rechecks
+cancellationRequested, closes resolutionWaitOpen and clears both continuations
+on a cancellation terminal. The actor then updates terminal counters and
+returns or throws only after its own continuation is nil and all cancellation
+state for that method is closed. That mutex-protected recheck-and-close is this
+method's joined return boundary.
 
-The slow case starts observer prepare; awaits waitUntilEntered; asserts public
-snapshot 1/0/1/false; starts the canonical controller; awaits .recording; while
-the gate is unresolved asserts recorder start one, resolution zero and observer
-terminal zero; only then resolves timedOut; awaits cameraPreparationTimedOut;
-calls snapshot() throws -> GateSnapshot, which throws
-HarnessError.outstandingResource if a terminal gate retains either private
-continuation, and asserts the returned public snapshot 1/1/0/true;
-finishes canonical dictation; and rejects the duplicate observer terminal.
-Failure to reach .recording before resolution is a functional fail.
+resolve(.ready|.timedOut) is actor-isolated. It rejects a second resolution,
+sets resolutionCount one, waiterCount zero and isResolved true, takes/clears
+the resolution continuation under waitState, then resumes the local value
+outside the lock. Normal resolution and cancellation race only through the
+mutex: the winner clears the continuation; the loser finds nil and performs no
+resume. No continuation is resumed while stored or more than once.
+
+The normal entry-notification return is intentionally nonterminal: its own
+entry continuation and cancellation path are closed, while the one resolution
+continuation remains pending for enterAndWaitForResolution. Therefore the slow
+pre-resolution snapshot is exactly 1/0/1/false/1/1/false in field order. After
+resolve, both suspending calls are awaited before terminal inspection;
+snapshot() throws HarnessError.outstandingResource unless the terminal
+projection is exactly pendingContinuationCount zero,
+openSuspendingMethodCount zero and isClosed true. The normal timed-out terminal
+snapshot is exactly 1/1/0/true/0/0/true.
+
+The slow case starts observer prepare, awaits the idempotent entry barrier,
+asserts the pre-resolution snapshot, starts canonical dictation and awaits
+.recording while the gate remains unresolved, then resolves timedOut, awaits
+observer terminal and both gate calls, and asserts the terminal closed
+snapshot. Failure to reach .recording first, a post-resume cancellation escape,
+or any nonzero/open terminal projection is a functional fail.
 
 snapshot_schema:
 DevVlogsPhase0BE07DictationSnapshot has exactly:
@@ -4759,12 +4775,14 @@ stop_table:
 - Cancel has provider/correction/translation/History/output/cache activity:
   functional fail.
 - Recording does not precede slow-gate resolution: functional fail.
-- Gate continuation storage is not exactly the two authorized private optional
-  properties, either continuation is resumed more than once or while stored,
-  normal/cancel/error completion retains one, cancellation is not terminal, or
-  any task other than the single existing-resolve cancellation relay, or any
-  polling/sleep/global/helper, substitutes for it: structural or functional
-  fail as applicable.
+- Gate state differs from the one exact R3 Mutex tuple; waitUntilEntered is not
+  idempotent after entry; duplicateEntry applies outside a concurrent pending
+  waiter/second enter; any handler creates a Task; a continuation is resumed
+  while stored or more than once; a handler mutates state after its
+  corresponding open flag closes; either method does not combine its post-
+  resume Task.isCancelled/cancellationRequested recheck and open-flag closure
+  in one mutex transition; or terminal snapshot projection is not pending/open
+  zero and isClosed true: structural or functional fail.
 - Observer terminal/cleanup is not exact one, duplicate mutates state, or
   access/journal/recovery/provider/task remains outstanding: functional fail.
 - terminalActionCompletedWithObservedResourcesClosed is false at comparison,
@@ -4786,15 +4804,15 @@ stop_table:
 - W02/W07 presented as E07 proof or an expectation weakened to pass: reject.
 
 independent_review_matrix:
-Review-R2 verifies authority and no spec delta; exact ten-path diff; one
+Review-R3 verifies authority and no spec delta; exact ten-path diff; one
 canonical controller/recorder/microphone; observer completed-value/token-only
 boundary; success/cancel/failure/disconnect/mux/slow ordering; recording before
-slow resolution; exactly two private optional one-shot gate continuations with
-store-before-notify, clear-before-exact-once-resume, terminal cancellation and
-nil-on-all-exits; exactly one scoped cancellation relay that invokes only the
-existing resolve(.timedOut), with the first actor-isolated terminal transition
-winning; unchanged four-scalar public GateSnapshot; ten closed
-snapshots and equality; truthful
+slow resolution; exact Mutex tuple with two optional continuations and four
+minimal closure scalars; idempotent post-entry wait and narrow duplicateEntry;
+synchronous no-Task cancellation and late-handler no-op after each open flag
+closes; same-mutex post-resume recheck-and-close; seven-field snapshot with
+pre-resolution 1/0/1/false/1/1/false and terminal 1/1/0/true/0/0/true; ten
+closed snapshots and equality; truthful
 terminalActionCompletedWithObservedResourcesClosed derivation with no private
 session or fabricated-counter claim; observer terminal/access/cleanup
 cardinality and zero residue; exactly both production startRecording witnesses
@@ -6341,3 +6359,141 @@ next_dependency: DV-P0B-E07-E01-R3, then independent
 DV-P0B-E07-E01-REVIEW-R3. DV-P0B-E07-W01 remains blocked.
 runtime_or_visual_handoff: none
 ```
+
+### DV-P0B-E07-E01-R3
+
+~~~text
+packet_id: DV-P0B-E07-E01-R3
+status: design_complete_pending_independent_review
+outcome: Only the rejected slow-gate slice is repaired. waitUntilEntered is
+post-entry idempotent, cancellation performs synchronous mutex-protected
+clear-before-resume without relay Tasks, every resumed method rechecks
+cancellation and closes its state, and GateSnapshot exposes exact pending/open/
+closed projections.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance; agent
+onboarding; specification README/index; full DV-DRAFT-4@2f3266a; full Dev Vlogs
+implementation plan and Phase 0B protocol; current registry header/scope/
+decisions/epoch/table/current coordination, E07 R1/R2 and rejected Review-R1/
+Review-R2; SWIFT; agent tooling; active microphone-input and recording-
+durability contracts. root-orchestration was not read because this is a finite
+design owner.
+
+authority_and_frozen_scope: Discover-only DV-DRAFT-4 E02/E07/E08 with no spec
+delta. R1/R2's exact ten paths, two DEBUG <=500-line test files, ten cases and
+sequences, completed-artifact/token observer, cleanup Boolean, protocol-
+overload wording, eight QA schemas, provenance, parent pinning, commands,
+redaction, stop conditions and fake-only residual remain unchanged.
+
+literal_private_state:
+DevVlogsPhase0BE07SlowPreparationGate remains an actor and imports
+Synchronization. Its one and only additional private synchronization property
+is:
+nonisolated let waitState:
+Mutex<(entryContinuation: CheckedContinuation<Void, Error>?,
+       resolutionContinuation: CheckedContinuation<GateResolution, Error>?,
+       entryWaitOpen: Bool,
+       resolutionWaitOpen: Bool,
+       cancellationRequested: Bool,
+       isClosed: Bool)>
+Initial tuple values are nil, nil, false, false, false, false. No third
+continuation, waiter-consumption field, relay Task/task handle, helper
+type/method, global, poll, sleep or clock is allowed.
+
+snapshot_contract:
+GateSnapshot has exactly, in order, enterCount:Int, resolutionCount:Int,
+waiterCount:Int, isResolved:Bool, pendingContinuationCount:Int,
+openSuspendingMethodCount:Int and isClosed:Bool. The last three are derived
+inside waitState.withLock: pending count is the number of nonnil continuations,
+open count is the number of true open flags, and isClosed is the tuple value.
+isClosed may become true only for a terminal result with both counts zero.
+Pre-resolution slow-barrier snapshot is exactly
+1/0/1/false/1/1/false; normal timed-out terminal is exactly
+1/1/0/true/0/0/true. snapshot() throws HarnessError.outstandingResource for a
+terminal snapshot with any other projection.
+
+idempotency_and_duplicate_rule:
+waitUntilEntered() async throws returns idempotently for every call after
+enterCount becomes one, including repeated calls after the first observation,
+after a Task cancellation check and mutex check that no gate cancellation won.
+Before entry it atomically opens and installs one entry waiter. duplicateEntry
+is thrown only for a concurrent second pre-entry pending waiter or a second
+enterAndWaitForResolution call. No first/later post-entry distinction or waiter-
+consumption state exists.
+
+synchronous_cancellation_and_join:
+- A waitUntilEntered cancellation handler synchronously locks waitState and,
+  only when entryWaitOpen is true and isClosed is false, sets
+  cancellationRequested and takes/clears entryContinuation. It unlocks and
+  resumes only that local value with CancellationError as its final side
+  effect. If entryWaitOpen is false, it is a no-op. It creates no Task.
+- An enterAndWaitForResolution cancellation handler performs the same operation
+  only while resolutionWaitOpen is true and isClosed is false, and is a no-op
+  after resolutionWaitOpen closes. Normal entry and resolve also take/clear
+  under the same mutex and resume local values only after unlocking.
+- Each continuation has one mutex-serialized winner. A loser finds nil and
+  performs no resume. No continuation is resumed while stored or twice.
+- A do/catch finalization path after every normal or throwing resumption makes
+  each suspending method perform one mutex-protected transition that reads
+  Task.isCancelled without throwing, rechecks cancellationRequested, closes
+  its own open flag and clears both continuations for a cancellation terminal
+  before it may return or throw. That recheck-and-close transition is the
+  method's joined return boundary.
+  Any opposite continuation captured during terminal cleanup is resumed outside
+  the lock with CancellationError. The last closing method sets isClosed only
+  when both continuation fields are nil and both open flags are false.
+- waitUntilEntered therefore cannot return success from an entry/cancellation
+  race: cancellation that wins before entryWaitOpen closes is observed by the
+  mandatory post-resume recheck and completes terminal cleanup before throwing.
+  Cancellation after entryWaitOpen closes is after the joined method boundary.
+- A normal entry-notification return is nonterminal and closes its own entry
+  continuation/path while the one resolution continuation intentionally
+  remains pending. Both suspending methods are awaited before terminal
+  inspection; every terminal return/throw has both continuations nil, and the
+  joined terminal projection is pending/open zero and closed true.
+
+slow_case:
+Start observer prepare; await the idempotent entry barrier; assert
+1/0/1/false/1/1/false; start canonical dictation and await recording while gate
+resolution remains zero; resolve timedOut; await observer terminal plus both
+gate calls; assert 1/1/0/true/0/0/true; then finish canonical dictation and run
+the unchanged pair equality. No wall-clock wait exists.
+
+hard_stops:
+- Any private gate state beyond the one exact Mutex tuple; any third
+  continuation, relay Task/handle, helper, global, poll, sleep or clock:
+  structural stop.
+- A post-entry wait is rejected/non-idempotent, or duplicateEntry applies
+  outside a concurrent second pending waiter/second enter: functional fail.
+- A continuation resumes while stored or more than once; a cancellation
+  handler mutates state after its corresponding open flag closes; either
+  resumed method does not combine Task.isCancelled, cancellationRequested and
+  its open-flag closure in one mutex transition; a cancellation winner returns
+  success; terminal cleanup retains a continuation/open path: functional fail.
+- Pre-resolution or terminal snapshot differs from the exact seven-field
+  values; terminal pending/open is nonzero or isClosed is false: functional
+  fail.
+- Every unchanged R1/R2 hard stop remains binding.
+
+independent_review_matrix: Review-R3 verifies the exact registry-only delta;
+one Mutex tuple and no other private synchronization/cancellation state;
+post-entry idempotency and narrow duplicateEntry; synchronous outside-lock
+exact-once resumes; no Task; no-op late handlers after their open flags close;
+same-mutex post-resume Task.isCancelled/cancellationRequested recheck and open-
+flag closure; losing-path closure; exact pre-resolution and terminal snapshot
+projections; both continuations nil at terminal; recording-before-resolution;
+and byte-
+identical preservation in meaning of every accepted non-gate R1/R2 clause.
+
+scope_check: Registry only. Unrelated storage W01 paths are preserved and
+excluded. No spec/product/source/test/script/QA implementation, build, test,
+runtime, process, hardware, provider, Keychain, permission, media, storage or UI
+action occurred.
+
+deviations: none. No change outside the rejected slow-gate contract.
+residual: Acceptance would still prove deterministic fake-backed E07 only.
+Shipping audio lease and real hardware/media/storage/provider behavior remain
+unproven. DV-P0B-E07-W01 remains blocked.
+next_dependency: DV-P0B-E07-E01-REVIEW-R3
+runtime_or_visual_handoff: none
+~~~
