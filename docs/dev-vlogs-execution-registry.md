@@ -219,7 +219,7 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
 | `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R1@8fe5645` | read-only exact design review | rejected | receipt below | High-level design is sound; five literal contract gaps require registry-only R2. |
-| `DV-P0B-STORAGE-OBSERVER-E01-R2` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer review R1 | registry design receipt only | running | — | Resolve only literal enums/mappings, exact probe predicates, guard ordering, deterministic conflict class and eight-file envelope. |
+| `DV-P0B-STORAGE-OBSERVER-E01-R2` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer review R1 | registry design receipt only | review | exact receipt below | Five literal gaps repaired; independent Review-R2 required. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R2` terminal artifact | read-only exact design review | queued | — | Implementation and runtime remain blocked until acceptance. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; resumed evidence cycle; accepted E07 W01 review | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | blocked | — | Wait for E07 acceptance and serialized runtime admission; no storage runtime or permission-only route. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
@@ -5179,5 +5179,208 @@ scope_check: Read-only review. No repository path changed by the reviewer and
 no runtime authority was consumed.
 next_dependency: DV-P0B-STORAGE-OBSERVER-E01-R2, then independent
 DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01-R2
+status: done
+outcome: The rejected R1 design is repaired at exactly its five literal
+contract gaps. The accepted ten-path future implementation envelope,
+DEBUG-only seam, no-enumeration primitive, phase split, cleanup direction,
+protected owners and separately authorized runtime remain unchanged.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance;
+agent onboarding; specification README/index; full DV-DRAFT-4@2f3266a; full
+Dev Vlogs implementation plan and Phase 0B protocol; registry header, scope,
+decisions, epoch, packet table, current coordination, original observer E01,
+its rejected review, E01-R1, pause/resume and rejected Review-R1; SWIFT;
+agent tooling; platform-testing and verification; recording durability,
+privacy/permissions and transcript-history contracts. root-orchestration was
+not read because this finite design owner is not /root.
+
+expected: Discover-only E03/E04/E08 design repair. Define the five rejected
+wire/probe/order/classification/evidence details without changing product,
+specification, source, tests, scripts, accepted external mechanics or live
+protected storage. No implementation or runtime authority is conveyed.
+
+accepted_direction: Preserve DV-P0B-STORAGE-OBSERVER-E01-R1@8fe5645 except
+where the following literal R2 rules replace the five rejected R1 passages.
+The future implementation remains exactly the ten paths recorded by R1;
+HoldType/HoldTypeApp.swift remains forbidden; the accepted external wrapper
+remains byte-identical.
+
+literal_wire_and_symbol_contract:
+- The six and only marker action wire strings are
+  write_saved_state_marker, write_processing_checkpoint_marker,
+  write_provider_dispatch_marker, delete_saved_state_marker,
+  delete_processing_checkpoint_marker and delete_provider_dispatch_marker.
+- persistSavedStateRepairMarker maps only to write_saved_state_marker;
+  persistProcessingCheckpointMarker maps only to
+  write_processing_checkpoint_marker; persistProviderDispatchMarker maps only
+  to write_provider_dispatch_marker; deleteSavedStateRepairMarker maps only to
+  delete_saved_state_marker; deleteProcessingCheckpointMarker maps only to
+  delete_processing_checkpoint_marker; and deleteProviderDispatchMarker maps
+  only to delete_provider_dispatch_marker.
+- RecoveryArtifactDeletionKind is a closed DEBUG enum with exactly five Swift
+  cases: failedAttemptEmergencyAudio, savedStateRepairMarker,
+  processingCheckpointMarker, providerDispatchMarker and managedRecoveryAudio.
+  No raw-string initializer or unknown/default case exists.
+- failedAttemptEmergencyAudio is supplied only by removeFailedAttempt's direct
+  emergency-audio deletion and maps to action delete_recovery_audio/category
+  recovery_audio. savedStateRepairMarker is supplied only by
+  deleteSavedStateRepairMarker and maps to delete_saved_state_marker/
+  recovery_marker. processingCheckpointMarker is supplied only by
+  deleteProcessingCheckpointMarker and maps to
+  delete_processing_checkpoint_marker/recovery_marker.
+  providerDispatchMarker is supplied only by deleteProviderDispatchMarker and
+  maps to delete_provider_dispatch_marker/recovery_marker.
+  managedRecoveryAudio is supplied only by deleteRecoveryAudio and maps to
+  delete_recovery_audio/recovery_audio.
+- A deletion caller without exactly one of those five cases is a compile-time
+  error. The observer serializes only the mapped action/category strings; it
+  never serializes the Swift case name.
+
+observation_contract:
+- The helper resolves the invoking uid with geteuid() and getpwuid_r(), and
+  accepts the canonical home topology only when pw_dir is exactly
+  /Users/<one nonempty component> with no slash, dot or dot-dot component.
+  HOME is not used to select the protected target. Any other topology is
+  metadata_uncertain before observation.
+- Let kind = st_mode & S_IFMT and perms = st_mode & 07777. lstat("/") must
+  report kind S_IFDIR, uid 0, (perms & 0555) == 0555 and
+  (perms & 0022) == 0 and (perms & 07000) == 0. The subsequently opened root
+  fd must fstat to the same dev, inode, kind, uid, gid, perms and nlink tuple.
+- Every later component is obtained with
+  fstatat(parent_fd, component, ..., AT_SYMLINK_NOFOLLOW). An existing
+  directory is then opened with O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC and
+  fstat must match that pre-open dev, inode, kind, uid, gid, perms and nlink
+  tuple before traversal continues.
+- The system ancestor Users must have kind S_IFDIR, uid 0,
+  (perms & 0555) == 0555, (perms & 0022) == 0 and
+  (perms & 07000) == 0. The user-home component must have kind S_IFDIR,
+  uid geteuid(), (perms & 0700) == 0700, (perms & 0022) == 0 and
+  (perms & 07000) == 0.
+- The user-owned Library, Application Support and HoldType components, and the
+  TranscriptionRecovery recovery directory when present, must each have kind
+  S_IFDIR, uid geteuid(), (perms & 0700) == 0700,
+  (perms & 0022) == 0 and (perms & 07000) == 0.
+- The fixed Recovery.json index target, when present, must be observed only by
+  fstatat(..., AT_SYMLINK_NOFOLLOW) and must have kind S_IFREG,
+  uid geteuid(), nlink == 1, (perms & 0600) == 0600 and
+  (perms & 0022) == 0 and (perms & 07111) == 0. It is never opened.
+- Missing /, Users or the user home is metadata_uncertain. ENOENT at Library,
+  Application Support, HoldType or TranscriptionRecovery deterministically
+  makes both targets missing for that observation; ENOENT only at Recovery.json
+  makes the directory present and the index missing. The same missing state at
+  compare is missing_unchanged; appearance or disappearance is changed.
+- S_IFLNK, a nonmatching kind/uid/mode/nlink predicate, pre-open/post-open
+  identity mismatch, ELOOP, ENOTDIR or any errno other than the permitted
+  ENOENT is metadata_uncertain. No directory enumeration, target-content open,
+  read, parse, hash or mutation is allowed. gid is retained only in the
+  ephemeral identity tuple and is not an ownership acceptance predicate.
+- Ephemeral raw tuples remain limited to the R1 fields and are zeroed after
+  comparison. Durable output remains only phase plus unchanged, changed,
+  missing_unchanged or uncertain; it contains no component or target name.
+
+controller_state_machine_repair:
+- S0 validates arguments and pins the single controller's own identity; no
+  helper, build, test or app process exists.
+- S1's first child/process action is to start one direct-child caffeinate guard
+  and prove its recorded PID, start identity, exact command and PPID equal the
+  controller. This occurs before private-helper compilation and before every
+  other helper, build, test or app process. Failure stops without replacement.
+- S2 creates and identity-pins the private root, task HOME, TMPDIR,
+  DerivedData, logs and bin, then compiles the probe under the already proven
+  guard. S3 through S8 retain the R1 census, baseline, build-compare-stop,
+  conditional hosted-test-compare, evidence, scrub, exact cleanup and guard
+  stop/reap order and all R1 deadlines. The guard is revalidated at every R1
+  checkpoint and is never replaced.
+
+deterministic_stop_and_classification_rule:
+- The first applicable row below wins and yields exactly one terminal class.
+  A metadata change always suppresses packet success. An auxiliary observer
+  defect may be recorded in residuals but never creates a second terminal
+  class.
+- Before hosted execution: pre-existing product process ->
+  environment_conflict; controller/guard discontinuity ->
+  guard_discontinuity; build failure/timeout/signal -> build_failed;
+  metadata/root uncertainty -> metadata_uncertain; first build-window change
+  -> build_window_change_correlated. No hosted test follows any of these.
+- Hosted compare uncertain -> metadata_uncertain.
+- Hosted compare changed and the stream is valid, has at least one completed
+  succeeded mutation pair, and every mutation pair ends succeeded with
+  target_scope outside_private_task_home ->
+  run_owned_canonical_recovery_write_correlated.
+- Hosted compare changed in every other stream condition, including invalid
+  schema, no succeeded outside-private pair, any private/indeterminate scope,
+  any failed mutation, or mixed scopes/results -> still_unknown.
+- Hosted compare unchanged or missing_unchanged with an invalid stream ->
+  observer_invalid.
+- Hosted compare unchanged or missing_unchanged with a valid succeeded
+  outside_private_task_home or indeterminate mutation pair ->
+  evidence_conflict.
+- Hosted compare unchanged or missing_unchanged with any other valid mutation
+  pair, including private_task_home success or a failed attempt ->
+  hosted_test_failed.
+- Hosted compare unchanged or missing_unchanged with a valid owner_initialized
+  event and no mutation pair -> owner_exposed_no_mutation.
+- Hosted compare unchanged or missing_unchanged with only the required valid
+  observer_ready event and no owner/mutation event -> pass_unchanged.
+- A hosted test command failure with otherwise unchanged metadata is
+  hosted_test_failed. Cleanup uncertainty overrides any pending non-change
+  success as cleanup_uncertain. Concurrent non-run-owned process uncertainty
+  before a protected change is environment_conflict; after a protected change
+  it is still_unknown. No branch uses the rejected phrase "still_unknown or
+  evidence_conflict".
+
+future_runtime_evidence_envelope: A later separately authorized runtime may
+write exactly these eight files and no others under
+docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01/:
+1. summary.md
+2. source-feasibility.md
+3. environment.json
+4. matrix.csv
+5. measurements.csv
+6. artifacts.csv
+7. residuals.md
+8. events/storage-observer-r01.jsonl
+The source-feasibility file records only implementation/provenance identities,
+closed route/schema versions and pass/fail checks. Repository-relative
+implementation paths may be named; no private/protected/volume path, protected
+tuple, process identity, raw environment value or user content may appear.
+
+verification_matrix:
+- Observer unit tests exhaustively assert the six marker wire strings, all five
+  deletion cases/caller mappings and rejection of unknown serialization.
+- Probe fixture tests under a private synthetic tree cover each system/user/
+  recovery/index predicate, missing ancestors and index, symlinks, wrong type,
+  wrong uid, each prohibited mode bit, index nlink != 1, errno closure and
+  pre-open/post-open replacement; they assert zero enumeration and zero target
+  open/read/hash/parse.
+- Controller tests assert the guard is the first child and is proven before
+  compilation, every guard checkpoint is continuous, no replacement occurs,
+  and each ordered classifier row produces exactly one terminal class with
+  success suppressed on first change or uncertainty.
+- Evidence tests assert the exact eight-path allowlist, closed schemas,
+  redaction, maximum line/stream bounds and absence of protected names/tuples.
+- Existing R1 Release isolation, absent/empty/malformed/duplicate/conflicting
+  route, private-HOME/identical-pinned-DerivedData, phase, timeout, census and
+  cleanup checks remain mandatory. Implementation review precedes any runtime.
+
+scope_check: Edited only docs/dev-vlogs-execution-registry.md. No spec,
+product/source/test/script/QA evidence implementation, build, test, process,
+live HOME, protected path, external volume, Keychain/TCC, media or runtime
+action occurred. Accepted storage mechanics and protected owners are unchanged.
+
+deviations: none
+residual: This is design authority only. Independent Review-R2 must accept it
+before implementation. Implementation still does not authorize runtime. A
+later runtime needs explicit authority for one nonexternal controller
+invocation and the exact R1 metadata-only/process/private-root operations;
+arbitrary writers can still terminate as still_unknown without attribution.
+next_dependency: DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2
 runtime_or_visual_handoff: none
 ```
