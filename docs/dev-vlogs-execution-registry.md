@@ -165,9 +165,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-UI-E02-REVIEW` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-E02` receipt | read-only exact authority/source/platform/envelope review | accepted_with_residual | receipt below | Corrected seven-path W01 envelope accepted; no AppKit, project, plist, entitlement, script, or product path. |
 | `DV-P0B-UI-W01` | `/root/dv_p0b_ui_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-E02-REVIEW` | exact Debug preview route/session/view; two focused tests; one W01 summary | accepted_with_residual | `085fa26`; receipt below | Fake/build implementation accepted; real preview behavior remains. |
 | `DV-P0B-UI-W01-REVIEW` | `/root/dv_p0b_ui_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-W01@085fa26` | read-only exact seven-path commit and current artifact evidence | accepted_with_residual | receipt below | No blocker; one controlled Camera/Computer Use runtime is dependency-ready. |
-| `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | review | `771b309`; receipt below | Exact selection and UI Start passed; app-scoped Camera remained notDetermined, so live frames/Stop/reacquisition await independent review as unavailable evidence. |
-| `DV-P0B-UI` | unassigned reviewer | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-R01` | read-only exact runtime evidence | queued | — | Review R01 evidence; Phase 0B only, not product UI acceptance. |
-| `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
+| `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | accepted_with_residual | `771b309`; receipt below | Terminal not_available: exact selection/Start passed, but app-scoped Camera was notDetermined and live preview evidence remains unavailable. |
+| `DV-P0B-UI` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-R01@771b309` | read-only exact runtime evidence | accepted_with_residual | receipt below | E05 may close as terminal not_available; no blind retry or live-preview pass claim. |
+| `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-4@2f3266a` | all dependency-ready P0B packets and explicit terminal residuals | read-only | queued | — | Reconcile current-epoch evidence, residuals, and protected-domain impact after remaining gates are dispositioned. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -313,8 +313,9 @@ new HoldType preset or control; HoldType simply does not downsample it.
   camera, and exercised Start through Computer Use. The app reported its own
   Camera status as notDetermined and correctly made no permission request,
   capture, media, or retry; live frames, Stop, mirroring, release, and
-  reacquisition remain unavailable. Exact cleanup completed and the evidence
-  is awaiting independent review.
+  reacquisition remain unavailable. Exact cleanup completed. Independent
+  review accepted E05 as terminal not_available with an environment/signing
+  residual; no blind retry or live-preview pass claim is authorized.
 - Direct publication is outside the goal and must never be dispatched.
 
 ## Accepted Receipts
@@ -3046,6 +3047,55 @@ runtime_or_visual_handoff: Review only the committed redacted evidence; no
 further runtime is authorized by this packet.
 commit: 771b309b9feed0107af93957133fb62c624e39e6
 parent: 00e847594863a27bb641c85617f3e918b0fa0ba1
+```
+
+### `DV-P0B-UI-R01-REVIEW`
+
+```text
+packet_id: DV-P0B-UI-R01-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Commit 771b309 truthfully supports a terminal E05 result of
+not_available with an environment_or_signing_residual. It does not support an
+E05 pass or claims for live frames, mirroring, camera-indicator release, Stop,
+or reacquisition.
+specified_expectation: Isolated Debug-only SwiftUI preview; passive idle;
+explicit exact-device selection and Start/Stop; no permission request,
+fallback, product owner, or media; mirrored changing frames; release before
+Stopped; one reacquisition.
+observed_evidence: Exact eight-file evidence commit and current blobs agree on
+one selection, one Start request, and one typed authorizationRequired terminal.
+No frame, capture, Stop, retry, requestAccess, prompt, media, or screenshot
+event exists. Computer Use evidence supports idle state, Picker operation,
+Start, typed feedback, and bounded UI responsiveness only.
+source_provenance: All seven accepted W01 blobs match at the runtime parent.
+The source performs a status-only Camera authorization check and returns before
+graph creation on notDetermined; it contains no requestAccess and instantiates
+no normal product owners in the preview route. Debug purpose and entitlement
+presence do not themselves grant authorization.
+checks_run: Exact commit/parent/path/mode/current-blob audit; structured
+JSON/JSONL/CSV parsing and cross-check; minimum accepted W01/config provenance;
+redaction, media, screenshot, cleanup, current process, and temporary-root
+audits.
+redaction: No device unique ID, label, private path, PID, media, screenshot, or
+sensitive UI content is retained.
+cleanup: Evidence is coherent with exact identity-revalidated bounded TERM for
+the remaining run-owned app, preservation of the pre-existing HoldType, zero
+preview helpers or matching temporary roots, and no retained media. Aggregate
+counts are not upgraded into a byte-identical History claim.
+findings: No blocker. Shared-preferences size/digest changed during concurrent
+pre-existing HoldType activity; attribution remains ambiguous. The queued
+Phase 0B review must use DV-DRAFT-4 rather than the stale DV-DRAFT-3 label.
+scope_check: Read-only evidence and minimum provenance review; no edit, build,
+test, runtime, Camera/TCC, Computer Use, media, or cleanup mutation.
+residual: DV-EU-5 remains unresolved at runtime. Structural SwiftUI feasibility
+is accepted; supported live preview behavior is not proven.
+next_dependency: Close E05 for Phase 0B bookkeeping as terminal not_available
+and carry the residual to a DV-DRAFT-4-pinned DV-P0B-REVIEW. No blind retry is
+authorized. A later live proof would first require a separately authorized
+same-signed-identity Camera permission/status action.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
