@@ -139,7 +139,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `68b9bc3` | read-only exact three-path repair commit | rejected | receipt below | Return exact three-path R4 repair to original owner before permission runtime. |
 | `DV-P0B-CAMERA-AUTH-W06-R4` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R3 review | permission script, LaunchServices tests, W01 summary only | rejected | `f989aa8`; receipt below | Full-pipeline timeout closed; exact-object deletion remains unproven. |
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `f989aa8` | read-only exact three-path repair commit | rejected | receipt below | Pathname deletion still follows final validation; do not dispatch runtime. |
-| `DV-P0B-CAMERA-AUTH-E07` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | rejected W06 R4 review | read-only Darwin cleanup API and current script/test evidence | running | — | Determine whether exact inode deletion is possible or define the narrowest truthful fail-closed cleanup. |
+| `DV-P0B-CAMERA-AUTH-E07` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | rejected W06 R4 review | read-only Darwin cleanup API and current script/test evidence | blocked | receipt below | Darwin has no supported exact-fd unlink/rmdir; protocol authority is required before a fail-closed retained-root lane. |
+| `DV-P0B-CAMERA-AUTH-CLEANUP-DECISION` | user decision | `DV-DRAFT-4@2f3266a`; Phase 0B E08 | blocked E07 | no writable scope | pending | — | Choose a narrow permission-only retained-root residual or a privileged/different-UID cleanup boundary. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -241,8 +242,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   inside the hard timeout group and adds exclusive quarantine plus identity
   revalidation at destructive boundaries, but repeat review found every final
   unlink/rmdir still consumes a mutable pathname after validation. Read-only
-  Darwin cleanup API exploration is running before another repair; capture
-  remains blocked. The
+  Darwin cleanup API exploration proved macOS exposes no supported exact-fd
+  delete for files or directories. A narrow protocol-authority decision is
+  required before a fail-closed retained-root permission lane; capture remains
+  blocked. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2437,6 +2440,51 @@ remains separately authorized runtime evidence.
 next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW-R4
 runtime_or_visual_handoff: none
 commit: f989aa857be7505972b05d1077da32245c9428da
+```
+
+### `DV-P0B-CAMERA-AUTH-E07`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-E07
+status: done
+verdict: blocked
+
+outcome: macOS 14+ has no supported API that atomically deletes the exact
+regular-file or directory inode represented by an already-open descriptor.
+The R4 validation-to-mutable-pathname-delete race cannot be eliminated inside
+the existing same-UID, script-only boundary.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; R3/R4 reviews; installed
+macOS 26.5 SDK headers/manpages and Apple XNU/Libc primary sources.
+changed_paths: none
+api_evidence: unlinkat always accepts fd plus path; Darwin exposes no
+AT_EMPTY_PATH equivalent. removefileat is pathname-based and documents
+recursive races. renameatx_np atomically renames namespace entries but cannot
+conditionally delete against a proving fd. Advisory locks, mode 0700, random
+names, owner-clearable UF_IMMUTABLE, and open descriptors do not prevent a
+non-cooperating same-UID rename/unlink.
+controlled_probes: Empty-path unlinkat returned ENOENT/EINVAL for files and
+directories; an open directory could still be removed by parent/name;
+AT_NODELETEBUSY required closing the proving fd before delete; same-UID child
+ignored flock for namespace removal. Descriptor ftruncate neutralized only the
+exact opened inode while preserving a replacement, but is not deletion.
+cleanup_receipt: All exact marker-owned probe roots were removed; no probe
+process/root residue remained.
+platform_blocker: Darwin provides neither compare-and-unlink by device/inode
+nor supported pathless fd deletion for regular files or directories.
+narrowest_safe_alternative: Perform no pathname deletion after validation;
+retain the verified private run root and return status 70. Descriptor-bound
+ftruncate may neutralize only regular artifacts whose fd was pinned at
+creation. Current script does not pin every helper/app artifact and cannot
+claim complete neutralization or E08 closeout.
+scope_check: Read-only platform/evidence work; no source, spec, runtime, TCC,
+camera, microphone, media, UI, product, storage, iOS, Build, or publication.
+deviations: none
+residual: Real LaunchServices Camera authorization remains blocked behind
+cleanup semantics.
+next_dependency: User/protocol authority must choose a fail-closed retained-
+root residual for the permission-only evidence lane or a privileged/different-
+UID cleanup boundary. No further script-only exact-delete repair is supported.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
