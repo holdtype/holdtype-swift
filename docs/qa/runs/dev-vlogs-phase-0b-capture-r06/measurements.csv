@@ -1,2 +1,2 @@
 case_id,planned_duration_seconds,actual_duration_seconds,width_pixels,height_pixels,nominal_fps,average_fps,video_codec,audio_codec,preferred_transform_class,camera_video_samples,final_video_samples,camera_video_bytes,audio_bytes,final_bytes,bytes_per_second,finalization_ms,start_latency_ms,sync_offset_ms,drift_ms,cpu_mean_percent,cpu_p95_percent,cpu_peak_percent,memory_baseline_bytes,memory_peak_bytes,disposition,reason
-continuity-10s,10,,,,,,,,,,,,,,,,,,,,,,,,evidence_only,watcher_path_miss_and_raw_cleanup; no controlled sync marker
+continuity-10s,10,,,,,,,,,,,,,,,,,,,,,,,,evidence_only,collapsed_failure_terminal_omits_probe_metrics_and_video_evidence; watcher_separately_retained_no_raw_event_timing; no controlled sync marker

@@ -35,17 +35,26 @@ or direct TCC database operation occurred.
   audio track.
 - The accepted single dictation-audio owner was used once; the camera session
   remained video-only. No second microphone owner was introduced.
-- The `stored_sample_exact_v1` preservation comparator failed. The closed
+- The `stored_sample_exact_v1` preservation route returned failure. The closed
   terminal category was `video_preservation_failed`; no Ready clip was
   produced. This is a functional failure, not an evidence-only measurement.
 
-The redacted event watcher did not discover the run-owned event file before
-the accepted script removed its raw root. Consequently realized dimensions,
-cadence, codecs, transforms, sample counts, byte counts, timestamps, and
-timings were not recoverable. They are recorded as unavailable/evidence-only,
-not reconstructed from the transient media. The retained JSONL is normalized
-from the single invocation, the exact operator terminal, and accepted closed
-stage ordering; it is not a copy of the lost raw event stream.
+The current preservation failure route collapses every typed comparator,
+reader, or timeout mismatch to the generic `video_preservation_failed`
+category. Its failed terminal evidence also omits the preceding camera/final
+probe metrics and `videoEvidence`. Therefore the exact failed dimension and
+the realized dimensions, cadence, codecs, transforms, sample counts, byte
+counts, durations, and timestamps are permanently unavailable from R06 even
+if the watcher had succeeded. They remain unavailable/evidence-only and are
+not reconstructed from transient media.
+
+Separately, the redacted ad-hoc watcher did not retain the run-owned raw event
+stream before accepted cleanup. Raw event timing/path evidence is therefore
+also unavailable. The watcher itself was not retained, so the exact mechanism
+cannot be distinguished between a wrong nested-path glob and a race with
+cleanup. The retained JSONL is normalized from the single invocation, the
+exact operator terminal, and accepted closed stage ordering; it is not a copy
+of the lost raw event stream.
 
 ## Cleanup
 
@@ -74,10 +83,12 @@ was made.
 
 ## Residual
 
-Primary residual class: `debug-spike defect`. The hardware cell failed the
-exact encoded-video preservation comparator. The watcher loss is a second
-debug-spike evidence defect and prevents diagnosis of the realized sample
-mismatch from this run. Quantitative measurements remain
+Primary residual class: `debug-spike defect`. The hardware route returned the
+generic `video_preservation_failed` category; its collapsed failure evidence
+prevents identifying the exact failed dimension or attributing it to the
+comparator, finalizer, or platform. The separate watcher loss removed raw
+event timing/path evidence but is not the cause of the omitted probe metrics
+or preservation detail. Quantitative measurements remain
 `evidence_only`/unavailable, and marker-based sync or drift was not attempted.
 
-Next dependency: `DV-P0B-CAPTURE-R06-REVIEW`.
+Next dependency: `DV-P0B-CAPTURE-R06-REVIEW-R1`.
