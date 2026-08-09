@@ -4,22 +4,17 @@
 //
 //  Created by Codex on 7/7/26.
 //
-
 import Combine
 import Foundation
 import HoldTypeDomain
-
 @MainActor
 final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFailureRecoveryRecording {
     private typealias ArtifactFormat =
         TranscriptionFailureRecoveryArtifactFormat
-
     static let shared = TranscriptionFailureRecoveryStore()
     nonisolated static let defaultRetentionLimit =
         RetentionConfiguration.failedHistoryEntryLimit
-
     @Published private(set) var failedAttempts: [FailedTranscriptionAttempt] = []
-
     private let directoryURL: URL
     private let retentionLimit: Int
     private let fileManager: FileManager
@@ -27,7 +22,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
     private let uuidProvider: () -> UUID
     private var emergencyFallbackAttemptIDs: Set<UUID> = []
     private var pendingOwnedCheckpointFallbacks: [String: FailedTranscriptionAttempt] = [:]
-
     init(
         directoryURL: URL? = nil,
         retentionLimit: Int = TranscriptionFailureRecoveryStore.defaultRetentionLimit,
@@ -36,23 +30,20 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         uuidProvider: @escaping () -> UUID = UUID.init
     ) {
         self.fileManager = fileManager
-        self.directoryURL = directoryURL
-            ?? ArtifactFormat.defaultDirectoryURL(
-                fileManager: fileManager
-            )
+        self.directoryURL = directoryURL ?? ArtifactFormat.defaultDirectoryURL(fileManager: fileManager)
         self.retentionLimit = max(1, retentionLimit)
         self.now = now
         self.uuidProvider = uuidProvider
-        let restoration = Self.restoreAttempts(
-            from: self.directoryURL,
-            retentionLimit: self.retentionLimit,
-            fileManager: fileManager
-        )
+        #if DEBUG
+        DevVlogsPhase0BProtectedStorageObserver.shared.recordOwnerInitialization(
+            directoryURL: self.directoryURL)
+        #endif
+        let restoration = Self.restoreAttempts(from: self.directoryURL,
+            retentionLimit: self.retentionLimit, fileManager: fileManager)
         failedAttempts = restoration.attempts.map { attempt in
             guard attempt.state == .processing else {
                 return attempt
             }
-
             var interruptedAttempt = attempt
             interruptedAttempt.state = .failed
             interruptedAttempt.reason = .processingInterrupted
@@ -178,11 +169,9 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 .sorted { $0.updatedAt > $1.updatedAt }
             return pendingAttempt
         }
-
         guard (try? validateNonemptyAudio(at: audioFileURL)) != nil else {
             return nil
         }
-
         let attempt = FailedTranscriptionAttempt(
             id: uuidProvider(),
             createdAt: now(),
@@ -209,7 +198,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               let index = failedAttempts.firstIndex(where: { $0.id == id }) else {
             throw TranscriptionFailureRecoveryError.saveFailed
         }
-
         var existingAttempt = failedAttempts[index]
         if existingAttempt.state == .saved {
             guard existingAttempt.acceptedTranscriptText == normalizedText else {
@@ -231,7 +219,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               existingAttempt.state == .processing || existingAttempt.state == .failed else {
             throw TranscriptionFailureRecoveryError.attemptUnavailable
         }
-
         let wasEmergencyFallback = emergencyFallbackAttemptIDs.contains(id)
         if wasEmergencyFallback {
             do {
@@ -248,7 +235,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 throw error
             }
         }
-
         let preservesRawProviderTranscript =
             existingAttempt.reason == .postProcessingFailedAfterProviderAcceptance
             || (
@@ -270,7 +256,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         let repairMarkerWasWritten = updatedAttempt.map {
             (try? persistSavedStateRepairMarker($0)) != nil
         } ?? false
-
         // Persist first so observers never see a saved row that cannot survive
         // relaunch. The recovery audio remains untouched if this write fails.
         do {
@@ -309,7 +294,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               failedAttempts[index].state == .failed else {
             throw TranscriptionFailureRecoveryError.attemptUnavailable
         }
-
         switch failedAttempts[index].reason {
         case .recoveryOwnershipPersistenceFailed:
             let repairedAttempt = try copyEmergencyAttemptIntoRecovery(
@@ -337,7 +321,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             }
             failedAttempts = updatedAttempts
             emergencyFallbackAttemptIDs.remove(id)
-
         case .providerDispatchPersistenceFailed:
             var updatedAttempts = failedAttempts
             updatedAttempts[index].reason = .processingInterrupted
@@ -345,7 +328,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             updatedAttempts = updatedAttempts.sorted { $0.updatedAt > $1.updatedAt }
             try persist(updatedAttempts)
             failedAttempts = updatedAttempts
-
         default:
             throw TranscriptionFailureRecoveryError.attemptUnavailable
         }
@@ -367,7 +349,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               (try? validateNonemptyAudio(at: failedAttempts[index].audioFileURL)) != nil else {
             return
         }
-
         var failClosedAttempts = failedAttempts
         failClosedAttempts[index].reason = .savedStatePersistenceFailed
         failClosedAttempts[index].acceptedTranscriptText = normalizedText
@@ -384,7 +365,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               failedAttempts[index].acceptedTranscriptText != nil else {
             return
         }
-
         var failClosedAttempts = failedAttempts
         failClosedAttempts[index].state = .failed
         failClosedAttempts[index].reason = .savedStatePersistenceFailed
@@ -405,7 +385,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               failedAttempts[index].acceptedTranscriptText == nil else {
             return
         }
-
         var uncertainAttempts = failedAttempts
         uncertainAttempts[index].state = .failed
         uncertainAttempts[index].reason = .providerOutcomeUncertain
@@ -423,7 +402,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               !emergencyFallbackAttemptIDs.contains(id) else {
             throw TranscriptionFailureRecoveryError.attemptUnavailable
         }
-
         do {
             try persistProviderDispatchMarker(failedAttempts[index])
         } catch {
@@ -443,7 +421,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               !emergencyFallbackAttemptIDs.contains(id) else {
             throw TranscriptionFailureRecoveryError.attemptUnavailable
         }
-
         do {
             try persistProviderDispatchMarker(failedAttempts[index])
             var retryingAttempts = failedAttempts
@@ -529,7 +506,12 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         }
         if emergencyFallbackAttemptIDs.contains(id) {
             do {
+                #if DEBUG
+                try deleteExactRegularAudio(attempt.audioFileURL,
+                                            deletionKind: .failedAttemptEmergencyAudio)
+                #else
                 try deleteExactRegularAudio(attempt.audioFileURL)
+                #endif
             } catch {
                 throw TranscriptionFailureRecoveryError.deleteFailed
             }
@@ -559,55 +541,49 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         // of reconstructing the orphan as a fresh retry.
         try? deleteSavedStateRepairMarker(id: attempt.id)
         try? deleteProcessingCheckpointMarker(id: attempt.id)
-        try? deleteProviderDispatchMarker(
-            id: attempt.id,
-            afterRemovingAudioAt: attempt.audioFileURL
-        )
+        try? deleteProviderDispatchMarker(id: attempt.id,
+                                          afterRemovingAudioAt: attempt.audioFileURL)
         failedAttempts = retainedAttempts
         return true
     }
     private func validateNonemptyAudio(at fileURL: URL) throws {
-        guard ArtifactFormat.regularNonemptyFile(
-            at: fileURL,
-            fileManager: fileManager
-        ) != nil else {
+        guard ArtifactFormat.regularNonemptyFile(at: fileURL, fileManager: fileManager) != nil else {
             throw TranscriptionFailureRecoveryError.audioUnavailable
         }
     }
-    private func copyAudioForRecovery(
-        sourceURL: URL,
-        id: UUID,
-        createdAt: Date,
-        completionKind: TranscriptionRecoveryCompletionKind
-    ) throws -> URL {
+    private func copyAudioForRecovery(sourceURL: URL, id: UUID, createdAt: Date,
+                                      completionKind: TranscriptionRecoveryCompletionKind) throws -> URL {
         do {
-            try fileManager.createDirectory(
-                at: directoryURL,
-                withIntermediateDirectories: true
-            )
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .ensureRecoveryDirectory, category: .recoveryDirectory,
+                targetURL: directoryURL
+            ) { try fileManager.createDirectory(at: directoryURL,
+                                                withIntermediateDirectories: true) }
+            #else
+            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            #endif
         } catch {
             throw TranscriptionFailureRecoveryError.directoryUnavailable
         }
-
-        let destinationURL =
-            ArtifactFormat.recoveryAudioURL(
-                in: directoryURL,
-                sourceFileExtension: sourceURL.pathExtension,
-                id: id,
-                createdAt: createdAt,
-                completionKind: completionKind
-            )
-
+        let destinationURL = ArtifactFormat.recoveryAudioURL(
+            in: directoryURL, sourceFileExtension: sourceURL.pathExtension,
+            id: id, createdAt: createdAt, completionKind: completionKind)
         do {
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .copyRecoveryAudio, category: .recoveryAudio,
+                targetURL: destinationURL
+            ) { try fileManager.copyItem(at: sourceURL, to: destinationURL) }
+            #else
             try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            #endif
             return destinationURL
         } catch {
             throw TranscriptionFailureRecoveryError.saveFailed
         }
     }
-    private func copyEmergencyAttemptIntoRecovery(
-        _ attempt: FailedTranscriptionAttempt
-    ) throws -> FailedTranscriptionAttempt {
+    private func copyEmergencyAttemptIntoRecovery(_ attempt: FailedTranscriptionAttempt) throws -> FailedTranscriptionAttempt {
         let recoveryAudioURL = try copyAudioForRecovery(
             sourceURL: attempt.audioFileURL,
             id: attempt.id,
@@ -638,7 +614,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         )
         try persist(selection.retained)
         failedAttempts = selection.retained
-
         for attempt in selection.evicted {
             do {
                 try deleteRecoveryAudio(attempt.audioFileURL)
@@ -654,7 +629,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             }
         }
     }
-
     /// Count-based retention may reclaim only terminal saved recordings.
     /// Processing, failed, repair-pending, and outcome-uncertain attempts all
     /// remain unresolved and therefore stay visible until explicit deletion or
@@ -696,98 +670,137 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
     }
     private func persist(_ attempts: [FailedTranscriptionAttempt]) throws {
         do {
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .ensureRecoveryDirectory, category: .recoveryDirectory,
+                targetURL: directoryURL
+            ) { try fileManager.createDirectory(at: directoryURL,
+                                                withIntermediateDirectories: true) }
+            #else
             try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            #endif
             let records = attempts.map(PersistedRecoveryAttempt.init)
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .millisecondsSince1970
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .replaceRecoveryIndex, category: .recoveryIndex,
+                targetURL: ArtifactFormat.metadataURL(in: directoryURL)
+            ) { try encoder.encode(records).write(
+                to: ArtifactFormat.metadataURL(in: directoryURL), options: .atomic) }
+            #else
             try encoder.encode(records).write(
-                to: ArtifactFormat.metadataURL(
-                    in: directoryURL
-                ),
-                options: .atomic
-            )
+                to: ArtifactFormat.metadataURL(in: directoryURL), options: .atomic)
+            #endif
         } catch {
             throw TranscriptionFailureRecoveryError.saveFailed
         }
     }
-    private func persistSavedStateRepairMarker(
-        _ attempt: FailedTranscriptionAttempt
-    ) throws {
+    private func persistSavedStateRepairMarker(_ attempt: FailedTranscriptionAttempt) throws {
         guard attempt.audioFileURL.standardizedFileURL.deletingLastPathComponent()
                 == directoryURL.standardizedFileURL,
-              ArtifactFormat.recoveryFileIdentity(
-                  fileName: attempt.audioFileURL.lastPathComponent
-              ) == attempt.id,
+              ArtifactFormat.recoveryFileIdentity(fileName: attempt.audioFileURL.lastPathComponent)
+                == attempt.id,
               attempt.acceptedTranscriptText != nil else {
             throw TranscriptionFailureRecoveryError.saveFailed
         }
-
         do {
-            try fileManager.createDirectory(
-                at: directoryURL,
-                withIntermediateDirectories: true
-            )
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .ensureRecoveryDirectory, category: .recoveryDirectory,
+                targetURL: directoryURL
+            ) { try fileManager.createDirectory(at: directoryURL,
+                                                withIntermediateDirectories: true) }
+            #else
+            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            #endif
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .millisecondsSince1970
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .writeSavedStateMarker, category: .recoveryMarker,
+                targetURL: ArtifactFormat.markerURL(.savedStateRepair,
+                                                     in: directoryURL, id: attempt.id)
+            ) { try encoder.encode(PersistedSavedStateRepairMarker(attempt)).write(
+                to: ArtifactFormat.markerURL(.savedStateRepair,
+                                             in: directoryURL, id: attempt.id), options: .atomic) }
+            #else
             try encoder.encode(PersistedSavedStateRepairMarker(attempt))
-                .write(
-                    to: ArtifactFormat.markerURL(.savedStateRepair, in: directoryURL, id: attempt.id),
-                    options: .atomic
-                )
+                .write(to: ArtifactFormat.markerURL(.savedStateRepair, in: directoryURL,
+                                                     id: attempt.id), options: .atomic)
+            #endif
         } catch {
             throw TranscriptionFailureRecoveryError.saveFailed
         }
     }
-    private func persistProcessingCheckpointMarker(
-        _ attempt: FailedTranscriptionAttempt
-    ) throws {
+    private func persistProcessingCheckpointMarker(_ attempt: FailedTranscriptionAttempt) throws {
         guard attempt.audioFileURL.standardizedFileURL.deletingLastPathComponent()
                 == directoryURL.standardizedFileURL,
-              ArtifactFormat.recoveryFileIdentity(
-                  fileName: attempt.audioFileURL.lastPathComponent
-              ) == attempt.id else {
+              ArtifactFormat.recoveryFileIdentity(fileName: attempt.audioFileURL.lastPathComponent)
+                == attempt.id else {
             throw TranscriptionFailureRecoveryError.saveFailed
         }
-
         do {
-            try fileManager.createDirectory(
-                at: directoryURL,
-                withIntermediateDirectories: true
-            )
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .ensureRecoveryDirectory, category: .recoveryDirectory,
+                targetURL: directoryURL
+            ) { try fileManager.createDirectory(at: directoryURL,
+                                                withIntermediateDirectories: true) }
+            #else
+            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            #endif
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .millisecondsSince1970
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .writeProcessingCheckpointMarker, category: .recoveryMarker,
+                targetURL: ArtifactFormat.markerURL(.processingCheckpoint,
+                                                     in: directoryURL, id: attempt.id)
+            ) { try encoder.encode(PersistedProcessingCheckpointMarker(attempt)).write(
+                to: ArtifactFormat.markerURL(.processingCheckpoint,
+                                             in: directoryURL, id: attempt.id), options: .atomic) }
+            #else
             try encoder.encode(PersistedProcessingCheckpointMarker(attempt))
-                .write(
-                    to: ArtifactFormat.markerURL(.processingCheckpoint, in: directoryURL, id: attempt.id),
-                    options: .atomic
-                )
+                .write(to: ArtifactFormat.markerURL(.processingCheckpoint, in: directoryURL,
+                                                     id: attempt.id), options: .atomic)
+            #endif
         } catch {
             throw TranscriptionFailureRecoveryError.saveFailed
         }
     }
-    private func persistProviderDispatchMarker(
-        _ attempt: FailedTranscriptionAttempt
-    ) throws {
+    private func persistProviderDispatchMarker(_ attempt: FailedTranscriptionAttempt) throws {
         guard attempt.audioFileURL.standardizedFileURL.deletingLastPathComponent()
                 == directoryURL.standardizedFileURL,
-              ArtifactFormat.recoveryFileIdentity(
-                  fileName: attempt.audioFileURL.lastPathComponent
-              ) == attempt.id else {
+              ArtifactFormat.recoveryFileIdentity(fileName: attempt.audioFileURL.lastPathComponent)
+                == attempt.id else {
             throw TranscriptionFailureRecoveryError.saveFailed
         }
-
         do {
-            try fileManager.createDirectory(
-                at: directoryURL,
-                withIntermediateDirectories: true
-            )
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .ensureRecoveryDirectory, category: .recoveryDirectory,
+                targetURL: directoryURL
+            ) { try fileManager.createDirectory(at: directoryURL,
+                                                withIntermediateDirectories: true) }
+            #else
+            try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            #endif
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .millisecondsSince1970
+            #if DEBUG
+            try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+                action: .writeProviderDispatchMarker, category: .recoveryMarker,
+                targetURL: ArtifactFormat.markerURL(.providerDispatch,
+                                                     in: directoryURL, id: attempt.id)
+            ) { try encoder.encode(PersistedProcessingCheckpointMarker(attempt)).write(
+                to: ArtifactFormat.markerURL(.providerDispatch,
+                                             in: directoryURL, id: attempt.id), options: .atomic) }
+            #else
             try encoder.encode(PersistedProcessingCheckpointMarker(attempt))
-                .write(
-                    to: ArtifactFormat.markerURL(.providerDispatch, in: directoryURL, id: attempt.id),
-                    options: .atomic
-                )
+                .write(to: ArtifactFormat.markerURL(.providerDispatch, in: directoryURL,
+                                                     id: attempt.id), options: .atomic)
+            #endif
         } catch {
             throw TranscriptionFailureRecoveryError.saveFailed
         }
@@ -803,30 +816,34 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               ArtifactFormat.markerIdentity(.savedStateRepair, fileName: markerURL.lastPathComponent) != nil else {
             throw TranscriptionFailureRecoveryError.deleteFailed
         }
+        #if DEBUG
+        try deleteExactRegularAudio(markerURL, deletionKind: .savedStateRepairMarker)
+        #else
         try deleteExactRegularAudio(markerURL)
+        #endif
     }
-
     private func deleteProcessingCheckpointMarker(id: UUID) throws {
         try deleteProcessingCheckpointMarker(
             ArtifactFormat.markerURL(.processingCheckpoint, in: directoryURL, id: id)
         )
     }
-
     private func deleteProcessingCheckpointMarker(_ markerURL: URL) throws {
         guard markerURL.standardizedFileURL.deletingLastPathComponent()
                 == directoryURL.standardizedFileURL,
               ArtifactFormat.markerIdentity(.processingCheckpoint, fileName: markerURL.lastPathComponent) != nil else {
             throw TranscriptionFailureRecoveryError.deleteFailed
         }
+        #if DEBUG
+        try deleteExactRegularAudio(markerURL, deletionKind: .processingCheckpointMarker)
+        #else
         try deleteExactRegularAudio(markerURL)
+        #endif
     }
-
     private func deleteProviderDispatchMarker(id: UUID) throws {
         try deleteProviderDispatchMarker(
             ArtifactFormat.markerURL(.providerDispatch, in: directoryURL, id: id)
         )
     }
-
     private func deleteProviderDispatchMarker(
         id: UUID,
         afterRemovingAudioAt audioFileURL: URL
@@ -841,7 +858,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               ).contains(where: { $0.id == id }) else {
             return
         }
-
         let markerURL = ArtifactFormat.markerURL(.providerDispatch, in: directoryURL, id: id)
         guard ArtifactFormat.regularNonemptyFile(
             at: markerURL,
@@ -860,19 +876,20 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               marker.audioFileName == audioFileURL.lastPathComponent else {
             return
         }
-
         try deleteProviderDispatchMarker(markerURL)
     }
-
     private func deleteProviderDispatchMarker(_ markerURL: URL) throws {
         guard markerURL.standardizedFileURL.deletingLastPathComponent()
                 == directoryURL.standardizedFileURL,
               ArtifactFormat.markerIdentity(.providerDispatch, fileName: markerURL.lastPathComponent) != nil else {
             throw TranscriptionFailureRecoveryError.deleteFailed
         }
+        #if DEBUG
+        try deleteExactRegularAudio(markerURL, deletionKind: .providerDispatchMarker)
+        #else
         try deleteExactRegularAudio(markerURL)
+        #endif
     }
-
     private func deleteRecoveryAudio(_ fileURL: URL) throws {
         guard fileURL.standardizedFileURL.deletingLastPathComponent() == directoryURL.standardizedFileURL,
               ArtifactFormat.recoveryFileIdentity(
@@ -880,29 +897,44 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               ) != nil else {
             throw TranscriptionFailureRecoveryError.deleteFailed
         }
-
+        #if DEBUG
+        try deleteExactRegularAudio(fileURL, deletionKind: .managedRecoveryAudio)
+        #else
         try deleteExactRegularAudio(fileURL)
+        #endif
     }
-
+    #if DEBUG
+    private func deleteExactRegularAudio(
+        _ fileURL: URL,
+        deletionKind: RecoveryArtifactDeletionKind
+    ) throws {
+        let observation = deletionKind.observation
+        try DevVlogsPhase0BProtectedStorageObserver.shared.observeMutation(
+            action: observation.action, category: observation.category,
+            targetURL: fileURL
+        ) { try deleteExactRegularAudioCanonical(fileURL) }
+    }
+    #else
     private func deleteExactRegularAudio(_ fileURL: URL) throws {
+        try deleteExactRegularAudioCanonical(fileURL)
+    }
+    #endif
+    private func deleteExactRegularAudioCanonical(_ fileURL: URL) throws {
         guard fileManager.fileExists(atPath: fileURL.path) else {
             return
         }
-
         guard ArtifactFormat.regularFile(
             at: fileURL,
             fileManager: fileManager
         ) != nil else {
             throw TranscriptionFailureRecoveryError.deleteFailed
         }
-
         do {
             try fileManager.removeItem(at: fileURL)
         } catch {
             throw TranscriptionFailureRecoveryError.deleteFailed
         }
     }
-
     private static func restoreAttempts(
         from directoryURL: URL,
         retentionLimit: Int,
@@ -916,7 +948,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             try? decoder.decode([PersistedRecoveryAttempt].self, from: $0)
         }
         let records = decodedRecords ?? []
-
         let ownedAudioFiles = ownedRecoveryAudioFiles(
             in: directoryURL,
             fileManager: fileManager
@@ -976,7 +1007,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             || !repairMarkers.isEmpty
             || !checkpointMarkers.isEmpty
             || !dispatchMarkers.isEmpty
-
         let restoredRecords = records.compactMap { record -> FailedTranscriptionAttempt? in
             guard record.audioFileName == URL(fileURLWithPath: record.audioFileName).lastPathComponent,
                   let ownedAudio = ownedAudioByName[record.audioFileName],
@@ -985,7 +1015,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 requiresPersistence = true
                 return nil
             }
-
             let restoredAttempt = record.attempt(audioFileURL: ownedAudio.url)
             guard restoredAttempt.state != .saved else {
                 return restoredAttempt
@@ -1004,13 +1033,11 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             }
             return restoredAttempt
         }
-
         let defaultSettings = AppSettings.defaults
         let reconstructedAttempts = ownedAudioFiles.compactMap { ownedAudio -> FailedTranscriptionAttempt? in
             guard !referencedAudioFileNames.contains(ownedAudio.url.lastPathComponent) else {
                 return nil
             }
-
             requiresPersistence = true
             if let repairMarker = repairMarkerByID[ownedAudio.id] {
                 return repairMarker.marker.failedAttempt(
@@ -1040,7 +1067,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 reason: .processingInterrupted
             )
         }
-
         var retainedIDs = Set<UUID>()
         let newestUniqueAttempts = (restoredRecords + reconstructedAttempts)
             .sorted { lhs, rhs in lhs.updatedAt > rhs.updatedAt }
@@ -1053,16 +1079,13 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         if retainedAttempts.count != newestUniqueAttempts.count || records.count != restoredRecords.count {
             requiresPersistence = true
         }
-
         let retainedAudioFileNames = Set(retainedAttempts.map { $0.audioFileURL.lastPathComponent })
         let audioFilesOutsideRetention = ownedAudioFiles
             .map(\.url)
             .filter { !retainedAudioFileNames.contains($0.lastPathComponent) }
-
         if !metadataExists, !retainedAttempts.isEmpty {
             requiresPersistence = true
         }
-
         return RecoveryRestoration(
             attempts: retainedAttempts,
             audioFilesOutsideRetention: audioFilesOutsideRetention,
@@ -1071,7 +1094,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             requiresPersistence: requiresPersistence
         )
     }
-
     private static func ownedRecoveryAudioFiles(
         in directoryURL: URL,
         fileManager: FileManager
@@ -1090,7 +1112,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         ) else {
             return []
         }
-
         return fileURLs.compactMap { fileURL in
             guard let identity = ArtifactFormat.recoveryFileDescriptor(
                 fileName: fileURL.lastPathComponent
@@ -1101,7 +1122,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 ) else {
                 return nil
             }
-
             let createdAt = attributes.creationDate ?? attributes.contentModificationDate ?? .distantPast
             let updatedAt = attributes.contentModificationDate ?? createdAt
             return OwnedRecoveryAudioFile(
@@ -1113,7 +1133,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             )
         }
     }
-
     private static func savedStateRepairMarkers(
         in directoryURL: URL,
         fileManager: FileManager
@@ -1125,7 +1144,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         ) else {
             return []
         }
-
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
         return fileURLs.compactMap { markerURL in
@@ -1151,7 +1169,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             return OwnedSavedStateRepairMarker(url: markerURL, marker: marker)
         }
     }
-
     private static func processingCheckpointMarkers(
         in directoryURL: URL,
         fileManager: FileManager
@@ -1163,7 +1180,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         ) else {
             return []
         }
-
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
         return fileURLs.compactMap { markerURL in
@@ -1187,7 +1203,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             return OwnedProcessingCheckpointMarker(url: markerURL, marker: marker)
         }
     }
-
     private static func providerDispatchMarkers(
         in directoryURL: URL,
         fileManager: FileManager
@@ -1199,7 +1214,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         ) else {
             return []
         }
-
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
         return fileURLs.compactMap { markerURL in
@@ -1224,7 +1238,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         }
     }
 }
-
 private struct RecoveryRestoration {
     let attempts: [FailedTranscriptionAttempt]
     let audioFilesOutsideRetention: [URL]
@@ -1232,7 +1245,6 @@ private struct RecoveryRestoration {
     let checkpointMarkerURLsToDeleteAfterPersistence: [URL]
     let requiresPersistence: Bool
 }
-
 private struct OwnedRecoveryAudioFile {
     let id: UUID
     let url: URL
@@ -1240,17 +1252,14 @@ private struct OwnedRecoveryAudioFile {
     let updatedAt: Date
     let completionKind: TranscriptionRecoveryCompletionKind
 }
-
 private struct OwnedSavedStateRepairMarker {
     let url: URL
     let marker: PersistedSavedStateRepairMarker
 }
-
 private struct OwnedProcessingCheckpointMarker {
     let url: URL
     let marker: PersistedProcessingCheckpointMarker
 }
-
 private struct PersistedProcessingCheckpointMarker: Codable {
     let id: UUID
     let createdAt: Date
@@ -1260,7 +1269,6 @@ private struct PersistedProcessingCheckpointMarker: Codable {
     let transcriptionModel: String
     let languageCode: String?
     let completionKind: TranscriptionRecoveryCompletionKind
-
     init(_ attempt: FailedTranscriptionAttempt) {
         id = attempt.id
         createdAt = attempt.createdAt
@@ -1271,7 +1279,6 @@ private struct PersistedProcessingCheckpointMarker: Codable {
         languageCode = attempt.languageCode
         completionKind = attempt.completionKind
     }
-
     func attempt(audioFileURL: URL) -> FailedTranscriptionAttempt {
         return FailedTranscriptionAttempt(
             id: id,
@@ -1286,7 +1293,6 @@ private struct PersistedProcessingCheckpointMarker: Codable {
             reason: .other
         )
     }
-
     func uncertainAttempt(
         audioFileURL: URL,
         fallback: FailedTranscriptionAttempt?
@@ -1306,7 +1312,6 @@ private struct PersistedProcessingCheckpointMarker: Codable {
         )
     }
 }
-
 private struct PersistedSavedStateRepairMarker: Codable {
     let id: UUID
     let createdAt: Date
@@ -1318,7 +1323,6 @@ private struct PersistedSavedStateRepairMarker: Codable {
     let completionKind: TranscriptionRecoveryCompletionKind?
     let acceptedTranscriptText: String
     let reason: FailedTranscriptionReason?
-
     init(_ attempt: FailedTranscriptionAttempt) {
         id = attempt.id
         createdAt = attempt.createdAt
@@ -1337,7 +1341,6 @@ private struct PersistedSavedStateRepairMarker: Codable {
             )
             : attempt.reason
     }
-
     func failedAttempt(
         audioFileURL: URL,
         fallback: FailedTranscriptionAttempt?
@@ -1368,7 +1371,6 @@ private struct PersistedSavedStateRepairMarker: Codable {
         )
     }
 }
-
 private struct PersistedRecoveryAttempt: Codable {
     let id: UUID
     let createdAt: Date
@@ -1382,7 +1384,6 @@ private struct PersistedRecoveryAttempt: Codable {
     let reason: FailedTranscriptionReason
     let retryCount: Int
     let acceptedTranscriptText: String?
-
     init(_ attempt: FailedTranscriptionAttempt) {
         id = attempt.id
         createdAt = attempt.createdAt
@@ -1397,7 +1398,6 @@ private struct PersistedRecoveryAttempt: Codable {
         retryCount = attempt.retryCount
         acceptedTranscriptText = attempt.acceptedTranscriptText
     }
-
     func attempt(audioFileURL: URL) -> FailedTranscriptionAttempt {
         FailedTranscriptionAttempt(
             id: id,

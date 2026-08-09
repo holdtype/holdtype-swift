@@ -247,6 +247,63 @@ struct DevVlogsPhase0BStorageTestHostLaunchTests {
         }
     }
 
+    @Test func completeObserverConfigurationInstallsOnlyInsideTheInertHost() throws {
+        let environment = validObserverEnvironment()
+        var installed: DevVlogsPhase0BProtectedStorageObserverInstallConfiguration?
+        let result = DevVlogsPhase0BStorageTestHostConfiguration.resolve(
+            environment: environment,
+            rawEnvironment: rawEntries(environment),
+            installObserver: { installed = $0 }
+        )
+        #expect(try result.get() == .validated)
+        #expect(installed?.runID == runID)
+        #expect(installed?.taskHome.path == "/private/tmp/holdtype-observer-home")
+        #expect(DevVlogsPhase0BStorageTestHostConfiguration.shouldIsolate(
+            environment: environment))
+    }
+
+    @Test func partialMalformedDuplicateAndUnknownObserverInputsFailClosed() {
+        let valid = validObserverEnvironment()
+        for key in [
+            DevVlogsPhase0BProtectedStorageObserverConfiguration.modeEnvironmentKey,
+            DevVlogsPhase0BProtectedStorageObserverConfiguration.runIDEnvironmentKey,
+            DevVlogsPhase0BProtectedStorageObserverConfiguration.caseIDEnvironmentKey,
+            DevVlogsPhase0BProtectedStorageObserverConfiguration
+                .privateHomeValidationEnvironmentKey,
+            "HOME", "CFFIXED_USER_HOME", "TMPDIR",
+        ] {
+            var missing = valid
+            missing.removeValue(forKey: key)
+            assertObserverFailure(missing, expected: .duplicateOrMissingObserverValue)
+            var empty = valid
+            empty[key] = ""
+            assertObserverFailure(empty, expected: .invalidObserverConfiguration)
+        }
+        var malformed = valid
+        malformed[DevVlogsPhase0BProtectedStorageObserverConfiguration.modeEnvironmentKey] = "json"
+        assertObserverFailure(malformed, expected: .invalidObserverConfiguration)
+        var unknown = valid
+        unknown["HOLDTYPE_DEV_VLOGS_PHASE_0B_PROTECTED_STORAGE_OBSERVER_EXTRA"] = "1"
+        assertObserverFailure(unknown, expected: .unknownObserverValue)
+        var duplicateRaw = rawEntries(valid)
+        duplicateRaw.append(
+            "\(DevVlogsPhase0BProtectedStorageObserverConfiguration.modeEnvironmentKey)=stderr-json-v1"
+        )
+        #expect(DevVlogsPhase0BStorageTestHostConfiguration.resolve(
+            environment: valid, rawEnvironment: duplicateRaw, installObserver: { _ in })
+            == .failure(.duplicateOrMissingObserverValue))
+    }
+
+    @Test func observerConflictsWithEveryOtherDebugStorageRoute() {
+        let conflictKeys = DevVlogsPhase0BStorageTestHostConfiguration.runtimeEnvironmentKeys
+            + DevVlogsPhase0BStorageTestHostConfiguration.existingRouteEnvironmentKeys
+        for key in conflictKeys {
+            var environment = validObserverEnvironment()
+            environment[key] = "1"
+            assertObserverFailure(environment, expected: .conflictingRoute)
+        }
+    }
+
     private let runID = UUID(uuidString: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee")!
 
     private func validEnvironment(
@@ -270,6 +327,44 @@ struct DevVlogsPhase0BStorageTestHostLaunchTests {
             KeychainInteractionPolicy.authenticationUIEnvironmentKey:
                 KeychainInteractionPolicy.skipAuthenticationUIValue,
         ]
+    }
+
+    private func validObserverEnvironment() -> [String: String] {
+        let home = "/private/tmp/holdtype-observer-home"
+        return [
+            DevVlogsPhase0BStorageTestHostConfiguration.hostEnvironmentKey: "1",
+            DevVlogsPhase0BProtectedStorageObserverConfiguration.modeEnvironmentKey:
+                DevVlogsPhase0BProtectedStorageObserverConfiguration.modeValue,
+            DevVlogsPhase0BProtectedStorageObserverConfiguration.runIDEnvironmentKey:
+                runID.uuidString.lowercased(),
+            DevVlogsPhase0BProtectedStorageObserverConfiguration.caseIDEnvironmentKey:
+                DevVlogsPhase0BProtectedStorageObserverConfiguration.caseIDValue,
+            DevVlogsPhase0BProtectedStorageObserverConfiguration
+                .privateHomeValidationEnvironmentKey: "1",
+            KeychainInteractionPolicy.automationEnvironmentKey: "1",
+            KeychainInteractionPolicy.authenticationUIEnvironmentKey:
+                KeychainInteractionPolicy.skipAuthenticationUIValue,
+            "HOME": home,
+            "CFFIXED_USER_HOME": home,
+            "TMPDIR": home + "/tmp",
+        ]
+    }
+
+    private func rawEntries(_ environment: [String: String]) -> [String] {
+        environment.map { "\($0.key)=\($0.value)" }
+    }
+
+    private func assertObserverFailure(
+        _ environment: [String: String],
+        expected: DevVlogsPhase0BStorageTestHostLaunchError
+    ) {
+        #expect(DevVlogsPhase0BStorageTestHostConfiguration.shouldIsolate(
+            environment: environment))
+        #expect(DevVlogsPhase0BStorageTestHostConfiguration.resolve(
+            environment: environment,
+            rawEnvironment: rawEntries(environment),
+            installObserver: { _ in }
+        ) == .failure(expected))
     }
 
     private func assertIsolatedFailure(

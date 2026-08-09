@@ -14,12 +14,16 @@ enum DevVlogsPhase0BStorageTestHostLaunchError: Error, Equatable {
     case invalidFilesystemClass
     case invalidCaseID
     case invalidRunID
+    case duplicateOrMissingObserverValue
+    case invalidObserverConfiguration
+    case unknownObserverValue
 }
 
 enum DevVlogsPhase0BStorageTestHostValidation: Equatable {
     case validated
 }
 
+@MainActor
 enum DevVlogsPhase0BStorageTestHostConfiguration {
     static let hostEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST"
     static let runtimeEnableEnvironmentKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_ENABLE"
@@ -40,15 +44,55 @@ enum DevVlogsPhase0BStorageTestHostConfiguration {
         runIDEnvironmentKey,
     ]
 
+    static let existingRouteEnvironmentKeys = [
+        DevVlogsPhase0BConfiguration.enabledEnvironmentKey,
+        DevVlogsPhase0BConfiguration.runRootEnvironmentKey,
+        DevVlogsPhase0BConfiguration.cameraUniqueIDEnvironmentKey,
+        DevVlogsPhase0BConfiguration.durationEnvironmentKey,
+        DevVlogsPhase0BConfiguration.caseIDEnvironmentKey,
+        DevVlogsPhase0BConfiguration.eventLogEnvironmentKey,
+        DevVlogsPhase0BCameraAuthorizationConfiguration.enabledEnvironmentKey,
+        DevVlogsPhase0BCameraAuthorizationConfiguration.launchTokenEnvironmentKey,
+        DevVlogsPhase0BPreviewConfiguration.enabledEnvironmentKey,
+        DevVlogsPhase0BPreviewConfiguration.cameraIDEnvironmentKey,
+    ]
+
     static func shouldIsolate(environment: [String: String]) -> Bool {
         environment[hostEnvironmentKey] != nil
             || runtimeEnvironmentKeys.contains { environment[$0] != nil }
+            || DevVlogsPhase0BProtectedStorageObserverConfiguration.isPresent(
+                environment: environment
+            )
     }
 
     static func resolve(
         environment: [String: String]
     ) -> Result<DevVlogsPhase0BStorageTestHostValidation,
         DevVlogsPhase0BStorageTestHostLaunchError> {
+        resolve(
+            environment: environment,
+            rawEnvironment: nil,
+            installObserver: { DevVlogsPhase0BProtectedStorageObserver.shared.install($0) }
+        )
+    }
+
+    static func resolve(
+        environment: [String: String],
+        rawEnvironment: [String]?,
+        installObserver: (
+            DevVlogsPhase0BProtectedStorageObserverInstallConfiguration
+        ) -> Void
+    ) -> Result<DevVlogsPhase0BStorageTestHostValidation,
+        DevVlogsPhase0BStorageTestHostLaunchError> {
+        if DevVlogsPhase0BProtectedStorageObserverConfiguration.isPresent(
+            environment: environment
+        ) {
+            return DevVlogsPhase0BProtectedStorageObserverConfiguration.resolveAndInstall(
+                environment: environment,
+                rawEnvironment: rawEnvironment,
+                install: installObserver
+            )
+        }
         guard environment[hostEnvironmentKey] == "1" else {
             return .failure(.invalidHostEnablement)
         }
@@ -95,19 +139,7 @@ enum DevVlogsPhase0BStorageTestHostConfiguration {
     }
 
     private static func hasConflictingRoute(environment: [String: String]) -> Bool {
-        let keys = [
-            DevVlogsPhase0BConfiguration.enabledEnvironmentKey,
-            DevVlogsPhase0BConfiguration.runRootEnvironmentKey,
-            DevVlogsPhase0BConfiguration.cameraUniqueIDEnvironmentKey,
-            DevVlogsPhase0BConfiguration.durationEnvironmentKey,
-            DevVlogsPhase0BConfiguration.caseIDEnvironmentKey,
-            DevVlogsPhase0BConfiguration.eventLogEnvironmentKey,
-            DevVlogsPhase0BCameraAuthorizationConfiguration.enabledEnvironmentKey,
-            DevVlogsPhase0BCameraAuthorizationConfiguration.launchTokenEnvironmentKey,
-            DevVlogsPhase0BPreviewConfiguration.enabledEnvironmentKey,
-            DevVlogsPhase0BPreviewConfiguration.cameraIDEnvironmentKey,
-        ]
-        return keys.contains { environment[$0] != nil }
+        existingRouteEnvironmentKeys.contains { environment[$0] != nil }
     }
 
     private static func isValidVolumeRoot(_ value: String) -> Bool {
@@ -140,6 +172,7 @@ enum DevVlogsPhase0BStorageTestHostLaunch {
     }
 }
 
+@MainActor
 struct DevVlogsPhase0BStorageTestHostState: Equatable {
     let validation: Result<
         DevVlogsPhase0BStorageTestHostValidation,
@@ -147,18 +180,38 @@ struct DevVlogsPhase0BStorageTestHostState: Equatable {
     >
 
     init(environment: [String: String]) {
+        self.init(
+            environment: environment,
+            rawEnvironment: nil,
+            installObserver: { DevVlogsPhase0BProtectedStorageObserver.shared.install($0) }
+        )
+    }
+
+    init(
+        environment: [String: String],
+        rawEnvironment: [String]?,
+        installObserver: (
+            DevVlogsPhase0BProtectedStorageObserverInstallConfiguration
+        ) -> Void
+    ) {
         validation = DevVlogsPhase0BStorageTestHostConfiguration.resolve(
-            environment: environment
+            environment: environment,
+            rawEnvironment: rawEnvironment,
+            installObserver: installObserver
         )
     }
 }
 
+@MainActor
 struct DevVlogsPhase0BStorageTestHostApplication: App {
     let launchState: DevVlogsPhase0BStorageTestHostState
 
     init() {
         launchState = DevVlogsPhase0BStorageTestHostState(
-            environment: ProcessInfo.processInfo.environment
+            environment: ProcessInfo.processInfo.environment,
+            rawEnvironment: DevVlogsPhase0BProtectedStorageObserverConfiguration
+                .currentRawEnvironment(),
+            installObserver: { DevVlogsPhase0BProtectedStorageObserver.shared.install($0) }
         )
     }
 
