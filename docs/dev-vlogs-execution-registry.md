@@ -194,7 +194,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-R03-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R03@dc81960` | read-only exact seven-file runtime evidence and accepted wrapper provenance | accepted_with_residual | receipt below | Add one explicit task-owned DerivedData path shared by both Xcode phases. |
 | `DV-P0B-STORAGE-W05` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R03 evidence review | external-storage wrapper and canonical feasibility test only | rejected | `8a98f73`; receipt below | Shared DerivedData path works, but its identity is not pinned and the canonical fixture is non-green. |
 | `DV-P0B-STORAGE-W05-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05@8a98f73` | read-only exact two-path repair commit | rejected | receipt below | Pin DerivedData uid/mode/dev/inode and repair the canonical lifecycle fixture. |
-| `DV-P0B-STORAGE-W05-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W05 review | external-storage wrapper and canonical feasibility test only | running | — | Exact two-path identity-pin and fixture repair; no external runtime. |
+| `DV-P0B-STORAGE-W05-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W05 review | external-storage wrapper and canonical feasibility test only | review | `b172bfd`; receipt below | DerivedData identity pin and canonical fixture repair complete; independent review required. |
+| `DV-P0B-STORAGE-W05-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05-R1@b172bfd` | read-only exact two-path repair commit | running | — | Verify exact identity pin, replacement retention, serial suite, and protected isolation. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -368,9 +369,10 @@ other external root remain unauthorized.
   DerivedData repair `8a98f73` proved shared path routing and hosted
   confinement, but independent review rejected it because the directory
   identity was not pinned and the canonical lifecycle fixture passed only
-  18/19. W05-R1 is confined to pinning uid/mode/dev/inode before both Xcode
-  phases and repairing that fixture. Mechanics remain accepted; no external
-  runtime or restorative action is authorized.
+  18/19. W05-R1 `b172bfd` now pins uid/mode/dev/inode before both Xcode phases,
+  retains all implicated objects on replacement, and reports a clean 19/19
+  serial canonical suite. Independent review is running. Mechanics remain
+  accepted; no external runtime or restorative action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3661,6 +3663,44 @@ next_dependency: DV-P0B-STORAGE-W05-REVIEW
 runtime_or_visual_handoff: none
 commit: 8a98f7362a0c258f3fb653472bc338ac559de059
 parent: ecd17d6671a9bf79b682b641a9a2ab937be8745a
+```
+
+### `DV-P0B-STORAGE-W05-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W05-R1
+status: done
+
+outcome: DerivedData now has a creation-time uid/mode/device/inode pin. Both
+Xcode phases require exact identity equality, and task-HOME cleanup refuses
+deletion when the child identity is uncertain. Path and identity clear only
+after proven W04-R1 cleanup success.
+observed_evidence: Sanitized serial canonical feasibility passed 19/19 with
+clean terminal output. A real non-external same-path split launched the inert
+host and passed Foundation confinement. Accepted storage-host/launch regression
+passed 23/23.
+changed_paths: External-storage wrapper and canonical storage feasibility test
+only.
+identity_and_replacement_proof: A production-function fixture validates the
+original for build, replaces it with a valid-looking mode-0700 directory plus
+sibling, then proves test validation and cleanup both return 70. No bounded
+test command runs; original, replacement, sibling, task root, path, and identity
+survive; no test/cleanup success claim emits.
+checks_run: Structure/zsh/diff; help/default/invalid; production argv/env/order;
+real signed split build/test; canonical 19/19; accepted route 23/23; signed
+Debug; unsigned Release/settings/artifact isolation; protected function/blob,
+redaction, process, temp, root, and worktree audits.
+scope_check: Exact two-path master commit; no external volume metadata/I/O,
+live protected path, product/recovery/project/spec/registry, UI, TCC, Keychain,
+camera/audio/media, or restorative action; zero run-owned residue.
+deviations: Three empty pre-existing fixture roots from the rejected review
+were exact owner/mode/shape validated and removed with exact rmdir. The repaired
+serial fixture created no new residue.
+residual: Independent W05-R1 review only; no storage runtime before acceptance.
+next_dependency: DV-P0B-STORAGE-W05-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: b172bfd69de8e4313e523f39386ade28a2eda8aa
+parent: b2a421d390b98f76a345977e38bffa121269395d
 ```
 
 ## Rejected Receipts
