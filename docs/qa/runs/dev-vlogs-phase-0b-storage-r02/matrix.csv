@@ -1,0 +1,3 @@
+case_id,destination_class,filesystem_class,functional_result,metadata_preflight,build_for_testing,test_without_building,bookmark_after_rename,useful_capacity_positive,exclusive_promotion,collision_preservation,exact_destination_no_fallback,cleanup,wrapper_exit_status,packet_scope_result
+external_ssd_hfsplus,external_ssd_hfsplus,hfsplus,pass,pass,pass,pass,pass,pass,pass,pass,pass,complete,0,fail_protected_domain_dependency
+external_hdd_apfs,external_hdd_apfs,apfs,pass,pass,pass,pass,pass,pass,pass,pass,pass,complete,0,fail_protected_domain_dependency

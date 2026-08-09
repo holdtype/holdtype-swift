@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "packet_id": "DV-P0B-STORAGE-R02",
+  "captured_at_utc": "2026-08-09T15:55:19Z",
+  "product_commit": "e91b063efb918d39f7eca109aca84c75c9eb6011",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "host": {
+    "os": "macOS",
+    "os_version": "26.6",
+    "os_build": "25G72",
+    "architecture": "arm64",
+    "machine_model": "Mac16,11",
+    "xcode_version": "26.6",
+    "xcode_build": "17F113"
+  },
+  "accepted_provenance": {
+    "wrapper_reviewed_commit": "a50026aa53d93c0808ac84259f05759073434fdb",
+    "inert_host_commit": "89127ccfa211b29d588bc09525ad17cabd7ffba8",
+    "value_free_repair_commit": "7b1ba8deae6099ba7416751a894e0ca3ad1582fb",
+    "current_wrapper_git_blob": "872ed40f1b3fea5c78e1116962719af77eee5d09",
+    "current_router_git_blob": "7132e7e6d439f7ec9616d4b6252152d6cd76fd49",
+    "current_inert_host_git_blob": "104a17760bed084622b5665e1c253660ad590187",
+    "syntax_check": "pass",
+    "help_check": "pass"
+  },
+  "bounds_seconds": {
+    "build": 600,
+    "test": 180,
+    "outer": 840
+  },
+  "single_guard": {
+    "command": "caffeinate -dimsu",
+    "persistent_session": true,
+    "identity_continuous": true,
+    "liveness_checks": 9,
+    "replaced": false,
+    "stopped_and_reaped": true
+  },
+  "cells": [
+    {
+      "case_id": "external_ssd_hfsplus",
+      "destination_class": "external_ssd_hfsplus",
+      "filesystem_class": "hfsplus",
+      "metadata_preflight": "pass",
+      "wrapper_terminal_count": 1
+    },
+    {
+      "case_id": "external_hdd_apfs",
+      "destination_class": "external_hdd_apfs",
+      "filesystem_class": "apfs",
+      "metadata_preflight": "pass",
+      "wrapper_terminal_count": 1
+    }
+  ],
+  "protected_metadata": {
+    "count_and_path_set": "unchanged",
+    "type_mode_size": "unchanged_for_affected_objects",
+    "mtime_dev_inode": "changed",
+    "result": "changed",
+    "exact_private_delta_retained": false
+  },
+  "redaction": {
+    "mount_roots_retained": false,
+    "volume_labels_retained": false,
+    "volume_identifiers_retained": false,
+    "device_nodes_retained": false,
+    "scratch_identifiers_retained": false,
+    "process_identifiers_retained": false,
+    "protected_paths_or_filenames_retained": false,
+    "protected_inodes_or_mtimes_retained": false,
+    "user_paths_retained": false,
+    "private_signing_material_retained": false
+  }
+}

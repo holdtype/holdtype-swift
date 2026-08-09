@@ -1,0 +1,11 @@
+case_id,metric,value,unit,disposition
+external_ssd_hfsplus,wrapper_elapsed,24.290,seconds,evidence_only
+external_ssd_hfsplus,preflight_available_capacity,314221048,KiB,evidence_only
+external_ssd_hfsplus,controlled_fixture_size,26,bytes,evidence_only
+external_ssd_hfsplus,collision_existing_size,8,bytes,evidence_only
+external_ssd_hfsplus,collision_candidate_size,9,bytes,evidence_only
+external_hdd_apfs,wrapper_elapsed,4.885,seconds,evidence_only
+external_hdd_apfs,preflight_available_capacity,5704237124,KiB,evidence_only
+external_hdd_apfs,controlled_fixture_size,26,bytes,evidence_only
+external_hdd_apfs,collision_existing_size,8,bytes,evidence_only
+external_hdd_apfs,collision_candidate_size,9,bytes,evidence_only
