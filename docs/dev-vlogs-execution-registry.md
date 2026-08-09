@@ -192,8 +192,9 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W04-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04-R1@029f836` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final protected-scope runtime is dependency-ready. |
 | `DV-P0B-STORAGE-R03` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W04 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R03 QA root only | accepted_evidence / functional_fail | `dc81960`; receipt below | Truthful SSD host-launch fail; HDD stopped; protected scope remains not_proven. |
 | `DV-P0B-STORAGE-R03-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R03@dc81960` | read-only exact seven-file runtime evidence and accepted wrapper provenance | accepted_with_residual | receipt below | Add one explicit task-owned DerivedData path shared by both Xcode phases. |
-| `DV-P0B-STORAGE-W05` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R03 evidence review | external-storage wrapper and canonical feasibility test only | review | `8a98f73`; receipt below | Explicit shared DerivedData repair complete; independent review required. |
-| `DV-P0B-STORAGE-W05-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05@8a98f73` | read-only exact two-path repair commit | running | — | Verify real split host launch, confinement, cleanup, and protected isolation. |
+| `DV-P0B-STORAGE-W05` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R03 evidence review | external-storage wrapper and canonical feasibility test only | rejected | `8a98f73`; receipt below | Shared DerivedData path works, but its identity is not pinned and the canonical fixture is non-green. |
+| `DV-P0B-STORAGE-W05-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05@8a98f73` | read-only exact two-path repair commit | rejected | receipt below | Pin DerivedData uid/mode/dev/inode and repair the canonical lifecycle fixture. |
+| `DV-P0B-STORAGE-W05-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W05 review | external-storage wrapper and canonical feasibility test only | running | — | Exact two-path identity-pin and fixture repair; no external runtime. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -364,8 +365,12 @@ other external root remain unauthorized.
   sole SSD invocation: build-for-testing passed, but private HOME changed the
   default DerivedData lookup and the hosted test could not launch; HDD was not
   run. Evidence is accepted as a truthful functional fail. Two-path explicit
-  DerivedData repair `8a98f73` is complete and in independent review. Mechanics
-  remain accepted and no restorative action is authorized.
+  DerivedData repair `8a98f73` proved shared path routing and hosted
+  confinement, but independent review rejected it because the directory
+  identity was not pinned and the canonical lifecycle fixture passed only
+  18/19. W05-R1 is confined to pinning uid/mode/dev/inode before both Xcode
+  phases and repairing that fixture. Mechanics remain accepted; no external
+  runtime or restorative action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3659,6 +3664,42 @@ parent: ecd17d6671a9bf79b682b641a9a2ab937be8745a
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-STORAGE-W05-REVIEW` of `8a98f73`
+
+```text
+packet_id: DV-P0B-STORAGE-W05-REVIEW
+status: done
+verdict: reject
+
+outcome: The explicit shared DerivedData path and private-HOME hosted-test
+ordering are real, but DerivedData identity is not pinned. A same-looking
+replacement can make build and test consume different directory identities.
+The changed canonical feasibility suite is also non-green under sanitized
+serial execution.
+checks_run: Exact commit/parent/two-path/current-blob audit; structure, zsh,
+help/default/invalid, diff and redaction checks; sanitized unsigned split build
+and hosted confinement; serial canonical feasibility suite; task-root/process
+cleanup. No external or protected runtime.
+findings: Store uid/mode/dev/inode when DerivedData is created and require exact
+equality before both Xcode phases; clear the pin only with successful task-HOME
+cleanup. Add a valid-looking replacement fixture proving fail-closed retention
+of original/replacement/sibling. Repair teardown so the canonical suite emits
+no unexpected missing-DerivedData diagnostic and passes serially.
+protected_scope: W04-R1 cleanup, W02 supervision, W03 routing/value state,
+product/recovery, Recording Cache, History, project, plist, entitlement,
+Release, capture/auth/UI/media/iOS remain outside the delta and unchanged.
+scope_check: Read-only; no repository edit, external volume, live HOME,
+protected artifact, process signaling, app UI, TCC, Keychain, camera/audio/
+media, or restorative action.
+residual: No storage runtime until the two-path repair is independently
+accepted. Sanitized signed-build certificate visibility is an environment
+residual, not the rejection basis.
+next_dependency: DV-P0B-STORAGE-W05-R1, then independent re-review.
+runtime_or_visual_handoff: none
+reviewed_commit: 8a98f7362a0c258f3fb653472bc338ac559de059
+parent: ecd17d6671a9bf79b682b641a9a2ab937be8745a
+```
 
 ### `DV-P0B-STORAGE-W04-REVIEW` of `03fac5c`
 
