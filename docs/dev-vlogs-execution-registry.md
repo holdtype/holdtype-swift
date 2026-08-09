@@ -239,8 +239,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2@84aec4d` | read-only exact repair review | rejected | receipt below | Return exact three-path evidence-integrity R3; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R3` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R2 | controller, controller tests and W01 summary only | rejected | `a9cd237`; receipt below | Raw events close; partial artifacts can still retain success-looking claims. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R3@a9cd237` | read-only exact repair review | rejected | receipt below | Return failure-safe partial-evidence R4; reviewer deviation recorded separately. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R4` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R3 | controller, controller tests and W01 summary only | review | `079fc03`; receipt below | Failure-safe partial evidence implemented; independent review pending. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4@079fc03` | read-only exact repair review | running | — | Review must use production-configured private host from first launch. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R4` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R3 | controller, controller tests and W01 summary only | rejected | `079fc03`; receipt below | Failure-safe init passes; sequential rollback and replacement identity remain unsafe. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4@079fc03` | read-only exact repair review | rejected | receipt below | Return identity-bound atomic-commit R5; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R5` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R4 | controller, controller tests and W01 summary only | running | — | Replace in-place promotion/rollback with identity-bound all-or-failure-safe commit. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R5` terminal artifact | read-only exact repair review | queued | — | Review must remain private-hosted and no-runtime. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7372,5 +7374,56 @@ media action.
 deviations: none; no direct xcodebuild-host environment assumption was used.
 residual: Independent Review-R4 required; no runtime authority.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4
+status: rejected
+reviewed_commit: 079fc037003d5ca2d6aca495ad06e0b3ca0fb83b
+parent: 63e4f5dd8b62abe409e44dd8a1c9a74371e2f75e
+
+accepted_repairs: Exact three paths/current blobs/modes, seven frozen W01 blobs
+and external wrapper pass. Initial partial evidence is a complete closed
+failure-safe/uncommitted eight-file set. Mid-initial-write and ninth-file
+failures have no success markers. Validated-event retention, malformed
+sentinel exclusion, R2 routing/types/deadlines/classifier, cleanup ordering,
+redaction and Release isolation remain intact. Normal promotion produces the
+closed final eight files.
+
+blocking_findings:
+1. Failure-safe rollback rewrites eight files sequentially. A promotion or
+final-validation failure followed by rollback interruption leaves earlier
+promoted success files. Production repro failed promotion at measurements.csv
+and rollback at environment.json; terminal was evidence_write_failed while
+environment retained cleanup=complete and matrix retained
+pass_unchanged/complete.
+2. replace_evidence_file validates only current type/owner/mode/link count, not
+creation dev/inode, before truncation. A valid-looking replacement can be
+overwritten instead of producing retained uncertainty.
+3. Tests omit rollback-interruption, replacement and post-promotion final-
+schema-validation failures.
+
+smallest_repair: Replace in-place multi-file promotion/rollback with one
+identity-bound commit design that keeps the exact retained evidence tree
+failure-safe unless the complete success schema commits. Pin each directory
+and evidence file at creation by dev/inode and never truncate a replacement.
+Add production-function rollback-interruption/replacement/final-schema
+failure cases that enumerate every retained file. Preserve exact three paths
+and accepted R4/R3/R2 behavior.
+
+checks: Structure, zsh, strict C, CLI negatives, controller 11/11, production-
+configured private observer/router/hosted 19/19, signed Debug, unsigned Release
+isolation and residue/provenance passed. The private .xctestrun was injected
+and independently read back before first launch.
+scope_check: No live-HOME host, protected inspection, observer --execute,
+external volume, Camera/TCC/Keychain/provider/media action or edit.
+deviations: none.
+residual: Non-run-owned writers may remain still_unknown. Implementation and
+observer runtime remain blocked.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R5, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5.
 runtime_or_visual_handoff: none
 ```
