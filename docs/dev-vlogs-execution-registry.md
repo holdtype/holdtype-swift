@@ -208,8 +208,8 @@ other external root remain unauthorized.
 | `DV-P0B-UI-W01-REVIEW` | `/root/dv_p0b_ui_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-W01@085fa26` | read-only exact seven-path commit and current artifact evidence | accepted_with_residual | receipt below | No blocker; one controlled Camera/Computer Use runtime is dependency-ready. |
 | `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | accepted_with_residual | `771b309`; receipt below | Terminal not_available: exact selection/Start passed, but app-scoped Camera was notDetermined and live preview evidence remains unavailable. |
 | `DV-P0B-UI` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-R01@771b309` | read-only exact runtime evidence | accepted_with_residual | receipt below | E05 may close as terminal not_available; no blind retry or live-preview pass claim. |
-| `DV-P0B-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | terminal capture/media, UI, storage evidence and reviews | read-only | running | — | Reconcile current-epoch Phase 0B gates, residuals, protected-domain impact, and Phase 0C readiness. |
-| `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
+| `DV-P0B-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | terminal capture/media, UI, storage evidence and reviews | read-only | rejected_for_phase0c | receipt below | Phase 0B terminal evidence has functional/protected blockers; explicit user disposition required. |
+| `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
 | `DV-P2-CAPTURE` | unassigned | current Active epoch | accepted Phase 1 | assigned capture paths | queued | — | One-clip slice without dictation regression. |
@@ -387,6 +387,13 @@ other external root remain unauthorized.
   confinement but keeps packet protected scope failed with unknown cause and
   an exact guard-reap evidence residual. The storage runtime lane is terminal
   for Phase 0B; no equivalent rerun or restorative action is authorized.
+- Integrated `DV-P0B-REVIEW` rejects advancement to Phase 0C. E02 strict
+  preservation failed with zero Ready clips; E03/E08 protected storage scope
+  failed; E04 is incomplete; E05 is terminal not_available; E07 paired
+  dictation independence is not exercised; and E06 lacks the representative
+  quantitative dataset. Deterministic Debug seams remain accepted, but they do
+  not replace runtime gates. Explicit user disposition is required before any
+  new evidence cycle or contract-direction change.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3913,6 +3920,48 @@ parent: c54c798f1543f03cfcd0d0e87d7b6320a256a22e
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-REVIEW` at `d94dc78`
+
+```text
+packet_id: DV-P0B-REVIEW
+status: done
+verdict: reject_for_phase0c
+
+outcome: Phase 0B is terminal and truthfully documented, but it does not
+satisfy the current Draft's functional/protected gates. DV-ACTIVE-1 must not
+begin as though only permitted residuals remain.
+gate_matrix: E01 accepted_with_residual; E02 fail (strict stored-sample
+preservation); E03 fail (protected metadata changed); E04 fail/incomplete;
+E05 not_available; E06 accepted_with_residual with representative dataset
+absent; E07 not_exercised; E08 fail integrated closure.
+acceptance_matrix: CAMERA-1 accepted_with_residual; CAPTURE-1 fail; MEDIA-1
+fail; STORAGE-1 fail; UI-1 not_available; dictation independence not_exercised;
+integrated cleanup fail with component successes preserved.
+runtime_weighting: W02/W07-R3/storage mechanics-confinement/UI structure are
+strong deterministic Debug evidence. R06 remains a real preservation failure,
+R05 remains a protected-scope failure, UI R01 is not_available, and E07 was
+never behaviorally exercised. Diagnostic repairs do not retroactively change
+runtime results.
+blockers: Strict native-source preservation failed on the only available
+hardware attempt; protected storage metadata changed with unknown creator;
+paired dictation failure-independence is absent; hardware/interruption matrix
+is incomplete; integrated cleanup cannot claim protected closure.
+allowed_residuals: Built-in/USB unavailable; UI environment/signing
+not_available; honest unavailable interruption hardware; quantitative gaps
+without invented thresholds; narrow Debug same-UID limitation; pending
+DV-BUILD-6 remains separate.
+phase0c_readiness: blocked. Phase 0B may close only as terminal failed evidence
+pending explicit user disposition.
+exact_user_decision_required: Either authorize a new separately reviewed
+evidence cycle using W07-R3 diagnostics, paired E07 verification, and a
+read-only storage observer design before any causal runtime; or accept terminal
+infeasibility and explicitly revise/abandon the strict source/storage product
+direction. Do not dispatch DV-P0C-CONTRACT from current evidence.
+scope_check: Read-only receipt/spec reconciliation; protected adjacent domains
+and publication scope unchanged.
+runtime_or_visual_handoff: none
+```
 
 ### `DV-P0B-STORAGE-W05-REVIEW` of `8a98f73`
 
