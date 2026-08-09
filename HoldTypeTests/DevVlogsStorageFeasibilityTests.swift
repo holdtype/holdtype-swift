@@ -311,27 +311,37 @@ struct DevVlogsStorageFeasibilityTests {
         #expect(!payload.contains("volumeIdentifier"))
         #expect(!payload.contains("NSError"))
     }
-    @Test func externalRuntimeConfigurationRequiresCompleteClosedOptIn() throws {
-        #expect(try DevVlogsExternalStorageRuntimeConfiguration.load(environment: [:]) == nil)
-        let runID = UUID()
-        let valid = externalEnvironment(runID: runID)
-        let loaded = try DevVlogsExternalStorageRuntimeConfiguration.load(environment: valid); let configuration = try #require(loaded)
-        #expect(configuration.runID == runID)
-        #expect(configuration.caseID == "mechanics_case")
-        #expect(configuration.authorization.destinationClass == .externalSSD)
-        #expect(configuration.authorization.filesystemClass == .apfs)
-        for invalid in [
-            valid.merging([DevVlogsExternalStorageRuntimeConfiguration.enableKey: "yes"]) { _, new in new },
-            valid.filter { $0.key != DevVlogsExternalStorageRuntimeConfiguration.rootKey },
-            valid.merging([DevVlogsExternalStorageRuntimeConfiguration.destinationKey: "external"]) { _, new in new },
-            valid.merging([DevVlogsExternalStorageRuntimeConfiguration.filesystemKey: "unknown"]) { _, new in new },
-            valid.merging([DevVlogsExternalStorageRuntimeConfiguration.caseKey: "bad case"]) { _, new in new },
-            valid.merging([DevVlogsExternalStorageRuntimeConfiguration.runKey: runID.uuidString]) { _, new in new },
-            valid.merging([DevVlogsExternalStorageRuntimeConfiguration.rootKey: "/"]) { _, new in new },
-        ] {
-            #expect(throws: DevVlogsStorageHarnessError.invalidRuntimeConfiguration) {
-                _ = try DevVlogsExternalStorageRuntimeConfiguration.load(environment: invalid)
-            }
+    @Test func wrapperExecutesTheClosedEnvironmentOnTheActualTestPath() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let wrapperURL = repositoryRoot.appendingPathComponent("script/dev_vlogs_phase_0_b_external_storage.sh")
+        let wrapper = try String(contentsOf: wrapperURL, encoding: .utf8)
+        let start = try #require(wrapper.range(of: "run_external_storage_test() {")); let tail = wrapper[start.lowerBound...]
+        let end = try #require(tail.range(of: "\n}\n")); let function = tail[..<end.upperBound]
+        let shell = """
+        \(function)
+        run_bounded() { /usr/bin/printf '%s\\n' "$@"; }
+        test_timeout_seconds=180 volume_root=/Volumes/redacted-fixture
+        expected_class=external-ssd expected_filesystem=apfs case_id=mechanics_case
+        run_id=aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee
+        run_external_storage_test
+        """
+        let process = Process(); let output = Pipe(); process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-c", shell]; process.standardOutput = output; try process.run(); process.waitUntilExit()
+        let arguments = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        #expect(process.terminationStatus == 0)
+        for expected in ["HOLDTYPE_AUTOMATION=1", "HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip",
+            "HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST=1", "/usr/bin/xcodebuild", "test-without-building",
+            "-only-testing:HoldTypeTests/DevVlogsExternalStorageRuntimeTests"] { #expect(arguments.split(separator: "\n").contains(Substring(expected))) }
+        let rejectedRoot = "/Volumes/private-fixture-token"
+        let nonExecuteCases: [([String], Int32)] = [(["--help"], 0), ([], 64),
+            (["--execute-external", "--volume-root", rejectedRoot, "--destination-class", "invalid",
+              "--filesystem-class", "apfs", "--case-id", "mechanics_case", "--run-id",
+              "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"], 64)]
+        for (arguments, expectedStatus) in nonExecuteCases {
+            let check = Process(); let captured = Pipe(); check.executableURL = URL(fileURLWithPath: "/bin/zsh"); check.arguments = [wrapperURL.path] + arguments
+            check.standardOutput = captured; check.standardError = captured; try check.run(); check.waitUntilExit()
+            let text = String(decoding: captured.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self); #expect(check.terminationStatus == expectedStatus); #expect(!text.contains("HOLDTYPE_AUTOMATION"))
+            #expect(!text.contains("HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI") && !text.contains("HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST") && !text.contains(rejectedRoot))
         }
     }
     @Test func externalAuthorityEvidenceIsClosedAndFailClosedWithoutExternalIO() throws {
@@ -423,16 +433,6 @@ struct DevVlogsStorageFeasibilityTests {
             try? Data(root.runID.uuidString.lowercased().utf8).write(to: marker)
         } else { try? root.restoreMissingMarkerForInternalTestTeardown() }
         _ = try? root.cleanup()
-    }
-    private func externalEnvironment(runID: UUID) -> [String: String] {
-        [
-            DevVlogsExternalStorageRuntimeConfiguration.enableKey: "execute",
-            DevVlogsExternalStorageRuntimeConfiguration.rootKey: "/Volumes/redacted-fixture",
-            DevVlogsExternalStorageRuntimeConfiguration.destinationKey: "external-ssd",
-            DevVlogsExternalStorageRuntimeConfiguration.filesystemKey: "apfs",
-            DevVlogsExternalStorageRuntimeConfiguration.caseKey: "mechanics_case",
-            DevVlogsExternalStorageRuntimeConfiguration.runKey: runID.uuidString.lowercased(),
-        ]
     }
     private func unlinkSymbolicLinkIfPresent(at url: URL) {
         var metadata = stat()

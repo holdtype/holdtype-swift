@@ -415,20 +415,27 @@ run_bounded "$build_timeout_seconds" /usr/bin/xcodebuild \
     -destination 'platform=macOS' \
     build-for-testing
 
+run_external_storage_test() {
+    run_bounded "$test_timeout_seconds" /usr/bin/env \
+        HOLDTYPE_AUTOMATION=1 \
+        HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip \
+        HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST=1 \
+        HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_ENABLE=execute \
+        HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_VOLUME_ROOT="$volume_root" \
+        HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_DESTINATION_CLASS="$expected_class" \
+        HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_FILESYSTEM_CLASS="$expected_filesystem" \
+        HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_CASE_ID="$case_id" \
+        HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_RUN_ID="$run_id" \
+        /usr/bin/xcodebuild \
+        -project HoldType.xcodeproj \
+        -scheme HoldType \
+        -configuration Debug \
+        -destination 'platform=macOS' \
+        test-without-building \
+        -only-testing:HoldTypeTests/DevVlogsExternalStorageRuntimeTests
+}
+
 validate_volume
-run_bounded "$test_timeout_seconds" /usr/bin/env \
-    HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_ENABLE=execute \
-    HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_VOLUME_ROOT="$volume_root" \
-    HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_DESTINATION_CLASS="$expected_class" \
-    HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_FILESYSTEM_CLASS="$expected_filesystem" \
-    HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_CASE_ID="$case_id" \
-    HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_RUN_ID="$run_id" \
-    /usr/bin/xcodebuild \
-    -project HoldType.xcodeproj \
-    -scheme HoldType \
-    -configuration Debug \
-    -destination 'platform=macOS' \
-    test-without-building \
-    -only-testing:HoldTypeTests/DevVlogsExternalStorageRuntimeTests
+run_external_storage_test
 
 print -r -- "external_storage_case=$case_id result=pass cleanup=complete"

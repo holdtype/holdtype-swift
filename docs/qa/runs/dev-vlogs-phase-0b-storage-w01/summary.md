@@ -71,3 +71,36 @@ No app, UI, camera, microphone, provider, Keychain, external volume, mount,
 unmount, eject, physical disconnect, representative media, or user archive was
 used. This receipt is not hardware, external-filesystem, or playable-media
 evidence.
+
+## W03 Debug test-host isolation repair
+
+Pinned repair basis: `DV-DRAFT-4@2f3266a`; Phase 0B `E03`, `E04`, and `E08`;
+accepted `STORAGE-W02-REVIEW-R4`; rejected `STORAGE-R01-REVIEW`.
+
+The Debug app entry now evaluates a closed storage test-host route before the
+accepted preview, capture/authorization harness, and normal HoldType lifecycle.
+Any storage-host or external-storage runtime variable selects that inert route.
+Only the exact complete automation, Keychain-skip, host-enable, root-class,
+filesystem-class, case, and lowercase UUID configuration succeeds. Missing,
+empty, malformed, or conflicting values remain inside the inert composition
+and expose a typed test-only failure; they cannot fall through to another app
+composition.
+
+The inert SwiftUI app owns only a non-visible empty Settings scene. Structural
+and behavioral tests prove that route selection constructs no normal app
+delegate, `DictationRuntime`, recovery owner, product scene/menu/window,
+capture/authorization/preview owner, or storage action. The accepted external
+wrapper now supplies the exact automation, Keychain-skip, and storage-host
+variables only on its bounded `xcodebuild test-without-building` path. The
+production wrapper function and its help/default/invalid paths are exercised
+without external I/O; closed environment values and an exact-root token remain
+absent from non-execute output.
+
+Verification used a task-owned sanitized HOME and temporary/DerivedData roots.
+Focused storage-host and wrapper suites, existing launch/preview/auth/capture
+routes, and the relevant fake-backed Phase 0B preview/media/handoff suites
+passed. Signed Debug build-only and unsigned Release build-only passed; the
+Release app contains no storage-host key, symbol, or test bundle. No app was
+launched, no external volume was accessed, and no protected recovery artifact
+was inspected or changed. This is test-host isolation evidence only and does
+not rerun or reclassify any external-storage runtime cell.
