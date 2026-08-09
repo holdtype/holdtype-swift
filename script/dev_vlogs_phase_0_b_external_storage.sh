@@ -26,6 +26,7 @@ caffeinate_identity=""
 task_home=""
 task_home_identity=""
 derived_data_path=""
+derived_data_identity=""
 reaped_exit_code=70
 usage() {
     print -r -- "usage: $program_name --execute --volume-root ABSOLUTE_MOUNT_ROOT --expected-class external-ssd|external-hdd --expected-filesystem apfs|hfs|exfat --case-id ID"
@@ -147,7 +148,8 @@ task_home_path_identity() {
     print -r -- "$details"
 }
 create_task_home() {
-    [[ -z "$task_home" && -z "$task_home_identity" ]] || return 70
+    [[ -z "$task_home" && -z "$task_home_identity" &&
+       -z "$derived_data_path" && -z "$derived_data_identity" ]] || return 70
     task_home=$(run_metadata_probe /usr/bin/mktemp -d \
         /private/tmp/holdtype-dev-vlogs-storage-home.XXXXXXXX) || return 70
     task_home_identity=$(task_home_path_identity "$task_home") || return 70
@@ -159,20 +161,26 @@ validate_task_home() {
     [[ "$current" == "$task_home_identity" ]] || return 70
 }
 create_derived_data() {
-    [[ -z "$derived_data_path" ]] || return 70
+    [[ -z "$derived_data_path" && -z "$derived_data_identity" ]] || return 70
     validate_task_home || return 70
     derived_data_path="$task_home/DerivedData"
     run_metadata_probe /bin/mkdir -m 700 "$derived_data_path" || return 70
-    validate_derived_data
+    derived_data_identity=$(derived_data_path_identity "$derived_data_path") || return 70
+}
+derived_data_path_identity() {
+    local path="$1" details
+    validate_task_home || return 70
+    [[ "$path" == "$task_home/DerivedData" && "${path:h}" == "$task_home" &&
+       -d "$path" && ! -L "$path" && "${path:A}" == "$path" ]] || return 70
+    details=$(run_metadata_probe /usr/bin/stat -f '%u|%Lp|%d|%i' "$path" 2>/dev/null) || return 70
+    [[ "$details" == "$(/usr/bin/id -u)|700|"* ]] || return 70
+    print -r -- "$details"
 }
 validate_derived_data() {
     local details
-    validate_task_home || return 70
-    [[ "$derived_data_path" == "$task_home/DerivedData" &&
-       "${derived_data_path:h}" == "$task_home" && -d "$derived_data_path" &&
-       ! -L "$derived_data_path" && "${derived_data_path:A}" == "$derived_data_path" ]] || return 70
-    details=$(run_metadata_probe /usr/bin/stat -f '%u|%Lp' "$derived_data_path" 2>/dev/null) || return 70
-    [[ "$details" == "$(/usr/bin/id -u)|700" ]] || return 70
+    [[ -n "$derived_data_path" && -n "$derived_data_identity" ]] || return 70
+    details=$(derived_data_path_identity "$derived_data_path") || return 70
+    [[ "$details" == "$derived_data_identity" ]] || return 70
 }
 cleanup_task_home() {
     local cleanup_program='source=$1 expected=$2 quarantine="${1}.cleanup"
@@ -182,13 +190,18 @@ cleanup_task_home() {
 current=$(/usr/bin/stat -f "%u|%Lp|%d|%i" "$quarantine" 2>/dev/null) || exit 70
 [[ "$current" == "$expected" ]] || exit 70
 exec /bin/rm -rf -- "$quarantine"'
-    [[ -n "$task_home" ]] || return 0
+    if [[ -z "$task_home" ]]; then
+        [[ -z "$task_home_identity" && -z "$derived_data_path" &&
+           -z "$derived_data_identity" ]] || return 70
+        return 0
+    fi
+    validate_derived_data || return 70
     validate_task_home || return 70
     run_metadata_probe /bin/zsh -c "$cleanup_program" task-home-cleanup \
         "$task_home" "$task_home_identity" || return 70
     [[ ! -e "$task_home" && ! -L "$task_home" &&
        ! -e "${task_home}.cleanup" && ! -L "${task_home}.cleanup" ]] || return 70
-    task_home=""; task_home_identity=""; derived_data_path=""
+    task_home=""; task_home_identity=""; derived_data_path=""; derived_data_identity=""
 }
 run_external_preflight() {
     run_metadata_probe /bin/zsh -c "$external_preflight_program" external-preflight \
@@ -205,13 +218,11 @@ process_identity() {
     [[ -n "$details" ]] || return 1
     print -r -- "$pid|$details"
 }
-
 group_members() {
     local pgid="$1"
     # Exact captured process-group membership only; never select by command name or broad pattern.
     run_metadata_probe /usr/bin/pgrep -g "$pgid" 2>/dev/null
 }
-
 read_group_state() {
     local pgid="$1" probe_result status_line output exit_code member observed
     group_state="uncertain"; group_member_pids=()
@@ -241,7 +252,6 @@ read_group_state() {
     (( ${#group_member_pids} > 0 )) || return 70
     group_state="members"
 }
-
 capture_group_identities() {
     local pgid="$1" member identity captured
     local -a captured_identities=()
@@ -260,7 +270,6 @@ capture_group_identities() {
        ${#captured_identities} > 0 )) || return 70
     supervisor_member_identities=("${captured_identities[@]}")
 }
-
 captured_identity_for_pid() {
     local pid="$1" captured match=""
     for captured in "${supervisor_member_identities[@]}"; do
@@ -272,7 +281,6 @@ captured_identity_for_pid() {
     [[ -n "$match" ]] || return 70
     print -r -- "$match"
 }
-
 revalidate_captured_group() {
     local pgid="$1" member captured current
     (( ${#supervisor_member_identities} > 0 )) || return 70
@@ -286,23 +294,19 @@ revalidate_captured_group() {
         [[ "$current" == "$captured" ]] || return 70
     done
 }
-
 emit_group_signal() {
     local signal="$1" pgid="$2"
     kill "-$signal" -- -"$pgid" 2>/dev/null
 }
-
 signal_validated_group() {
     local signal="$1" pgid="$2"
     revalidate_captured_group "$pgid" || return 70
     emit_group_signal "$signal" "$pgid"
 }
-
 emit_pid_signal() {
     local signal="$1" pid="$2"
     kill "-$signal" "$pid" 2>/dev/null
 }
-
 signal_remaining_captured_members() {
     local signal="$1" pgid="$2" member captured current
     local leader_present=false
@@ -332,7 +336,6 @@ signal_remaining_captured_members() {
         emit_pid_signal "$signal" "$pgid" || true
     fi
 }
-
 wait_for_group_empty() {
     local pgid="$1" checks="$2"
     while (( checks > 0 )); do
@@ -342,7 +345,6 @@ wait_for_group_empty() {
     done
     return 1
 }
-
 wait_for_pid_exit() {
     local pid="$1" checks="$2"
     while kill -0 "$pid" 2>/dev/null && (( checks > 0 )); do
@@ -350,7 +352,6 @@ wait_for_pid_exit() {
     done
     ! kill -0 "$pid" 2>/dev/null
 }
-
 reap_verified_exited_pid() {
     local pid="$1"
     ! kill -0 "$pid" 2>/dev/null || return 70
