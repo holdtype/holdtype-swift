@@ -198,8 +198,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W05-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05-R1@b172bfd` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final serialized protected-scope runtime is dependency-ready. |
 | `DV-P0B-STORAGE-R04` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W05 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R04 QA root only | accepted_evidence / mandatory_guard_stop | `9e2a3ee`; receipt below | Truthful pre-functional stop accepted; exact-root authority remained unexercised. |
 | `DV-P0B-STORAGE-R04-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R04@9e2a3ee` | read-only exact seven-file evidence and accepted W05-R1 provenance | accepted_with_residual | receipt below | Use one noninteractive single-shot controller for the final runtime. |
-| `DV-P0B-STORAGE-R05` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R04 evidence review; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R05 QA root only | review / protected-scope-fail | `bec6751`; receipt below | SSD mechanics pass; protected metadata changed; HDD stopped. Review required. |
-| `DV-P0B-STORAGE-R05-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R05@bec6751` | read-only exact seven-file evidence plus accepted W05-R1 provenance | running | — | Classify protected change and guard-evidence residual; no runtime. |
+| `DV-P0B-STORAGE-R05` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R04 evidence review; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R05 QA root only | accepted_evidence / protected-scope-fail | `bec6751`; receipt below | SSD mechanics/confinement accepted; protected dependency and guard-proof residual carry to P0B review. |
+| `DV-P0B-STORAGE-R05-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R05@bec6751` | read-only exact seven-file evidence plus accepted W05-R1 provenance | accepted_with_residual | receipt below | Storage runtime lane terminal; no rerun under existing authority. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -208,7 +208,7 @@ other external root remain unauthorized.
 | `DV-P0B-UI-W01-REVIEW` | `/root/dv_p0b_ui_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-W01@085fa26` | read-only exact seven-path commit and current artifact evidence | accepted_with_residual | receipt below | No blocker; one controlled Camera/Computer Use runtime is dependency-ready. |
 | `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | accepted_with_residual | `771b309`; receipt below | Terminal not_available: exact selection/Start passed, but app-scoped Camera was notDetermined and live preview evidence remains unavailable. |
 | `DV-P0B-UI` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-R01@771b309` | read-only exact runtime evidence | accepted_with_residual | receipt below | E05 may close as terminal not_available; no blind retry or live-preview pass claim. |
-| `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-4@2f3266a` | all dependency-ready P0B packets and explicit terminal residuals | read-only | queued | — | Reconcile current-epoch evidence, residuals, and protected-domain impact after remaining gates are dispositioned. |
+| `DV-P0B-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | terminal capture/media, UI, storage evidence and reviews | read-only | running | — | Reconcile current-epoch Phase 0B gates, residuals, protected-domain impact, and Phase 0C readiness. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -383,8 +383,10 @@ other external root remain unauthorized.
   existing exact-root authority remained unexercised. R05 used one
   noninteractive controller and completed the SSD mechanics/private-HOME/
   DerivedData path, but the immediate protected metadata comparison changed;
-  HDD was not invoked. The packet is in review. Mechanics remain accepted and
-  no restorative action is authorized.
+  HDD was not invoked. Independent review accepts the SSD mechanics and hosted
+  confinement but keeps packet protected scope failed with unknown cause and
+  an exact guard-reap evidence residual. The storage runtime lane is terminal
+  for Phase 0B; no equivalent rerun or restorative action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3864,6 +3866,49 @@ TERM/wait proof unavailable; HDD uninvoked.
 next_dependency: DV-P0B-STORAGE-R05-REVIEW
 runtime_or_visual_handoff: none
 commit: bec67515ed855f1fba5ad3f63c91ac09146434da
+parent: c54c798f1543f03cfcd0d0e87d7b6320a256a22e
+```
+
+### `DV-P0B-STORAGE-R05-REVIEW`
+
+```text
+packet_id: DV-P0B-STORAGE-R05-REVIEW
+status: done
+verdict: accept_with_residual
+split_verdicts: SSD mechanics=accept; hosted private-HOME/CFFIX=accept; shared
+identity-pinned DerivedData=accept; packet protected scope=reject/changed; guard
+cleanup evidence=accept_with_residual; HDD=truthful not_invoked_protected_stop.
+
+outcome: R05 is accepted as truthful evidence of one SSD mechanics/private-
+confinement pass followed by a fail-closed protected-metadata change. HDD
+non-invocation is accepted. Packet protected scope remains failed, and exact
+guard termination/reaping remains an evidence residual.
+structured_evidence: Exact seven-file commit/current blobs; one passing SSD
+terminal plus one packet-fail terminal; zero HDD events/rows; five evidence-
+only measurements; three fixtures matching accepted size/checksum provenance;
+no contradictory retry, threshold, or scope-success claim.
+hosted_isolation: Build and hosted test passed with identical explicit
+DerivedData and test-only private HOME/CFFIX. Foundation Application Support
+and default recovery descendants were validated before external scratch. This
+does not establish every controller/build-tool/concurrent lifecycle.
+protected_scope: Baseline and immediate post-SSD tuples differed. Exact object,
+tuple, path and predicate were neither inspected nor retained; no attribution
+is supported. Repeated changes establish insufficient packet-level isolation,
+not one proven creator.
+guard_cleanup: Five checkpoints and final zero-process state prove no residue,
+but explicit pre-stop identity, TERM, parent wait and reap facts are absent, so
+exact termination/reaping is not proven.
+scope_check: Read-only; no repository mutation, live HOME/protected metadata,
+external volume, process signaling, app/Xcode runtime, TCC, Keychain, camera/
+audio/media, iOS, Release, or restorative action.
+residual: Unknown protected-domain dependency and guard-proof residual. No
+further equivalent storage runtime is justified under existing authority.
+exact_next_dependency: Carry accepted mechanics/confinement plus unresolved
+protected dependency and guard residual into DV-P0B-REVIEW and user
+disposition. A future causal study requires explicit user request and an
+independently reviewed read-only observer design before any runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: bec67515ed855f1fba5ad3f63c91ac09146434da
 parent: c54c798f1543f03cfcd0d0e87d7b6320a256a22e
 ```
 
