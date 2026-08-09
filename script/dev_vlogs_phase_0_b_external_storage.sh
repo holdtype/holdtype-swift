@@ -25,25 +25,22 @@ caffeinate_pid=""
 caffeinate_identity=""
 task_home=""
 task_home_identity=""
+derived_data_path=""
 reaped_exit_code=70
-
 usage() {
     print -r -- "usage: $program_name --execute --volume-root ABSOLUTE_MOUNT_ROOT --expected-class external-ssd|external-hdd --expected-filesystem apfs|hfs|exfat --case-id ID"
     print -r -- ""
     print -r -- "No volume is discovered or selected automatically. The enabled run writes at most"
     print -r -- "64 KiB per file beneath .HoldTypeDevVlogsPhase0B/<run-id>/ and runs bounded cleanup."
 }
-
 fail() {
     print -u2 -r -- "error: $1"
     exit 64
 }
-
 set_once() {
     local current_value="$1"
     [[ -z "$current_value" ]] || fail "an option was supplied more than once"
 }
-
 while (( $# > 0 )); do
     case "$1" in
         --help|-h)
@@ -84,7 +81,6 @@ while (( $# > 0 )); do
             ;;
     esac
 done
-
 [[ "$execute_enabled" == true ]] || fail "explicit --execute opt-in is required"
 [[ -n "$volume_root" && -n "$expected_class" && -n "$expected_filesystem" && -n "$case_id" ]] || {
     fail "all authority arguments are required"
@@ -105,7 +101,6 @@ home_path="${home_path%/}"
 [[ -z "$home_path" || ( "$volume_root" != "$home_path" && "$home_path" != "$volume_root"/* ) ]] || {
     fail "volume root is categorically too broad"
 }
-
 external_preflight_program='
 set -euo pipefail
 volume_root=$1; expected_class=$2; expected_filesystem=$3; awk_program=$4
@@ -131,7 +126,6 @@ available_kib=$(/bin/df -Pk "$volume_root" 2>/dev/null | /usr/bin/awk "$awk_prog
 prefix="$volume_root/.HoldTypeDevVlogsPhase0B"
 [[ ! -e "$prefix" && ! -L "$prefix" ]] || exit 65
 '
-
 if command -v timeout >/dev/null 2>&1; then
     timeout_executable=$(command -v timeout)
 elif command -v gtimeout >/dev/null 2>&1; then
@@ -140,11 +134,9 @@ else
     print -u2 -r -- "error: a bounded timeout command is required"
     exit 127
 fi
-
 run_metadata_probe() {
     "$timeout_executable" --signal=TERM --kill-after=2s "$metadata_timeout_seconds" "$@"
 }
-
 task_home_path_identity() {
     local path="$1" details
     [[ "${path:h}" == /private/tmp &&
@@ -154,21 +146,34 @@ task_home_path_identity() {
     [[ "$details" == "$(/usr/bin/id -u)|700|"* ]] || return 70
     print -r -- "$details"
 }
-
 create_task_home() {
     [[ -z "$task_home" && -z "$task_home_identity" ]] || return 70
     task_home=$(run_metadata_probe /usr/bin/mktemp -d \
         /private/tmp/holdtype-dev-vlogs-storage-home.XXXXXXXX) || return 70
     task_home_identity=$(task_home_path_identity "$task_home") || return 70
 }
-
 validate_task_home() {
     local current
     [[ -n "$task_home" && -n "$task_home_identity" ]] || return 70
     current=$(task_home_path_identity "$task_home") || return 70
     [[ "$current" == "$task_home_identity" ]] || return 70
 }
-
+create_derived_data() {
+    [[ -z "$derived_data_path" ]] || return 70
+    validate_task_home || return 70
+    derived_data_path="$task_home/DerivedData"
+    run_metadata_probe /bin/mkdir -m 700 "$derived_data_path" || return 70
+    validate_derived_data
+}
+validate_derived_data() {
+    local details
+    validate_task_home || return 70
+    [[ "$derived_data_path" == "$task_home/DerivedData" &&
+       "${derived_data_path:h}" == "$task_home" && -d "$derived_data_path" &&
+       ! -L "$derived_data_path" && "${derived_data_path:A}" == "$derived_data_path" ]] || return 70
+    details=$(run_metadata_probe /usr/bin/stat -f '%u|%Lp' "$derived_data_path" 2>/dev/null) || return 70
+    [[ "$details" == "$(/usr/bin/id -u)|700" ]] || return 70
+}
 cleanup_task_home() {
     local cleanup_program='source=$1 expected=$2 quarantine="${1}.cleanup"
 [[ ! -e "$quarantine" && ! -L "$quarantine" ]] || exit 70
@@ -183,18 +188,15 @@ exec /bin/rm -rf -- "$quarantine"'
         "$task_home" "$task_home_identity" || return 70
     [[ ! -e "$task_home" && ! -L "$task_home" &&
        ! -e "${task_home}.cleanup" && ! -L "${task_home}.cleanup" ]] || return 70
-    task_home=""; task_home_identity=""
+    task_home=""; task_home_identity=""; derived_data_path=""
 }
-
 run_external_preflight() {
     run_metadata_probe /bin/zsh -c "$external_preflight_program" external-preflight \
         "$volume_root" "$expected_class" "$expected_filesystem" 'END { print $4 }'
 }
-
 validate_volume() {
     run_external_preflight >/dev/null 2>&1 || fail "selected volume preflight failed"
 }
-
 process_identity() {
     local pid="$1" details
     [[ "$pid" == <-> ]] || return 1
@@ -455,15 +457,15 @@ caffeinate_pid=$!
 caffeinate_identity=$(process_identity "$caffeinate_pid") || fail "caffeinate identity unavailable"
 cd "$repository_root"
 
-run_bounded "$build_timeout_seconds" /usr/bin/xcodebuild \
-    -project HoldType.xcodeproj \
-    -scheme HoldType \
-    -configuration Debug \
-    -destination 'platform=macOS' \
-    build-for-testing
+run_external_storage_build() {
+    validate_derived_data || return 70
+    run_bounded "$build_timeout_seconds" /usr/bin/xcodebuild \
+        -project HoldType.xcodeproj -scheme HoldType -configuration Debug \
+        -destination 'platform=macOS' -derivedDataPath "$derived_data_path" build-for-testing
+}
 
 run_external_storage_test() {
-    validate_task_home || return 70
+    validate_derived_data || return 70
     run_bounded "$test_timeout_seconds" /usr/bin/env \
         HOME="$task_home" \
         CFFIXED_USER_HOME="$task_home" \
@@ -482,12 +484,15 @@ run_external_storage_test() {
         -scheme HoldType \
         -configuration Debug \
         -destination 'platform=macOS' \
+        -derivedDataPath "$derived_data_path" \
         test-without-building \
         -only-testing:HoldTypeTests/DevVlogsExternalStorageRuntimeTests
 }
 
-validate_volume
 create_task_home || fail "private test HOME could not be established"
+create_derived_data || fail "private DerivedData could not be established"
+run_external_storage_build
+validate_volume
 run_external_storage_test
 cleanup_task_home || fail "private test HOME cleanup was retained"
 

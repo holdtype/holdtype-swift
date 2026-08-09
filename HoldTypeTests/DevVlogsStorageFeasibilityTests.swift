@@ -93,38 +93,30 @@ struct DevVlogsStorageFeasibilityTests {
             runID: UUID(),
             authority: .nestedAttackFixture(fixtureBase)
         )
-        let requiredPrefix = redirectedRun.rootURL.deletingLastPathComponent()
-        let savedPrefix = fixtureBase.appendingPathComponent("saved-prefix", isDirectory: true)
+        let requiredPrefix = redirectedRun.rootURL.deletingLastPathComponent(); let savedPrefix = fixtureBase.appendingPathComponent("saved-prefix", isDirectory: true)
         let redirectedPrefix = fixtureBase.appendingPathComponent("redirected-prefix", isDirectory: true)
         let redirectedRoot = redirectedPrefix.appendingPathComponent(
             redirectedRun.runID.uuidString.lowercased(), isDirectory: true)
-        let unrelated = fixtureBase.appendingPathComponent("unrelated-sentinel")
-        try Data("unrelated".utf8).write(to: unrelated, options: .atomic)
+        let unrelated = fixtureBase.appendingPathComponent("unrelated-sentinel"); try Data("unrelated".utf8).write(to: unrelated, options: .atomic)
         var prefixWasMoved = false
         defer {
             unlinkSymbolicLinkIfPresent(at: requiredPrefix)
-            if prefixWasMoved,
-               !FileManager.default.fileExists(atPath: requiredPrefix.path),
-               FileManager.default.fileExists(atPath: savedPrefix.path) {
-                try? FileManager.default.moveItem(at: savedPrefix, to: requiredPrefix)
-            }
+            if prefixWasMoved, !FileManager.default.fileExists(atPath: requiredPrefix.path),
+               FileManager.default.fileExists(atPath: savedPrefix.path) { try? FileManager.default.moveItem(at: savedPrefix, to: requiredPrefix) }
             cleanupIfOwned(redirectedRun)
         }
         try FileManager.default.moveItem(at: requiredPrefix, to: savedPrefix)
         prefixWasMoved = true
         try FileManager.default.createDirectory(at: redirectedRoot, withIntermediateDirectories: true)
         let redirectedMarker = redirectedRoot.appendingPathComponent(DevVlogsStorageRunRoot.markerName)
-        try Data(redirectedRun.runID.uuidString.lowercased().utf8).write(
-            to: redirectedMarker, options: .atomic)
+        try Data(redirectedRun.runID.uuidString.lowercased().utf8).write(to: redirectedMarker, options: .atomic)
         let redirectedContent = redirectedRoot.appendingPathComponent("must-survive")
         try Data("redirected-content".utf8).write(to: redirectedContent, options: .atomic)
-        try FileManager.default.createSymbolicLink(at: requiredPrefix,
-            withDestinationURL: redirectedPrefix)
+        try FileManager.default.createSymbolicLink(at: requiredPrefix, withDestinationURL: redirectedPrefix)
         #expect(throws: DevVlogsStorageHarnessError.symbolicLink) {
             try redirectedRun.cleanup()
         }
-        #expect(try Data(contentsOf: redirectedContent) == Data("redirected-content".utf8))
-        #expect(try Data(contentsOf: unrelated) == Data("unrelated".utf8))
+        #expect(try Data(contentsOf: redirectedContent) == Data("redirected-content".utf8)); #expect(try Data(contentsOf: unrelated) == Data("unrelated".utf8))
         unlinkSymbolicLinkIfPresent(at: requiredPrefix)
         try FileManager.default.moveItem(at: savedPrefix, to: requiredPrefix)
         prefixWasMoved = false
@@ -261,24 +253,30 @@ struct DevVlogsStorageFeasibilityTests {
         let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let wrapperURL = repositoryRoot.appendingPathComponent("script/dev_vlogs_phase_0_b_external_storage.sh")
         let wrapper = try String(contentsOf: wrapperURL, encoding: .utf8); let cleanupCall = try #require(wrapper.range(of: "cleanup_task_home || fail")); let successClaim = try #require(wrapper.range(of: "result=pass cleanup=complete")); #expect(cleanupCall.lowerBound < successClaim.lowerBound)
+        let homeCall = try #require(wrapper.range(of: "\ncreate_task_home || fail")); let derivedCall = try #require(wrapper.range(of: "\ncreate_derived_data || fail")); let buildCall = try #require(wrapper.range(of: "\nrun_external_storage_build\n")); #expect(homeCall.lowerBound < derivedCall.lowerBound && derivedCall.lowerBound < buildCall.lowerBound)
         func shellFunction(_ name: String) throws -> Substring {
             let start = try #require(wrapper.range(of: "\(name)() {")); let tail = wrapper[start.lowerBound...]
             let end = try #require(tail.range(of: "\n}\n")); return tail[..<end.upperBound]
         }
         let shell = """
+        \(try shellFunction("run_external_storage_build"))
         \(try shellFunction("run_external_storage_test"))
         run_bounded() { /usr/bin/printf '%s\\n' "$@"; }
-        validate_task_home() { return 0; }
-        test_timeout_seconds=180 volume_root=/Volumes/redacted-fixture
+        validate_derived_data() { return 0; }
+        build_timeout_seconds=600 test_timeout_seconds=180 volume_root=/Volumes/redacted-fixture
         expected_class=external-ssd expected_filesystem=apfs case_id=mechanics_case
         run_id=aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee
         task_home=/private/tmp/holdtype-dev-vlogs-storage-home.Ab12Cd34
-        run_external_storage_test
+        derived_data_path=$task_home/DerivedData
+        print -r -- phase=build; run_external_storage_build
+        print -r -- phase=test; run_external_storage_test
         """
         let process = Process(); let output = Pipe(); process.executableURL = URL(fileURLWithPath: "/bin/zsh"); process.arguments = ["-c", shell]
         process.standardOutput = output; try process.run(); process.waitUntilExit()
-        let arguments = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        #expect(process.terminationStatus == 0)
+        let arguments = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self); #expect(process.terminationStatus == 0)
+        let derivedPath = "/private/tmp/holdtype-dev-vlogs-storage-home.Ab12Cd34/DerivedData"; #expect(arguments.components(separatedBy: "\n").filter { $0 == derivedPath }.count == 2)
+        #expect(arguments.components(separatedBy: "\n").filter { $0 == "-derivedDataPath" }.count == 2); #expect(try #require(arguments.range(of: "phase=build")?.upperBound) < (try #require(arguments.range(of: "phase=test")?.lowerBound)))
+        #expect(!String(arguments[..<(try #require(arguments.range(of: "phase=test"))).lowerBound]).contains("HOME="))
         for expected in ["HOME=/private/tmp/holdtype-dev-vlogs-storage-home.Ab12Cd34",
             "CFFIXED_USER_HOME=/private/tmp/holdtype-dev-vlogs-storage-home.Ab12Cd34",
             "HOLDTYPE_DEV_VLOGS_STORAGE_VALIDATE_PRIVATE_HOME=1", "HOLDTYPE_AUTOMATION=1", "HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip",
@@ -294,9 +292,9 @@ struct DevVlogsStorageFeasibilityTests {
             check.standardOutput = captured; check.standardError = captured; try check.run(); check.waitUntilExit()
             let text = String(decoding: captured.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self); #expect(check.terminationStatus == expectedStatus)
             for secret in ["HOME=", "CFFIXED_USER_HOME", "HOLDTYPE_DEV_VLOGS_STORAGE_VALIDATE_PRIVATE_HOME", "HOLDTYPE_AUTOMATION", "HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI",
-                "HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST", rejectedRoot] { #expect(!text.contains(secret)) }
+                "HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST", "-derivedDataPath", rejectedRoot] { #expect(!text.contains(secret)) }
         }
-        let homeFunctions = try ["task_home_path_identity", "create_task_home", "validate_task_home", "cleanup_task_home", "cleanup"].map { try shellFunction($0) }.joined(separator: "\n")
+        let homeFunctions = try ["task_home_path_identity", "create_task_home", "validate_task_home", "create_derived_data", "validate_derived_data", "cleanup_task_home", "cleanup"].map { try shellFunction($0) }.joined(separator: "\n")
         let lifecycleShell = """
         \(homeFunctions)
         zmodload zsh/system
@@ -309,22 +307,24 @@ struct DevVlogsStorageFeasibilityTests {
         terminate_supervisor() { return 0; }
         stop_caffeinate() { return 0; }
         run_case() {
-            local action=$1 expected=$2 actual; ( task_home="" task_home_identity=""; create_task_home || exit 71
+            local action=$1 expected=$2 actual; ( task_home="" task_home_identity="" derived_data_path=""; create_task_home || exit 71; create_derived_data || exit 71
               trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM
               case "$action" in success) exit 0;; failure) exit 9;; timeout) exit 124;; int) kill -INT $sysparams[pid];; term) kill -TERM $sysparams[pid];; esac )
             actual=$?; [[ "$actual" == "$expected" ]]
         }
         run_case success 0 && run_case failure 9 && run_case timeout 124 && run_case int 130 && run_case term 143 || exit 72
-        task_home="" task_home_identity=""; create_task_home || exit 73; retained_home=$task_home
+        task_home="" task_home_identity="" derived_data_path=""; create_task_home || exit 73; create_derived_data || exit 73; retained_home=$task_home; /bin/chmod 755 "$derived_data_path"; validate_derived_data && exit 73; /bin/chmod 700 "$derived_data_path"
         sibling="${task_home}.sibling"; /bin/mkdir -m 700 "$sibling" || exit 74; /bin/chmod 755 "$task_home"
         cleanup_task_home && exit 74; [[ -d "$retained_home" ]] || exit 75; /bin/chmod 700 "$task_home"; cleanup_task_home || exit 76
         [[ ! -e "$retained_home" && -d "$sibling" ]] || exit 77; /bin/rmdir "$sibling" || exit 78
-        task_home="" task_home_identity=""; create_task_home || exit 79; pinned_home=$task_home; moved_home="${task_home}.original"
+        task_home="" task_home_identity="" derived_data_path=""; create_task_home || exit 79; create_derived_data || exit 79; pinned_home=$task_home; moved_home="${task_home}.original"
         sibling="${task_home}.sibling" replacement="${task_home}.cleanup"; /bin/mkdir -m 700 "$sibling" || exit 80; race_mode=replace
         result=$(cleanup_task_home && print -r -- 'cleanup=complete'); actual=$?
         [[ "$actual" == 70 && "$result" != *cleanup=complete* ]] || exit 81; [[ ! -e "$pinned_home" && -d "$moved_home" && -d "$replacement" && -d "$sibling" ]] || exit 82
         [[ "$(/usr/bin/stat -f '%u|%Lp|%d|%i' "$moved_home")" == "$task_home_identity" && -n "$task_home" && -n "$task_home_identity" ]] || exit 83
-        /bin/rm -rf -- "$moved_home" "$replacement" "$sibling" || exit 85
+        /bin/rmdir "$moved_home/DerivedData" "$moved_home" "$replacement" "$sibling" || exit 85
+        task_home="" task_home_identity="" derived_data_path=""; create_task_home || exit 86; create_derived_data || exit 86; collision="${task_home}.cleanup"; /bin/mkdir -m 700 "$collision"
+        result=$(cleanup_task_home && print -r -- 'cleanup=complete'); actual=$?; [[ "$actual" == 70 && "$result" != *cleanup=complete* && -d "$task_home" && -d "$collision" ]] || exit 87; /bin/rmdir "$task_home/DerivedData" "$task_home" "$collision"
         print -r -- home_cleanup_matrix=pass
         """
         let lifecycle = Process(); let lifecycleOutput = Pipe(); lifecycle.executableURL = URL(fileURLWithPath: "/bin/zsh"); lifecycle.arguments = ["-c", lifecycleShell]
