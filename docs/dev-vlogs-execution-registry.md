@@ -218,7 +218,9 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
 | `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
-| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R1` terminal artifact | read-only exact design review | running | resume receipt below | Resume the exact one-path design review and resolve the three preliminary exactness questions before verdict. |
+| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R1@8fe5645` | read-only exact design review | rejected | receipt below | High-level design is sound; five literal contract gaps require registry-only R2. |
+| `DV-P0B-STORAGE-OBSERVER-E01-R2` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer review R1 | registry design receipt only | running | — | Resolve only literal enums/mappings, exact probe predicates, guard ordering, deterministic conflict class and eight-file envelope. |
+| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R2` terminal artifact | read-only exact design review | queued | — | Implementation and runtime remain blocked until acceptance. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; resumed evidence cycle; accepted E07 W01 review | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | blocked | — | Wait for E07 acceptance and serialized runtime admission; no storage runtime or permission-only route. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -5141,5 +5143,41 @@ scope_check: Registry coordination only. Worktree was clean on master at
 path, process or external resource was touched.
 next_dependency: Terminal E07 R1 design artifact and terminal storage observer
 R1 review, each recorded before any later dispatch.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1
+status: rejected
+reviewed_commit: 8fe5645 (parent efbfe9f); exact one-path registry-only design;
+receipt byte-identical at resume HEAD 9101428.
+
+accepted_direction: The ten-path future implementation envelope, DEBUG-only
+seam, no-follow/no-enumeration observation primitive, phase split, bounds,
+cleanup direction and separate runtime authority are sound.
+
+blocking_findings:
+1. The six marker-action wire values and five
+   RecoveryArtifactDeletionKind mappings are generic rather than literal closed
+   enums.
+2. The no-follow probe does not define exact type/uid/mode predicates for
+   system ancestors, user-owned components, the recovery directory and index.
+3. Controller S1 compiles the helper before S2 starts the guard, contrary to
+   the Phase 0B requirement that caffeinate precede the first runtime action.
+4. `observer/metadata conflict -> still_unknown or evidence_conflict` is not a
+   deterministic classification rule.
+5. The future evidence envelope names seven files; the protocol/resumed packet
+   requires eight and is missing `source-feasibility.md`.
+
+repair_boundary: Registry-only R2 by the original design owner, resolving only
+the five literal contract points above. No implementation, build, test,
+process, protected-path observation, external-volume action or runtime.
+
+scope_check: Read-only review. No repository path changed by the reviewer and
+no runtime authority was consumed.
+next_dependency: DV-P0B-STORAGE-OBSERVER-E01-R2, then independent
+DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2.
 runtime_or_visual_handoff: none
 ```
