@@ -3,7 +3,7 @@
   "packet_id": "DV-P0B-E07-W01",
   "contract_revision": "DV-DRAFT-4@2f3266a",
   "implementation_parent_commit": "24f4a601087322c6a3ac80e637e808a684deb9b4",
-  "swift_source_manifest_sha256": "79938c979c2631cef9e1c202a550cc7c25e13766f32771f88f81bc3331f8d249",
+  "swift_source_manifest_sha256": "bb53c9851dff5ecc36e0582da6fc612b78471b45e3b8ad5e97efabacea71b47c",
   "macos_product_version": "26.6",
   "xcode_version": "Xcode 26.6 (17F113)",
   "swift_version": "Apple Swift 6.3.3",
