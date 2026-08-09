@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "packet_id": "DV-P0B-STORAGE-R04",
+  "captured_at_utc": "2026-08-09T18:18:49Z",
+  "product_commit": "6bf645044c48d23dcd40e86e4a60eb91c94a9393",
+  "contract_revision": "DV-DRAFT-4@2f3266a",
+  "host": {
+    "os": "macOS",
+    "os_version": "26.6",
+    "os_build": "25G72",
+    "architecture": "arm64",
+    "machine_model": "Mac16,11",
+    "xcode_version": "26.6",
+    "xcode_build": "17F113"
+  },
+  "accepted_provenance": {
+    "external_seam_reviewed_commit": "a50026aa53d93c0808ac84259f05759073434fdb",
+    "value_free_inert_host_commit": "7b1ba8deae6099ba7416751a894e0ca3ad1582fb",
+    "private_home_repair_commit": "029f8364bb80b58c9f77cb49dbaea05869c989fb",
+    "derived_data_identity_repair_commit": "b172bfd69de8e4313e523f39386ade28a2eda8aa",
+    "registry_authority_commit": "6bf645044c48d23dcd40e86e4a60eb91c94a9393",
+    "current_wrapper_git_blob": "8b8e3e89fbae3ddbc7c0c86ce672d2ec6726b3ab",
+    "current_canonical_test_git_blob": "93be464c0dfc86187795e7dd17b2739c12a228a6",
+    "current_router_git_blob": "7132e7e6d439f7ec9616d4b6252152d6cd76fd49",
+    "current_inert_host_git_blob": "104a17760bed084622b5665e1c253660ad590187",
+    "current_inert_host_test_git_blob": "6e2bded671f082299f5797fdbdf4f83bd0898508",
+    "syntax_check": "pass",
+    "help_check": "pass",
+    "default_fail_closed_check": "pass"
+  },
+  "bounds_seconds": {
+    "build": 600,
+    "test": 180,
+    "outer": 840
+  },
+  "single_guard": {
+    "command": "caffeinate -dimsu",
+    "persistent_session_started": true,
+    "identity_checks_before_session_loss": 2,
+    "identity_continuous": false,
+    "continuity_failure": "parent_identity_changed_after_persistent_shell_closed",
+    "replaced": false,
+    "stopped_exact_recorded_guard": true,
+    "reaped_by_original_parent": false
+  },
+  "cell_invocations": {
+    "external_ssd_hfsplus": 0,
+    "external_hdd_apfs": 0
+  },
+  "functional_result_by_cell": {
+    "external_ssd_hfsplus": "not_invoked_guard_stop",
+    "external_hdd_apfs": "not_invoked_guard_stop"
+  },
+  "protected_metadata": {
+    "baseline_completed": false,
+    "final_snapshot_completed": false,
+    "result": "not_proven",
+    "exact_private_delta_retained": false
+  },
+  "private_home_and_derived_data": {
+    "hosted_confinement_result": "not_exercised",
+    "wrapper_task_home_created": false,
+    "shared_derived_data_created": false,
+    "cleanup_result": "not_applicable"
+  },
+  "cleanup": {
+    "external_scratch_prefixes": "absent",
+    "wrapper_task_homes": "absent",
+    "run_owned_app_build_test_processes": "zero",
+    "recorded_guard": "stopped_and_absent",
+    "private_observer_root": "absent"
+  },
+  "redaction": {
+    "mount_roots_retained": false,
+    "volume_labels_retained": false,
+    "volume_identifiers_retained": false,
+    "device_nodes_retained": false,
+    "scratch_identifiers_retained": false,
+    "process_identifiers_retained": false,
+    "protected_paths_or_filenames_retained": false,
+    "protected_inodes_or_mtimes_retained": false,
+    "user_paths_retained": false,
+    "private_signing_material_retained": false
+  }
+}
