@@ -7,7 +7,7 @@ enum DevVlogsPhase0BStorageTestHostLaunchError: Error, Equatable {
     case automationRequired
     case keychainPolicyRequired
     case conflictingRoute
-    case missingRuntimeValue(String)
+    case missingRuntimeValue
     case invalidRuntimeEnablement
     case invalidVolumeRoot
     case invalidDestinationClass
@@ -16,7 +16,11 @@ enum DevVlogsPhase0BStorageTestHostLaunchError: Error, Equatable {
     case invalidRunID
 }
 
-struct DevVlogsPhase0BStorageTestHostConfiguration: Equatable {
+enum DevVlogsPhase0BStorageTestHostValidation: Equatable {
+    case validated
+}
+
+enum DevVlogsPhase0BStorageTestHostConfiguration {
     static let hostEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST"
     static let runtimeEnableEnvironmentKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_ENABLE"
     static let volumeRootEnvironmentKey = "HOLDTYPE_DEV_VLOGS_STORAGE_EXTERNAL_VOLUME_ROOT"
@@ -36,12 +40,6 @@ struct DevVlogsPhase0BStorageTestHostConfiguration: Equatable {
         runIDEnvironmentKey,
     ]
 
-    let volumeRoot: String
-    let destinationClass: String
-    let filesystemClass: String
-    let caseID: String
-    let runID: UUID
-
     static func shouldIsolate(environment: [String: String]) -> Bool {
         environment[hostEnvironmentKey] != nil
             || runtimeEnvironmentKeys.contains { environment[$0] != nil }
@@ -49,7 +47,8 @@ struct DevVlogsPhase0BStorageTestHostConfiguration: Equatable {
 
     static func resolve(
         environment: [String: String]
-    ) -> Result<Self, DevVlogsPhase0BStorageTestHostLaunchError> {
+    ) -> Result<DevVlogsPhase0BStorageTestHostValidation,
+        DevVlogsPhase0BStorageTestHostLaunchError> {
         guard environment[hostEnvironmentKey] == "1" else {
             return .failure(.invalidHostEnablement)
         }
@@ -65,7 +64,7 @@ struct DevVlogsPhase0BStorageTestHostConfiguration: Equatable {
         }
         for key in runtimeEnvironmentKeys {
             guard let value = environment[key], !value.isEmpty else {
-                return .failure(.missingRuntimeValue(key))
+                return .failure(.missingRuntimeValue)
             }
         }
         guard environment[runtimeEnableEnvironmentKey] == "execute" else {
@@ -92,13 +91,7 @@ struct DevVlogsPhase0BStorageTestHostConfiguration: Equatable {
               runID.uuidString.lowercased() == runIDValue else {
             return .failure(.invalidRunID)
         }
-        return .success(Self(
-            volumeRoot: volumeRoot,
-            destinationClass: destinationClass,
-            filesystemClass: filesystemClass,
-            caseID: caseID,
-            runID: runID
-        ))
+        return .success(.validated)
     }
 
     private static func hasConflictingRoute(environment: [String: String]) -> Bool {
@@ -148,13 +141,13 @@ enum DevVlogsPhase0BStorageTestHostLaunch {
 }
 
 struct DevVlogsPhase0BStorageTestHostState: Equatable {
-    let configuration: Result<
-        DevVlogsPhase0BStorageTestHostConfiguration,
+    let validation: Result<
+        DevVlogsPhase0BStorageTestHostValidation,
         DevVlogsPhase0BStorageTestHostLaunchError
     >
 
     init(environment: [String: String]) {
-        configuration = DevVlogsPhase0BStorageTestHostConfiguration.resolve(
+        validation = DevVlogsPhase0BStorageTestHostConfiguration.resolve(
             environment: environment
         )
     }

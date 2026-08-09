@@ -19,19 +19,53 @@ struct DevVlogsPhase0BStorageTestHostLaunchTests {
 
     @Test func completeClosedConfigurationSelectsTheInertHost() throws {
         let environment = validEnvironment()
-        let configuration = try #require(
+        let validation = try #require(
             try? DevVlogsPhase0BStorageTestHostConfiguration.resolve(
                 environment: environment
             ).get()
         )
-        #expect(configuration.volumeRoot == "/Volumes/redacted-fixture")
-        #expect(configuration.destinationClass == "external-ssd")
-        #expect(configuration.filesystemClass == "apfs")
-        #expect(configuration.caseID == "mechanics_case")
-        #expect(configuration.runID == runID)
+        #expect(validation == .validated)
+        #expect(Mirror(reflecting: validation).children.isEmpty)
 
         let state = DevVlogsPhase0BStorageTestHostState(environment: environment)
-        #expect(state.configuration == .success(configuration))
+        #expect(state.validation == .success(.validated))
+    }
+
+    @Test func appLifetimeStateContainsNoRawConfiguration() throws {
+        let privateValues = [
+            "/Volumes/private-root-sentinel", "external-hdd", "exfat",
+            "private_case_sentinel", runID.uuidString.lowercased(), "execute", "skip", "1",
+        ]
+        let environment = validEnvironment(
+            volumeRoot: privateValues[0],
+            destinationClass: privateValues[1],
+            filesystemClass: privateValues[2],
+            caseID: privateValues[3]
+        )
+        let validation = DevVlogsPhase0BStorageTestHostConfiguration.resolve(
+            environment: environment
+        )
+        let state = DevVlogsPhase0BStorageTestHostState(environment: environment)
+        let application = DevVlogsPhase0BStorageTestHostApplication(environment: environment)
+        #expect(try validation.get() == .validated)
+        #expect(Mirror(reflecting: try validation.get()).children.isEmpty)
+        assertDiagnosticsContainNone(privateValues, in: validation)
+        assertDiagnosticsContainNone(privateValues, in: state)
+        assertDiagnosticsContainNone(privateValues, in: application)
+    }
+
+    @Test func failureLifetimeStateContainsNoRawInputOrAssociatedValue() {
+        let privateRoot = "/Volumes/private-failure-root-sentinel/"
+        let environment = validEnvironment(volumeRoot: privateRoot)
+        let validation = DevVlogsPhase0BStorageTestHostConfiguration.resolve(
+            environment: environment
+        )
+        let state = DevVlogsPhase0BStorageTestHostState(environment: environment)
+        #expect(validation == .failure(.invalidVolumeRoot))
+        #expect(Mirror(reflecting: DevVlogsPhase0BStorageTestHostLaunchError.invalidVolumeRoot)
+            .children.isEmpty)
+        assertDiagnosticsContainNone([privateRoot], in: validation)
+        assertDiagnosticsContainNone([privateRoot], in: state)
     }
 
     @Test func everyMissingOrEmptyClosedInputStaysInertWithTypedFailure() {
@@ -39,10 +73,10 @@ struct DevVlogsPhase0BStorageTestHostLaunchTests {
         for key in DevVlogsPhase0BStorageTestHostConfiguration.runtimeEnvironmentKeys {
             var missing = valid
             missing.removeValue(forKey: key)
-            assertIsolatedFailure(missing, expected: .missingRuntimeValue(key))
+            assertIsolatedFailure(missing, expected: .missingRuntimeValue)
             var empty = valid
             empty[key] = ""
-            assertIsolatedFailure(empty, expected: .missingRuntimeValue(key))
+            assertIsolatedFailure(empty, expected: .missingRuntimeValue)
         }
 
         var missingHost = valid
@@ -215,16 +249,21 @@ struct DevVlogsPhase0BStorageTestHostLaunchTests {
 
     private let runID = UUID(uuidString: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee")!
 
-    private func validEnvironment() -> [String: String] {
+    private func validEnvironment(
+        volumeRoot: String = "/Volumes/redacted-fixture",
+        destinationClass: String = "external-ssd",
+        filesystemClass: String = "apfs",
+        caseID: String = "mechanics_case"
+    ) -> [String: String] {
         [
             DevVlogsPhase0BStorageTestHostConfiguration.hostEnvironmentKey: "1",
             DevVlogsPhase0BStorageTestHostConfiguration.runtimeEnableEnvironmentKey: "execute",
-            DevVlogsPhase0BStorageTestHostConfiguration.volumeRootEnvironmentKey:
-                "/Volumes/redacted-fixture",
+            DevVlogsPhase0BStorageTestHostConfiguration.volumeRootEnvironmentKey: volumeRoot,
             DevVlogsPhase0BStorageTestHostConfiguration.destinationClassEnvironmentKey:
-                "external-ssd",
-            DevVlogsPhase0BStorageTestHostConfiguration.filesystemClassEnvironmentKey: "apfs",
-            DevVlogsPhase0BStorageTestHostConfiguration.caseIDEnvironmentKey: "mechanics_case",
+                destinationClass,
+            DevVlogsPhase0BStorageTestHostConfiguration.filesystemClassEnvironmentKey:
+                filesystemClass,
+            DevVlogsPhase0BStorageTestHostConfiguration.caseIDEnvironmentKey: caseID,
             DevVlogsPhase0BStorageTestHostConfiguration.runIDEnvironmentKey:
                 runID.uuidString.lowercased(),
             KeychainInteractionPolicy.automationEnvironmentKey: "1",
@@ -245,7 +284,18 @@ struct DevVlogsPhase0BStorageTestHostLaunchTests {
                 == .failure(expected)
         )
         let state = DevVlogsPhase0BStorageTestHostState(environment: environment)
-        #expect(state.configuration == .failure(expected))
+        #expect(state.validation == .failure(expected))
+        #expect(Mirror(reflecting: expected).children.isEmpty)
+    }
+
+    private func assertDiagnosticsContainNone<T>(_ values: [String], in subject: T) {
+        var dumpOutput = ""
+        dump(subject, to: &dumpOutput)
+        for output in [String(describing: subject), String(reflecting: subject), dumpOutput] {
+            for value in values {
+                #expect(!output.contains(value))
+            }
+        }
     }
 
     private func ownedSource(_ name: String) throws -> String {
