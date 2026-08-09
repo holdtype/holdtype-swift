@@ -192,7 +192,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W04-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04-R1@029f836` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final protected-scope runtime is dependency-ready. |
 | `DV-P0B-STORAGE-R03` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W04 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R03 QA root only | accepted_evidence / functional_fail | `dc81960`; receipt below | Truthful SSD host-launch fail; HDD stopped; protected scope remains not_proven. |
 | `DV-P0B-STORAGE-R03-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R03@dc81960` | read-only exact seven-file runtime evidence and accepted wrapper provenance | accepted_with_residual | receipt below | Add one explicit task-owned DerivedData path shared by both Xcode phases. |
-| `DV-P0B-STORAGE-W05` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R03 evidence review | external-storage wrapper and canonical feasibility test only | running | — | Share one pinned task-owned DerivedData path across build/test while keeping hosted private HOME. |
+| `DV-P0B-STORAGE-W05` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R03 evidence review | external-storage wrapper and canonical feasibility test only | review | `8a98f73`; receipt below | Explicit shared DerivedData repair complete; independent review required. |
+| `DV-P0B-STORAGE-W05-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05@8a98f73` | read-only exact two-path repair commit | running | — | Verify real split host launch, confinement, cleanup, and protected isolation. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -362,9 +363,9 @@ other external root remain unauthorized.
   independently accepted. Final protected-scope runtime R03 stopped after its
   sole SSD invocation: build-for-testing passed, but private HOME changed the
   default DerivedData lookup and the hosted test could not launch; HDD was not
-  run. Evidence is accepted as a truthful functional fail. A two-path explicit
-  DerivedData repair is running. Mechanics remain accepted and no restorative
-  action is authorized.
+  run. Evidence is accepted as a truthful functional fail. Two-path explicit
+  DerivedData repair `8a98f73` is complete and in independent review. Mechanics
+  remain accepted and no restorative action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3622,6 +3623,39 @@ the identical explicit path to build-for-testing and test-without-building,
 while retaining private HOME only on hosted test; review before runtime.
 runtime_or_visual_handoff: none
 reviewed_commit: dc81960300bc0a48ce858e7e00cb71d09f6d13e1
+```
+
+### `DV-P0B-STORAGE-W05`
+
+```text
+packet_id: DV-P0B-STORAGE-W05
+status: done
+
+outcome: The wrapper creates/pins its private task HOME before build, creates
+one canonical mode-0700 DerivedData child, validates it before both Xcode
+phases, and passes the identical explicit path to build-for-testing and
+test-without-building. Private HOME/CFFIXED_USER_HOME remain hosted-test only.
+observed_evidence: A real non-external split built under invoking HOME, then
+launched the inert hosted test under private HOME with the same DerivedData;
+Foundation Application Support and TranscriptionRecovery confinement passed
+before external I/O.
+changed_paths: External-storage wrapper and canonical storage feasibility test
+only.
+checks_run: Structure/zsh/help/default/invalid/diff; production argv/env/order
+fake; real split build/test; canonical feasibility and accepted Phase 0B route/
+auth/capture/media/handoff tests; signed Debug; unsigned Release/settings/
+artifact isolation; cleanup success/failure/124/130/143/identity/replacement/
+collision; protected hashes, redaction, process/temp/root audits.
+scope_check: Exact two-path master commit; no external volume, live protected
+path, app UI, TCC, Keychain, camera/audio/media, product/spec/registry/project,
+or restorative runtime; clean worktree and zero residue.
+deviations: Intermediate empty `.original/DerivedData` fixture residue was
+removed with exact rmdir and the focused split rerun proved zero residue.
+residual: Independent review only; no external runtime before acceptance.
+next_dependency: DV-P0B-STORAGE-W05-REVIEW
+runtime_or_visual_handoff: none
+commit: 8a98f7362a0c258f3fb653472bc338ac559de059
+parent: ecd17d6671a9bf79b682b641a9a2ab937be8745a
 ```
 
 ## Rejected Receipts
