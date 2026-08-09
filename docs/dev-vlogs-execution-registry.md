@@ -180,8 +180,9 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-INVENTORY-R01` | `/root/dv_p0b_storage_inventory_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4 | read-only mounted-volume metadata only | accepted_with_residual | receipt below | Writable external SSD and HDD candidates are currently mounted; exact-root runtime awaits explicit user authorization. |
 | `DV-P0B-STORAGE-R01` | `/root/dv_p0b_storage_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4; accepted inventory; exact user authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted QA evidence root only | rejected_scope / cells_accepted | `f7bbc9d`; receipt below | Both storage mechanics cells are accepted; packet scope failed because normal app-host lifecycle exposed TranscriptionRecovery. |
 | `DV-P0B-STORAGE-R01-REVIEW` | `/root/dv_p0b_storage_r01_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R01@f7bbc9d` | read-only exact runtime evidence and accepted seam/source provenance | rejected | receipt below | Add and review a closed inert Debug storage test-host route before any rerun. |
-| `DV-P0B-STORAGE-W03` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected storage R01 scope review | exact Debug entry/storage-host route, wrapper, launch/wrapper tests, one QA summary | review | `89127cc`; receipt below | Six-path inert test-host repair is terminal; independent review decides acceptance. |
-| `DV-P0B-STORAGE-W03-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W03@89127cc` | read-only exact repair commit | running | — | Verify inert route, fail-closed configuration, wrapper environment, Release isolation, and protected owners. |
+| `DV-P0B-STORAGE-W03` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected storage R01 scope review | exact Debug entry/storage-host route, wrapper, launch/wrapper tests, one QA summary | rejected | `89127cc`; receipt below | Router isolation passes, but inert host retains the private volume root in app state. |
+| `DV-P0B-STORAGE-W03-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W03@89127cc` | read-only exact repair commit | rejected | receipt below | Replace retained raw configuration with a value-free validated marker. |
+| `DV-P0B-STORAGE-W03-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W03 review | Debug storage-host source and focused test only; summary only if claim changes | running | — | Remove private root/config retention while preserving inert routing and runtime-test ownership. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -334,8 +335,10 @@ other external root remain unauthorized.
   stayed unchanged. Independent review accepted both mechanics cells and
   proved the deterministic exposure: the app-hosted storage test selected
   normal `HoldTypeApp` lifecycle and could construct the live recovery owner.
-  Debug-only inert test-host repair W03 is running; no retry or restorative
-  action is authorized before its independent review.
+  Debug-only inert test-host W03 proves outer routing and wrapper injection,
+  but review rejected one private-value lifetime: the inert app state retained
+  the validated full volume root. Two-path value-free-marker repair W03-R1 is
+  running; no retry or restorative action is authorized before acceptance.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3341,6 +3344,34 @@ parent: 2492176ecb17cd9a8fad8b5f829de5cc8b5077ef
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-STORAGE-W03-REVIEW` of `89127cc`
+
+```text
+packet_id: DV-P0B-STORAGE-W03-REVIEW
+status: done
+verdict: reject
+
+outcome: Outer router isolation, fail-closed configuration, wrapper injection,
+tests, protected owners, and Release isolation pass. The inert host nevertheless
+retains the full private external-volume root and parsed configuration in its
+app-lifetime state after lexical validation.
+checks_run: Exact six-path commit/current-blob review; router/static/global
+initialization trace; signed Debug build-for-testing; sanitized-HOME focused
+and accepted-route tests; production wrapper invocation; structure/syntax/diff;
+Release/settings/artifact; protected 21/21 blobs; redaction/process/temp audits.
+scope_check: Read-only; no external storage, live protected artifact, app
+runtime, TCC, media, or repository mutation.
+exact_repair: In Debug StorageTestHostLaunch and its focused test, replace the
+retained raw configuration with a value-free validated marker/failure state.
+Keep the separate runtime-test configuration as the only legitimate root
+consumer. Other W03 paths remain protected unless summary truth changes.
+residual: No runtime rerun before repair review. Original protected content
+delta remains unknowable and must not be restored.
+next_dependency: DV-P0B-STORAGE-W03-R1, then independent re-review.
+runtime_or_visual_handoff: none
+reviewed_commit: 89127ccfa211b29d588bc09525ad17cabd7ffba8
+```
 
 ### `DV-P0B-STORAGE-R01-REVIEW` of `f7bbc9d`
 
