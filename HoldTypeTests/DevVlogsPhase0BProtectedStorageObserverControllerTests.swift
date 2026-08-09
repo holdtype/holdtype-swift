@@ -1,7 +1,6 @@
 #if DEBUG
 import Foundation
 import Testing
-
 struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
     @Test func helpDefaultAndInvalidModesCannotCreatePrivateRoots() throws {
         let before = try privateObserverRoots()
@@ -199,6 +198,7 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
     }
     @Test func terminalEvidenceCleanupAndFailureOverridesAreBehavioral() throws {
         let ready = shellQuote(readyLine + "\n")
+        let timeout = try timeoutExecutable()
         let result = try run(["/bin/zsh", "-c", """
             source \(shellQuote(scriptPath)); run_metadata_probe() { "$@" }
             deadline=$(( SECONDS + 60 )); fixture=$(/usr/bin/mktemp -d /private/tmp/holdtype-observer-terminal.XXXXXXXX)
@@ -232,6 +232,11 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             finalize_controller "$malformed_evidence" || malformed_status=$?
             [[ $malformed_status == 70 && ! -s "$malformed_evidence/events/storage-observer-r01.jsonl" &&
                -z "$(/usr/bin/grep -R "$sentinel" "$malformed_evidence" 2>/dev/null)" ]] || exit 75
+            exclusive="$fixture/exclusive"; /bin/mkdir -m 700 "$fixture/exclusive-sibling"
+            observer_evidence_write_test_hook() { [[ "$1" != summary.md ]] || { print replacement >"$exclusive/summary.md"; /bin/chmod 600 "$exclusive/summary.md"; } }
+            terminal_class=pass_unchanged; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
+            exclusive_status=0; finalize_controller "$exclusive" || exclusive_status=$?; unfunction observer_evidence_write_test_hook
+            [[ $exclusive_status == 74 && $(/bin/cat "$exclusive/summary.md") == replacement && -d "$fixture/exclusive-sibling" ]] || exit 76
             observer_evidence_write_test_hook() { [[ "$1" != measurements.csv ]] }
             terminal_class=pass_unchanged; terminal_exit_status=0; terminal_finalized=false; terminal_finalizing=false
             retained_observer_events=""; mid="$fixture/mid"; mid_status=0
@@ -261,9 +266,20 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             observer_evidence_final_postcondition_test_hook() { print unexpected >"$1/unexpected" }
             reset_case; schema="$fixture/schema"; schema_status=0; finalize_controller "$schema" || schema_status=$?; unfunction observer_evidence_final_postcondition_test_hook
             [[ $schema_status == 74 && -e "$success_staging_root/unexpected" ]] && assert_failure_safe "$schema" || exit 82
+            HTDV_OBSERVER_TEST_POST_SWAP=exit70; reset_case; interrupted="$fixture/interrupted"; interrupted_status=0
+            finalize_controller "$interrupted" || interrupted_status=$?; unset HTDV_OBSERVER_TEST_POST_SWAP
+            [[ $interrupted_status == 0 && -z "$success_staging_root" ]] && validate_runtime_evidence "$interrupted" || exit 86
+            timeout_executable=\(shellQuote(timeout)); metadata_timeout_seconds=0.2; run_metadata_probe() { run_timed_command "$metadata_timeout_seconds" 0 1 "$@"; }
+            HTDV_OBSERVER_TEST_POST_SWAP=sleep; deadline=$(( SECONDS + 20 )); reset_case; timed="$fixture/timed"; timed_status=0; finalize_controller "$timed" || timed_status=$?; unset HTDV_OBSERVER_TEST_POST_SWAP
+            run_metadata_probe() { "$@" }; metadata_timeout_seconds=15
+            [[ $timed_status == 0 && -z "$success_staging_root" ]] && validate_runtime_evidence "$timed" || exit 87
+            cleanup_boundary_pending=true; observer_evidence_cleanup_boundary_test_hook() { [[ $cleanup_boundary_pending == false ]] || { cleanup_boundary_pending=false; /bin/mv "$1" "$1.original"; /bin/mkdir -m 755 "$1"; /bin/mkdir -m 700 "$fixture/cleanup-boundary-sibling"; } }; reset_case; cleanup_replaced="$fixture/cleanup-replaced"; cleanup_replaced_status=0; finalize_controller "$cleanup_replaced" || cleanup_replaced_status=$?; unfunction observer_evidence_cleanup_boundary_test_hook
+            [[ $cleanup_replaced_status == 74 && -d "$success_staging_root" && -d "$success_staging_root.original" && -d "$fixture/cleanup-boundary-sibling" && -z "$evidence_success_quarantine_root" ]] && assert_failure_safe "$cleanup_replaced" && assert_failure_safe "$success_staging_root.original" || exit 89
             observer_evidence_cleanup_test_hook() { return 70 }
             reset_case; cleanup="$fixture/atomic-cleanup"; cleanup_status=0; finalize_controller "$cleanup" || cleanup_status=$?; unfunction observer_evidence_cleanup_test_hook
-            [[ $cleanup_status == 0 && "$evidence_commit_cleanup_state" == retained_failure_safe ]] && validate_runtime_evidence "$cleanup" && validate_runtime_evidence "$success_staging_root" pending || exit 83
+            [[ $cleanup_status == 74 && "$evidence_commit_cleanup_state" == retained_failure_safe ]] && assert_failure_safe "$cleanup" && reset_case && validate_runtime_evidence "$success_staging_root" || exit 83
+            cleanup_state=complete; evidence_write_state=complete; terminal_class=pass_unchanged; set +e; public_output=$(emit_controller_terminal 0 2>&1); public_status=$?; set -e
+            [[ $public_status == 74 && -z "$public_output" ]] || exit 88
             print terminal_evidence=pass; /bin/rm -rf -- "$fixture"
             """])
         #expect(result.status == 0)
@@ -399,32 +415,20 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
     private var repositoryRoot: URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     }
-    private var scriptPath: String {
-        repositoryRoot.appendingPathComponent(
-            "script/dev_vlogs_phase_0_b_protected_storage_observer.sh").path
-    }
-    private var probePath: String {
-        repositoryRoot.appendingPathComponent(
-            "script/dev_vlogs_phase_0_b_protected_storage_probe.c").path
-    }
-    private var summaryPath: String {
-        repositoryRoot.appendingPathComponent(
-            "docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md").path
-    }
+    private var scriptPath: String { repositoryRoot.appendingPathComponent(
+        "script/dev_vlogs_phase_0_b_protected_storage_observer.sh").path }
+    private var probePath: String { repositoryRoot.appendingPathComponent(
+        "script/dev_vlogs_phase_0_b_protected_storage_probe.c").path }
+    private var summaryPath: String { repositoryRoot.appendingPathComponent(
+        "docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md").path }
     private var runID: String { "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" }
     private var otherRunID: String { "11111111-2222-4333-8444-555555555555" }
     private var readyLine: String {
         observerLine(1, "observer_ready", "none", "observer", "not_applicable", "ready")
     }
-    private func observerLine(
-        _ sequence: Int,
-        _ event: String,
-        _ action: String,
-        _ category: String,
-        _ scope: String,
-        _ result: String,
-        runID: String? = nil
-    ) -> String {
+    private func observerLine(_ sequence: Int, _ event: String, _ action: String,
+                              _ category: String, _ scope: String, _ result: String,
+                              runID: String? = nil) -> String {
         "HTDV_P0B_PROTECTED_STORAGE_OBSERVER_V1 "
             + "{\"schema_version\":1,\"run_id\":\"\(runID ?? self.runID)\","
             + "\"case_id\":\"protected_metadata\",\"sequence\":\(sequence),"
@@ -435,17 +439,13 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
     private func parseStream(_ lines: [String]) throws -> (status: Int32, output: String) {
         try runStream(lines, command: "validate_observer_stream \"$stream\" \(runID)")
     }
-    private func classifyStream(
-        _ lines: [String],
-        concurrent: String
-    ) throws -> (status: Int32, output: String) {
+    private func classifyStream(_ lines: [String], concurrent: String) throws
+        -> (status: Int32, output: String) {
         try runStream(lines, command:
             "classify_observer_stream_result \"$stream\" \(runID) unchanged passed changed \(concurrent)")
     }
-    private func runStream(
-        _ lines: [String],
-        command: String
-    ) throws -> (status: Int32, output: String) {
+    private func runStream(_ lines: [String], command: String) throws
+        -> (status: Int32, output: String) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "holdtype-observer-stream-\(UUID().uuidString.lowercased())")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
@@ -459,8 +459,8 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             """])
     }
     private func timeoutExecutable() throws -> String {
-        let candidates = ["/opt/homebrew/bin/timeout", "/usr/local/bin/timeout", "/usr/bin/timeout"]
-        return try #require(candidates.first(where: FileManager.default.isExecutableFile(atPath:)))
+        let paths = ["/opt/homebrew/bin/timeout", "/usr/local/bin/timeout", "/usr/bin/timeout"]
+        return try #require(paths.first(where: FileManager.default.isExecutableFile(atPath:)))
     }
     private func makeFixture() throws -> (root: URL, home: URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(

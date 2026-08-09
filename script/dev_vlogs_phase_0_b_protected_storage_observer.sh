@@ -41,6 +41,9 @@ cleanup_state="incomplete_retained"
 evidence_write_state="not_attempted"
 evidence_commit_cleanup_state="not_attempted"
 success_staging_root=""
+evidence_success_quarantine_root=""
+evidence_written_root_identity=""
+evidence_written_events_identity=""
 build_comparison="uncertain"
 hosted_comparison="not_run"
 retained_observer_events=""
@@ -114,6 +117,14 @@ identity() {
     local path="$1" expected_mode="$2" value
     [[ -d "$path" && ! -L "$path" && "${path:A}" == "$path" ]] || return 70
     value=$(run_metadata_probe /usr/bin/stat -f '%u|%Lp|%d|%i' "$path" 2>/dev/null) || return 70
+    [[ "$value" == "$EUID|$expected_mode|"* ]] || return 70
+    print -r -- "$value"
+}
+
+evidence_directory_identity() {
+    local path="$1" expected_mode="$2" value
+    [[ -d "$path" && ! -L "$path" && "${path:A}" == "$path" ]] || return 70
+    value=$(run_metadata_probe /usr/bin/stat -f '%u|%Lp|%d|%i|%l' "$path") || return 70
     [[ "$value" == "$EUID|$expected_mode|"* ]] || return 70
     print -r -- "$value"
 }
@@ -290,24 +301,76 @@ evidence_relative_paths() {
 
 write_evidence_file() {
     local evidence_root="$1" root_identity="$2" events_identity="$3"
-    local relative="$4" content="$5" target parent current
+    local relative="$4" content="$5" current
     remaining_budget 0 >/dev/null || return 124
-    current=$(identity "$evidence_root" 755) || return 70
-    [[ "$current" == "$root_identity" ]] || return 70
-    target="$evidence_root/$relative"; parent="${target:h}"
-    if [[ "$relative" == events/* ]]; then
-        current=$(identity "$parent" 755) || return 70
-        [[ "$current" == "$events_identity" ]] || return 70
-    else
-        [[ "$parent" == "$evidence_root" ]] || return 70
-    fi
-    [[ ! -e "$target" && ! -L "$target" ]] || return 70
     if (( $+functions[observer_evidence_write_test_hook] )); then
         observer_evidence_write_test_hook "$relative" || return 70
     fi
-    if ! { print -rn -- "$content" >"$target"; } 2>/dev/null; then return 70; fi
-    run_metadata_probe /bin/chmod 600 "$target" >/dev/null || return 70
-    current=$(regular_file_identity "$target" 600) || return 70
+    current=$(HTDV_EVIDENCE_CONTENT="$content" run_metadata_probe /usr/bin/python3 - \
+        "$evidence_root" "$root_identity" "$events_identity" "$relative" <<'PY'
+import os, stat, sys
+root, root_identity, events_identity, relative = sys.argv[1:]
+def expected(value):
+    uid, mode, device, inode, links = value.split("|")
+    return int(uid), int(mode, 8), int(device), int(inode), int(links)
+def exact(value, identity, directory):
+    uid, mode, device, inode, links = expected(identity)
+    kind = stat.S_ISDIR(value.st_mode) if directory else stat.S_ISREG(value.st_mode)
+    return (kind and value.st_uid == uid and stat.S_IMODE(value.st_mode) == mode and
+            value.st_dev == device and value.st_ino == inode and value.st_nlink == links)
+if relative.startswith("/") or relative in {"", ".", ".."} or "//" in relative:
+    raise SystemExit(70)
+parts = relative.split("/")
+if len(parts) == 1:
+    directory_identity, name = root_identity, parts[0]
+elif len(parts) == 2 and parts[0] == "events":
+    directory_identity, name = events_identity, parts[1]
+else:
+    raise SystemExit(70)
+flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+root_fd = events_fd = file_fd = None
+try:
+    root_fd = os.open(root, flags)
+    if not exact(os.fstat(root_fd), root_identity, True): raise OSError()
+    events_fd = os.open("events", flags, dir_fd=root_fd)
+    if not exact(os.fstat(events_fd), events_identity, True): raise OSError()
+    directory_fd = events_fd if len(parts) == 2 else root_fd
+    file_fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                      0o600, dir_fd=directory_fd)
+    os.fchmod(file_fd, 0o600)
+    content = os.environ.pop("HTDV_EVIDENCE_CONTENT").encode()
+    offset = 0
+    while offset < len(content):
+        written = os.write(file_fd, content[offset:])
+        if written <= 0: raise OSError()
+        offset += written
+    value = os.fstat(file_fd)
+    if (not stat.S_ISREG(value.st_mode) or value.st_uid != os.geteuid() or
+            stat.S_IMODE(value.st_mode) != 0o600 or value.st_nlink != 1):
+        raise OSError()
+    root_value, events_value = os.fstat(root_fd), os.fstat(events_fd)
+    for directory_value in (root_value, events_value):
+        if (not stat.S_ISDIR(directory_value.st_mode) or
+                directory_value.st_uid != os.geteuid() or
+                stat.S_IMODE(directory_value.st_mode) != 0o755): raise OSError()
+    print(f"{value.st_uid}|600|{value.st_dev}|{value.st_ino}|{value.st_nlink}")
+    print(f"{root_value.st_uid}|755|{root_value.st_dev}|{root_value.st_ino}|{root_value.st_nlink}")
+    print(f"{events_value.st_uid}|755|{events_value.st_dev}|{events_value.st_ino}|{events_value.st_nlink}")
+except (OSError, ValueError):
+    raise SystemExit(70)
+finally:
+    for descriptor in (file_fd, events_fd, root_fd):
+        if descriptor is not None:
+            try: os.close(descriptor)
+            except OSError: pass
+PY
+    ) || return $?
+    local -a identities=("${(@f)current}")
+    (( ${#identities} == 3 )) || return 70
+    current="${identities[1]}"
+    [[ "$current" == "$EUID|600|"*'|1' ]] || return 70
+    evidence_written_root_identity="${identities[2]}"
+    evidence_written_events_identity="${identities[3]}"
     if [[ "${capture_evidence_identities:-false}" == true ]]; then
         captured_evidence_identities+="$relative"$'\t'"$current"$'\n'
     fi
@@ -316,26 +379,27 @@ write_evidence_file() {
 render_failure_safe_evidence() {
     local evidence_root="$1" root_identity="$2" events_identity="$3" writer="$4"
     local relative artifacts_content
+    typeset -A contents
     artifacts_content="path,status"$'\n'
     for relative in "${(@f)$(evidence_relative_paths)}"; do
         artifacts_content+="$relative,incomplete_retained"$'\n'
     done
-    "$writer" "$evidence_root" "$root_identity" "$events_identity" summary.md \
-        $'# Phase 0B protected-storage observer R01\n\nterminal_class: evidence_write_failed\nterminal_phase: evidence\nbuild_window: uncertain\nhosted_window: not_run\ncleanup: incomplete_retained\nevidence_state: uncommitted\n' || return $?
-    "$writer" "$evidence_root" "$root_identity" "$events_identity" source-feasibility.md \
-        $'# Source feasibility\n\ncontroller: script/dev_vlogs_phase_0_b_protected_storage_observer.sh\nprobe: script/dev_vlogs_phase_0_b_protected_storage_probe.c\nobserver: HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BProtectedStorageObserver.swift\nroute_schema: stderr-json-v1\nterminal_class: evidence_write_failed\n' || return $?
-    "$writer" "$evidence_root" "$root_identity" "$events_identity" environment.json \
-        $'{"schema_version":1,"mode":"nonexternal","private_home":true,"cleanup":"incomplete_retained"}\n' || return $?
-    "$writer" "$evidence_root" "$root_identity" "$events_identity" matrix.csv \
-        $'case_id,terminal_class,terminal_phase,cleanup\nprotected_metadata,evidence_write_failed,evidence,incomplete_retained\n' || return $?
-    "$writer" "$evidence_root" "$root_identity" "$events_identity" measurements.csv \
-        $'phase,result\nbuild,uncertain\nhosted,not_run\n' || return $?
-    "$writer" "$evidence_root" "$root_identity" "$events_identity" artifacts.csv \
-        "$artifacts_content" || return $?
-    "$writer" "$evidence_root" "$root_identity" "$events_identity" residuals.md \
-        $'# Residuals\n\nArbitrary non-run-owned writers remain unattributed and classify as still_unknown.\n' || return $?
-    "$writer" "$evidence_root" "$root_identity" "$events_identity" \
-        events/storage-observer-r01.jsonl "" || return $?
+    contents=(
+        summary.md $'# Phase 0B protected-storage observer R01\n\nterminal_class: evidence_write_failed\nterminal_phase: evidence\nbuild_window: uncertain\nhosted_window: not_run\ncleanup: incomplete_retained\nevidence_state: uncommitted\n'
+        source-feasibility.md $'# Source feasibility\n\ncontroller: script/dev_vlogs_phase_0_b_protected_storage_observer.sh\nprobe: script/dev_vlogs_phase_0_b_protected_storage_probe.c\nobserver: HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BProtectedStorageObserver.swift\nroute_schema: stderr-json-v1\nterminal_class: evidence_write_failed\n'
+        environment.json $'{"schema_version":1,"mode":"nonexternal","private_home":true,"cleanup":"incomplete_retained"}\n'
+        matrix.csv $'case_id,terminal_class,terminal_phase,cleanup\nprotected_metadata,evidence_write_failed,evidence,incomplete_retained\n'
+        measurements.csv $'phase,result\nbuild,uncertain\nhosted,not_run\n'
+        artifacts.csv "$artifacts_content"
+        residuals.md $'# Residuals\n\nArbitrary non-run-owned writers remain unattributed and classify as still_unknown.\n'
+        events/storage-observer-r01.jsonl ""
+    )
+    for relative in "${(@f)$(evidence_relative_paths)}"; do
+        "$writer" "$evidence_root" "$root_identity" "$events_identity" \
+            "$relative" "${contents[$relative]}" || return $?
+        root_identity="$evidence_written_root_identity"
+        events_identity="$evidence_written_events_identity"
+    done
 }
 
 stage_evidence_file() {
@@ -363,27 +427,61 @@ validate_evidence_file_identities() {
 
 cleanup_pinned_evidence_tree() {
     local tree="$1" tree_identity="$2" events_identity="$3" file_identities="$4"
-    local relative expected current cleanup_failed=false
-    current=$(identity "$tree" 755) || return 70
-    [[ "$current" == "$tree_identity" ]] || return 70
-    current=$(identity "$tree/events" 755) || return 70
-    [[ "$current" == "$events_identity" ]] || return 70
-    while IFS=$'\t' read -r relative expected; do
-        [[ -n "$relative" && -n "$expected" ]] || continue
-        current=$(regular_file_identity "$tree/$relative" 600) || {
-            cleanup_failed=true; continue
-        }
-        [[ "$current" == "$expected" ]] || { cleanup_failed=true; continue; }
-        run_cleanup_command /bin/unlink "$tree/$relative" || cleanup_failed=true
-    done <<<"$file_identities"
-    [[ "$cleanup_failed" == false ]] || return 70
-    current=$(identity "$tree/events" 755) || return 70
-    [[ "$current" == "$events_identity" ]] || return 70
-    run_cleanup_command /bin/rmdir "$tree/events" || return 70
-    current=$(identity "$tree" 755) || return 70
-    [[ "$current" == "$tree_identity" ]] || return 70
-    run_cleanup_command /bin/rmdir "$tree" || return 70
-    [[ ! -e "$tree" && ! -L "$tree" ]] || return 70
+    local parent="${tree:h}" name="${tree:t}" parent_mode parent_identity
+    [[ "${parent:A}" == "$parent" && "$name" != */* ]] || return 70
+    parent_mode=$(run_metadata_probe /usr/bin/stat -f '%Lp' "$parent") || return 70
+    parent_identity=$(evidence_directory_identity "$parent" "$parent_mode") || return 70
+    if (( $+functions[observer_evidence_cleanup_boundary_test_hook] )); then
+        observer_evidence_cleanup_boundary_test_hook "$tree" || return 70
+    fi
+    HTDV_EVIDENCE_IDENTITIES="$file_identities" run_metadata_probe /usr/bin/python3 - "$parent" \
+        "$parent_identity" "$name" "$tree_identity" "$events_identity" <<'PY' || return $?
+import os, stat, sys
+parent, parent_identity, tree_name, tree_identity, events_identity = sys.argv[1:]
+def expected(value):
+    uid, mode, device, inode, links = value.split("|")
+    return int(uid), int(mode, 8), int(device), int(inode), int(links)
+def exact(value, identity, directory):
+    uid, mode, device, inode, links = expected(identity)
+    kind = stat.S_ISDIR(value.st_mode) if directory else stat.S_ISREG(value.st_mode)
+    return (kind and value.st_uid == uid and stat.S_IMODE(value.st_mode) == mode and
+            value.st_dev == device and value.st_ino == inode and value.st_nlink == links)
+flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+parent_fd = tree_fd = events_fd = None
+try:
+    identities = {}
+    for line in os.environ.pop("HTDV_EVIDENCE_IDENTITIES").splitlines():
+        relative, identity = line.split("\t", 1)
+        if relative in identities: raise ValueError()
+        identities[relative] = identity
+    parent_fd = os.open(parent, flags)
+    if not exact(os.fstat(parent_fd), parent_identity, True): raise OSError()
+    tree_fd = os.open(tree_name, flags, dir_fd=parent_fd)
+    if not exact(os.fstat(tree_fd), tree_identity, True): raise OSError()
+    events_fd = os.open("events", flags, dir_fd=tree_fd)
+    if not exact(os.fstat(events_fd), events_identity, True): raise OSError()
+    expected_paths = {"summary.md", "source-feasibility.md", "environment.json", "matrix.csv",
+                      "measurements.csv", "artifacts.csv", "residuals.md",
+                      "events/storage-observer-r01.jsonl"}
+    if set(identities) != expected_paths: raise OSError()
+    for relative, identity in identities.items():
+        descriptor = events_fd if relative.startswith("events/") else tree_fd
+        name = relative.split("/")[-1]
+        if not exact(os.stat(name, dir_fd=descriptor, follow_symlinks=False), identity, False):
+            raise OSError()
+    for relative in identities:
+        descriptor = events_fd if relative.startswith("events/") else tree_fd
+        os.unlink(relative.split("/")[-1], dir_fd=descriptor)
+    os.rmdir("events", dir_fd=tree_fd)
+    os.rmdir(tree_name, dir_fd=parent_fd)
+except (OSError, ValueError):
+    raise SystemExit(70)
+finally:
+    for descriptor in (events_fd, tree_fd, parent_fd):
+        if descriptor is not None:
+            try: os.close(descriptor)
+            except OSError: pass
+PY
 }
 
 atomic_swap_evidence_trees() {
@@ -394,13 +492,13 @@ atomic_swap_evidence_trees() {
 import ctypes, os, stat, sys
 parent, parent_identity, retained, retained_identity, staged, staged_identity = sys.argv[1:]
 def expected(value):
-    uid, mode, device, inode = value.split("|")
-    return int(uid), int(mode, 8), int(device), int(inode)
+    uid, mode, device, inode, links = value.split("|")
+    return int(uid), int(mode, 8), int(device), int(inode), int(links)
 def exact(value, identity):
-    uid, mode, device, inode = expected(identity)
+    uid, mode, device, inode, links = expected(identity)
     return (stat.S_ISDIR(value.st_mode) and value.st_uid == uid and
             stat.S_IMODE(value.st_mode) == mode and value.st_dev == device and
-            value.st_ino == inode)
+            value.st_ino == inode and value.st_nlink == links)
 flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 try:
     parent_fd = os.open(parent, flags)
@@ -416,6 +514,11 @@ try:
     operation.restype = ctypes.c_int
     if operation(parent_fd, os.fsencode(retained), parent_fd, os.fsencode(staged), 2) != 0:
         raise OSError(ctypes.get_errno())
+    test_outcome = os.environ.get("HTDV_OBSERVER_TEST_POST_SWAP", "")
+    if test_outcome == "exit70": raise SystemExit(70)
+    if test_outcome == "sleep":
+        import time
+        time.sleep(30)
     if not exact(os.stat(retained, dir_fd=parent_fd, follow_symlinks=False), staged_identity):
         raise OSError()
     if not exact(os.stat(staged, dir_fd=parent_fd, follow_symlinks=False), retained_identity):
@@ -426,6 +529,89 @@ finally:
     try: os.close(parent_fd)
     except (NameError, OSError): pass
 PY
+}
+
+reconcile_evidence_swap() {
+    local parent="$1" parent_identity="$2" retained_name="$3" retained_identity="$4"
+    local staged_name="$5" staged_identity="$6"
+    run_metadata_probe /usr/bin/python3 - "$parent" "$parent_identity" "$retained_name" \
+        "$retained_identity" "$staged_name" "$staged_identity" <<'PY' || return $?
+import os, stat, sys
+parent, parent_identity, retained, retained_identity, staged, staged_identity = sys.argv[1:]
+def expected(value):
+    uid, mode, device, inode, links = value.split("|")
+    return int(uid), int(mode, 8), int(device), int(inode), int(links)
+def exact(value, identity):
+    uid, mode, device, inode, links = expected(identity)
+    return (stat.S_ISDIR(value.st_mode) and value.st_uid == uid and
+            stat.S_IMODE(value.st_mode) == mode and value.st_dev == device and
+            value.st_ino == inode and value.st_nlink == links)
+flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+parent_fd = None
+try:
+    parent_fd = os.open(parent, flags)
+    if not exact(os.fstat(parent_fd), parent_identity): raise OSError()
+    retained_value = os.stat(retained, dir_fd=parent_fd, follow_symlinks=False)
+    staged_value = os.stat(staged, dir_fd=parent_fd, follow_symlinks=False)
+    if exact(retained_value, retained_identity) and exact(staged_value, staged_identity):
+        print("uncommitted")
+    elif exact(retained_value, staged_identity) and exact(staged_value, retained_identity):
+        print("committed")
+    else:
+        print("unknown")
+except (OSError, ValueError):
+    print("unknown")
+finally:
+    if parent_fd is not None:
+        try: os.close(parent_fd)
+        except OSError: pass
+PY
+}
+
+restore_failure_safe_evidence() {
+    local parent="$1" parent_identity="$2" retained_name="$3" retained_identity="$4"
+    local staged_name="$5" staged_identity="$6" swap_status=0 state
+    atomic_swap_evidence_trees "$parent" "$parent_identity" "$retained_name" "$staged_identity" \
+        "$staged_name" "$retained_identity" || swap_status=$?
+    state=$(reconcile_evidence_swap "$parent" "$parent_identity" "$retained_name" \
+        "$retained_identity" "$staged_name" "$staged_identity") || return 70
+    [[ "$state" == uncommitted ]] || return 70
+}
+
+recover_failure_safe_after_cleanup_uncertainty() {
+    local parent="$1" parent_mode="$2" evidence_root="$3" success_identity="$4"
+    local success_events_identity="$5" success_file_identities="$6"
+    local recovery_root recovery_name recovery_identity recovery_events_identity
+    local recovery_file_identities parent_identity state capture_evidence_identities=true
+    local captured_evidence_identities=""
+    recovery_root=$(run_metadata_probe /usr/bin/mktemp -d \
+        "$parent/.${evidence_root:t}.failure.XXXXXXXX") || return 70
+    [[ "${recovery_root:h}" == "$parent" ]] || return 70
+    run_metadata_probe /bin/chmod 755 "$recovery_root" >/dev/null || return 70
+    run_metadata_probe /bin/mkdir -m 755 "$recovery_root/events" >/dev/null || return 70
+    recovery_identity=$(evidence_directory_identity "$recovery_root" 755) || return 70
+    recovery_events_identity=$(evidence_directory_identity "$recovery_root/events" 755) || return 70
+    render_failure_safe_evidence "$recovery_root" "$recovery_identity" \
+        "$recovery_events_identity" write_evidence_file || return $?
+    capture_evidence_identities=false
+    recovery_identity=$(evidence_directory_identity "$recovery_root" 755) || return 70
+    recovery_events_identity=$(evidence_directory_identity "$recovery_root/events" 755) || return 70
+    recovery_file_identities=$(pin_evidence_files "$recovery_root") || return 70
+    validate_runtime_evidence "$recovery_root" pending || return $?
+    parent_identity=$(evidence_directory_identity "$parent" "$parent_mode") || return 70
+    [[ $(evidence_directory_identity "$evidence_root" 755) == "$success_identity" ]] || return 70
+    recovery_name="${recovery_root:t}"
+    atomic_swap_evidence_trees "$parent" "$parent_identity" "${evidence_root:t}" \
+        "$success_identity" "$recovery_name" "$recovery_identity" || return $?
+    state=$(reconcile_evidence_swap "$parent" "$parent_identity" "${evidence_root:t}" \
+        "$success_identity" "$recovery_name" "$recovery_identity") || return 70
+    [[ "$state" == committed ]] || return 70
+    validate_runtime_evidence "$evidence_root" pending || return $?
+    validate_evidence_file_identities "$evidence_root" "$recovery_file_identities" || return 70
+    evidence_success_quarantine_root="$recovery_root"
+    cleanup_pinned_evidence_tree "$recovery_root" "$success_identity" \
+        "$success_events_identity" "$success_file_identities" || return 70
+    evidence_success_quarantine_root=""
 }
 
 validate_runtime_evidence() {
@@ -537,6 +723,7 @@ write_runtime_evidence() {
     local evidence_root="${1:-$repository_root/docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01}"
     local relative root_identity events_identity artifacts_content validation_status=0 current
     local parent parent_mode parent_identity retained_name staged_name staged_identity
+    local swap_status=0 swap_state
     local staged_events_identity retained_file_identities staged_file_identities
     local summary_content source_content environment_content matrix_content measurements_content
     local capture_evidence_identities=false captured_evidence_identities=""
@@ -548,9 +735,9 @@ write_runtime_evidence() {
     parent_identity=$(identity "$parent" "$parent_mode") || return 70
     [[ ! -e "$evidence_root" && ! -L "$evidence_root" ]] || return 70
     run_metadata_probe /bin/mkdir -m 755 "$evidence_root" >/dev/null || return 70
-    root_identity=$(identity "$evidence_root" 755) || return 70
     run_metadata_probe /bin/mkdir -m 755 "$evidence_root/events" >/dev/null || return 70
-    events_identity=$(identity "$evidence_root/events" 755) || return 70
+    root_identity=$(evidence_directory_identity "$evidence_root" 755) || return 70
+    events_identity=$(evidence_directory_identity "$evidence_root/events" 755) || return 70
     summary_content="# Phase 0B protected-storage observer R01
 
 terminal_class: $terminal_class
@@ -581,6 +768,8 @@ hosted,$hosted_comparison
     done
     render_failure_safe_evidence "$evidence_root" "$root_identity" "$events_identity" \
         write_evidence_file || return $?
+    root_identity=$(evidence_directory_identity "$evidence_root" 755) || return 70
+    events_identity=$(evidence_directory_identity "$evidence_root/events" 755) || return 70
     if (( $+functions[observer_evidence_postcondition_test_hook] )); then
         observer_evidence_postcondition_test_hook "$evidence_root" || return 70
     fi
@@ -590,9 +779,10 @@ hosted,$hosted_comparison
         "$parent/.${retained_name}.success.XXXXXXXX") || return 70
     [[ "${success_staging_root:h}" == "$parent" ]] || return 70
     run_metadata_probe /bin/chmod 755 "$success_staging_root" >/dev/null || return 70
-    staged_identity=$(identity "$success_staging_root" 755) || return 70
     run_metadata_probe /bin/mkdir -m 755 "$success_staging_root/events" >/dev/null || return 70
-    staged_events_identity=$(identity "$success_staging_root/events" 755) || return 70
+    staged_identity=$(evidence_directory_identity "$success_staging_root" 755) || return 70
+    staged_events_identity=$(evidence_directory_identity "$success_staging_root/events" 755) || return 70
+    parent_identity=$(evidence_directory_identity "$parent" "$parent_mode") || return 70
     staged_name="${success_staging_root:t}"
     final_contents=(
         summary.md "$summary_content"
@@ -610,14 +800,16 @@ hosted,$hosted_comparison
             "$staged_events_identity" "$relative" "${final_contents[$relative]}" || {
             validation_status=$?; break
         }
+        staged_identity="$evidence_written_root_identity"
+        staged_events_identity="$evidence_written_events_identity"
     done
     capture_evidence_identities=false
     staged_file_identities="${captured_evidence_identities%$'\n'}"
     if (( validation_status != 0 )); then
-        cleanup_pinned_evidence_tree "$success_staging_root" "$staged_identity" \
-            "$staged_events_identity" "$staged_file_identities" || return 70
         return "$validation_status"
     fi
+    staged_identity=$(evidence_directory_identity "$success_staging_root" 755) || return 70
+    staged_events_identity=$(evidence_directory_identity "$success_staging_root/events" 755) || return 70
     validate_runtime_evidence "$success_staging_root" || return $?
     validate_evidence_file_identities "$success_staging_root" "$staged_file_identities" \
         || return 70
@@ -627,15 +819,15 @@ hosted,$hosted_comparison
     if (( $+functions[observer_evidence_before_commit_test_hook] )); then
         observer_evidence_before_commit_test_hook "$evidence_root" "$success_staging_root"
     fi
-    current=$(identity "$parent" "$parent_mode") || return 70
+    current=$(evidence_directory_identity "$parent" "$parent_mode") || return 70
     [[ "$current" == "$parent_identity" ]] || return 70
-    current=$(identity "$evidence_root" 755) || return 70
+    current=$(evidence_directory_identity "$evidence_root" 755) || return 70
     [[ "$current" == "$root_identity" ]] || return 70
-    current=$(identity "$evidence_root/events" 755) || return 70
+    current=$(evidence_directory_identity "$evidence_root/events" 755) || return 70
     [[ "$current" == "$events_identity" ]] || return 70
-    current=$(identity "$success_staging_root" 755) || return 70
+    current=$(evidence_directory_identity "$success_staging_root" 755) || return 70
     [[ "$current" == "$staged_identity" ]] || return 70
-    current=$(identity "$success_staging_root/events" 755) || return 70
+    current=$(evidence_directory_identity "$success_staging_root/events" 755) || return 70
     [[ "$current" == "$staged_events_identity" ]] || return 70
     validate_evidence_file_identities "$evidence_root" "$retained_file_identities" || return 70
     validate_evidence_file_identities "$success_staging_root" "$staged_file_identities" || return 70
@@ -645,10 +837,17 @@ hosted,$hosted_comparison
         observer_evidence_commit_test_hook "$parent" "$retained_name" "$staged_name" || return 70
     fi
     atomic_swap_evidence_trees "$parent" "$parent_identity" "$retained_name" "$root_identity" \
-        "$staged_name" "$staged_identity" || return $?
-    current=$(identity "$evidence_root/events" 755) || return 70
+        "$staged_name" "$staged_identity" || swap_status=$?
+    swap_state=$(reconcile_evidence_swap "$parent" "$parent_identity" "$retained_name" \
+        "$root_identity" "$staged_name" "$staged_identity") || return 70
+    if [[ "$swap_state" == uncommitted ]]; then
+        (( swap_status != 0 )) && return "$swap_status"
+        return 70
+    fi
+    [[ "$swap_state" == committed ]] || return 70
+    current=$(evidence_directory_identity "$evidence_root/events" 755) || return 70
     [[ "$current" == "$staged_events_identity" ]] || return 70
-    current=$(identity "$success_staging_root/events" 755) || return 70
+    current=$(evidence_directory_identity "$success_staging_root/events" 755) || return 70
     [[ "$current" == "$events_identity" ]] || return 70
     validate_runtime_evidence "$evidence_root" || return $?
     validate_evidence_file_identities "$evidence_root" "$staged_file_identities" || return 70
@@ -658,14 +857,25 @@ hosted,$hosted_comparison
     if (( $+functions[observer_evidence_cleanup_test_hook] )); then
         observer_evidence_cleanup_test_hook "$success_staging_root" || {
             evidence_commit_cleanup_state=retained_failure_safe
-            return 0
+            restore_failure_safe_evidence "$parent" "$parent_identity" "$retained_name" \
+                "$root_identity" "$staged_name" "$staged_identity" || \
+                recover_failure_safe_after_cleanup_uncertainty "$parent" "$parent_mode" \
+                    "$evidence_root" "$staged_identity" "$staged_events_identity" \
+                    "$staged_file_identities" || return 70
+            return 70
         }
     fi
     cleanup_pinned_evidence_tree "$success_staging_root" "$root_identity" "$events_identity" \
         "$retained_file_identities" || {
         evidence_commit_cleanup_state=retained_failure_safe
-        return 0
+        restore_failure_safe_evidence "$parent" "$parent_identity" "$retained_name" \
+            "$root_identity" "$staged_name" "$staged_identity" || \
+            recover_failure_safe_after_cleanup_uncertainty "$parent" "$parent_mode" \
+                "$evidence_root" "$staged_identity" "$staged_events_identity" \
+                "$staged_file_identities" || return 70
+        return 70
     }
+    success_staging_root=""
 }
 
 finalize_controller() {
@@ -905,6 +1115,9 @@ run_controller() {
         "$bin_root" "$logs_root" >/dev/null || {
         record_terminal metadata_uncertain setup 70; return 0
     }
+    run_root_identity=$(identity "$run_root" 700) || {
+        record_terminal metadata_uncertain setup 70; return 0
+    }
     task_home_identity=$(identity "$task_home" 700) || {
         record_terminal metadata_uncertain setup 70; return 0
     }
@@ -999,6 +1212,19 @@ outer_supervise() {
         --kill-after="${outer_kill_after_seconds}s" "${outer_timeout_seconds}s" "$@" 2>/dev/null
 }
 
+emit_controller_terminal() {
+    local terminal_status="$1"
+    if (( terminal_status == 0 )) && [[ "$cleanup_state" == complete &&
+          "$evidence_write_state" == complete &&
+          "$evidence_commit_cleanup_state" == complete && -z "$success_staging_root" &&
+          -z "$evidence_success_quarantine_root" ]]; then
+        print -r -- "protected_storage_observer result=$terminal_class cleanup=complete"
+        return 0
+    fi
+    (( terminal_status != 0 )) && return "$terminal_status"
+    return 74
+}
+
 run_inner_controller() {
     deadline=$(( SECONDS + 900 ))
     durable_evidence_root="$repository_root/docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01"
@@ -1015,11 +1241,7 @@ run_inner_controller() {
     local final_status=0
     finalize_controller "$durable_evidence_root" || final_status=$?
     trap - EXIT INT TERM
-    if (( final_status == 0 )) && [[ "$cleanup_state" == complete &&
-          "$evidence_write_state" == complete ]]; then
-        print -r -- "protected_storage_observer result=$terminal_class cleanup=complete"
-    fi
-    return "$final_status"
+    emit_controller_terminal "$final_status"
 }
 
 if [[ "${ZSH_EVAL_CONTEXT:-}" == toplevel ]]; then
@@ -1032,6 +1254,7 @@ if [[ "${ZSH_EVAL_CONTEXT:-}" == toplevel ]]; then
         shift
     done
     [[ "$execute_enabled" == true ]] || fail "explicit --execute opt-in is required"
+    unset HTDV_OBSERVER_TEST_POST_SWAP HTDV_EVIDENCE_CONTENT HTDV_EVIDENCE_IDENTITIES
     if command -v timeout >/dev/null 2>&1; then timeout_executable=$(command -v timeout)
     elif command -v gtimeout >/dev/null 2>&1; then timeout_executable=$(command -v gtimeout)
     else fail "a bounded timeout command is required"

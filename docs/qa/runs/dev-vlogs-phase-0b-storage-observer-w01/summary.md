@@ -44,17 +44,28 @@ result bundle.
   quarantines and revalidates the exact run-root identity before deletion. A
   hosted event line becomes durable only after the complete expected-run,
   closed-schema stream validates; malformed and pre-hosted outcomes retain an
-  empty event file. Every evidence directory/file operation is checked, and
-  success requires the exact eight regular mode-0600 closed-schema files with
-  no extras. The durable path keeps the closed `evidence_write_failed`/
-  `incomplete_retained` tree while a separately identity-pinned success tree
-  is built and validated. One descriptor-relative atomic namespace swap is
-  the commit point; precommit uncertainty leaves the failure-safe tree
-  unchanged, and displaced-tree cleanup never traverses an unproven object.
+  empty event file. Each evidence file is created exclusively relative to its
+  pinned directory descriptor, written to completion through that file
+  descriptor, and pinned from `fstat` before close. Success requires the exact
+  eight regular mode-0600 closed-schema files with no extras. The durable path
+  keeps the closed `evidence_write_failed`/`incomplete_retained` tree while a
+  separately identity-pinned success tree is built and validated. One
+  descriptor-relative atomic namespace swap is the commit point. Every helper
+  result is reconciled from the exact before/after identities, including an
+  interruption after the swap. Displaced-tree cleanup is one descriptor-
+  relative identity-verifying helper operation under the private mode-0700
+  run-root trust boundary; it does not traverse or rewrite a replacement. If
+  that boundary detects replacement, a separately created and pinned
+  failure-safe tree is atomically restored as the authoritative durable tree.
+  The displaced success tree is quarantined and removed only through the same
+  descriptor-relative identity boundary; any remaining quarantine suppresses
+  public success. The original, replacement, and sibling remain untouched.
 - A single terminal state machine reaps the supervisor, resolves exact root
   cleanup while the guard remains proven, reaps the guard, then attempts the
   closed eight-file evidence write. Cleanup or
-  evidence uncertainty overrides success before any durable success claim.
+  evidence uncertainty or any retained evidence-commit residual overrides
+  success before public success output. This boundary does not claim resistance
+  to a malicious same-UID actor outside the accepted private-root trust model.
 
 ## Implementation verification
 
