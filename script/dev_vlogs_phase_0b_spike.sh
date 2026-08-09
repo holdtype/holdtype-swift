@@ -128,6 +128,13 @@ permission_hard_timeout_command() {
     return "$result"
 }
 
+permission_pipeline_capture() {
+    local total_seconds="$1"
+    local pipeline="$2"
+    shift 2
+    timeout_command "$total_seconds" /bin/zsh -c "$pipeline" permission-pipeline "$@"
+}
+
 permission_root_guard_source=""
 read -r -d '' permission_root_guard_source <<'PY' || true
 import ctypes
@@ -179,7 +186,37 @@ def sensitive_names():
         raise ValueError("sensitive")
     return values
 
-def scrub(root, names):
+def same_entry(value, wanted):
+    return identity(value) == identity(wanted) and stat.S_IFMT(value.st_mode) == stat.S_IFMT(wanted.st_mode)
+
+def preserve_and_replace(parent, name, value, label):
+    preserved = ".dv-p0b-preserved-" + label + "-" + secrets.token_hex(8)
+    rename_exclusive(parent, name, preserved)
+    if stat.S_ISDIR(value.st_mode):
+        os.mkdir(name, stat.S_IMODE(value.st_mode), dir_fd=parent)
+    elif stat.S_ISREG(value.st_mode):
+        descriptor = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                             stat.S_IMODE(value.st_mode), dir_fd=parent)
+        os.close(descriptor)
+    else:
+        raise ValueError("replacement")
+
+def quarantine(parent, name, wanted, label):
+    destination = ".dv-p0b-" + label + "-" + secrets.token_hex(12)
+    rename_exclusive(parent, name, destination)
+    moved = os.stat(destination, dir_fd=parent, follow_symlinks=False)
+    if not same_entry(moved, wanted):
+        raise ValueError("replacement")
+    return destination
+
+def quarantine_identity(parent, name, wanted, label):
+    destination = ".dv-p0b-" + label + "-" + secrets.token_hex(12)
+    rename_exclusive(parent, name, destination)
+    if path_identity(parent, destination) != wanted:
+        raise ValueError("replacement")
+    return destination
+
+def scrub(root, names, test_action):
     for name in names:
         try:
             value = os.stat(name, dir_fd=root, follow_symlinks=False)
@@ -188,7 +225,11 @@ def scrub(root, names):
         if (not stat.S_ISREG(value.st_mode) or value.st_uid != os.getuid() or
                 stat.S_IMODE(value.st_mode) != 0o600 or value.st_nlink != 1):
             raise ValueError("sensitive")
-        os.unlink(name, dir_fd=root)
+        if test_action == "sensitive_replaced":
+            preserve_and_replace(root, name, value, "sensitive")
+            test_action = ""
+        quarantined = quarantine(root, name, value, "sensitive")
+        os.unlink(quarantined, dir_fd=root)
     for name in names:
         try:
             os.stat(name, dir_fd=root, follow_symlinks=False)
@@ -205,23 +246,33 @@ def remove_contents(directory, top_level=False, test_action=""):
                        SENSITIVE.fullmatch(name) is not None or
                        re.fullmatch(r"dv-p0b-camera-authorization-[A-Za-z0-9-]+", name) is not None or
                        (test_action == "timeout_fixture" and
-                        re.fullmatch(r"timeout-(?:worker|parent-[1-3]|child-[1-3])", name) is not None))
+                        re.fullmatch(r"timeout-(?:worker|parent-[1-3]|child-[1-3]|pipeline-[a-z-]+)",
+                                     name) is not None))
             if not allowed:
                 raise ValueError("name")
         value = os.stat(name, dir_fd=directory, follow_symlinks=False)
         if value.st_uid != os.getuid() or stat.S_IMODE(value.st_mode) & 0o022:
             raise ValueError("ownership")
         if stat.S_ISDIR(value.st_mode):
-            child = os.open(name, OPEN_DIRECTORY, dir_fd=directory)
+            quarantined = quarantine(directory, name, value, "directory")
+            child = os.open(quarantined, OPEN_DIRECTORY, dir_fd=directory)
             try:
                 if identity(os.fstat(child)) != identity(value):
                     raise ValueError("replacement")
                 remove_contents(child)
+                if test_action == "directory_replaced":
+                    preserve_and_replace(directory, quarantined, value, "directory")
+                    test_action = ""
+                final_name = quarantine(directory, quarantined, value, "directory-final")
+                os.rmdir(final_name, dir_fd=directory)
             finally:
                 os.close(child)
-            os.rmdir(name, dir_fd=directory)
         elif stat.S_ISREG(value.st_mode) and value.st_nlink == 1:
-            os.unlink(name, dir_fd=directory)
+            if test_action == "regular_replaced":
+                preserve_and_replace(directory, name, value, "regular")
+                test_action = ""
+            quarantined = quarantine(directory, name, value, "regular")
+            os.unlink(quarantined, dir_fd=directory)
         else:
             raise ValueError("type")
 
@@ -298,17 +349,14 @@ def cleanup(action):
             names = sensitive_names()
             if test_action in ("sensitive_symlink", "sensitive_hardlink", "sensitive_type"):
                 name = names[0]
-                try:
-                    os.unlink(name, dir_fd=root)
-                except FileNotFoundError:
-                    pass
+                rename_exclusive(root, name, ".dv-p0b-fixture-sensitive-" + secrets.token_hex(8))
                 if test_action == "sensitive_symlink":
                     os.symlink("permission-launcher.log", name, dir_fd=root)
                 elif test_action == "sensitive_hardlink":
                     os.link("permission-launcher.log", name, src_dir_fd=root, dst_dir_fd=root)
                 else:
                     os.mkdir(name, 0o700, dir_fd=root)
-            scrub(root, names)
+            scrub(root, names, test_action)
             if action == "remove" and test_action == "unexpected_name":
                 descriptor = os.open("unexpected-private", os.O_WRONLY | os.O_CREAT | os.O_EXCL,
                                      0o600, dir_fd=root)
@@ -344,9 +392,15 @@ def cleanup(action):
         tombstone_fd, _ = open_root(parent, tombstone, root_wanted)
         try:
             remove_contents(tombstone_fd, True, test_action)
+            if test_action == "final_tombstone_replaced":
+                preserved = ".dv-p0b-preserved-root-" + secrets.token_hex(8)
+                rename_exclusive(parent, tombstone, preserved)
+                os.mkdir(tombstone, 0o700, dir_fd=parent)
+            final_tombstone = quarantine_identity(
+                parent, tombstone, root_wanted, "root-final")
+            os.rmdir(final_tombstone, dir_fd=parent)
         finally:
             os.close(tombstone_fd)
-        os.rmdir(tombstone, dir_fd=parent)
         if path_identity(parent, tombstone) is not None or path_identity(parent, root_name) is not None:
             raise ValueError("residual")
         print("root_guard=removed")
@@ -535,23 +589,25 @@ read_permission_identity() {
     local deadline="$2"
     local text_identity
     permission_timeout_cap "$deadline" 2 || return 1
-    observed_permission_ppid=$(timeout_command "$REPLY" ps -p "$child_pid" -o ppid= |
-        tr -d '[:space:]') || return 1
+    observed_permission_ppid=$(permission_pipeline_capture "$REPLY" \
+        '/bin/ps -p "$1" -o ppid= | /usr/bin/tr -d "[:space:]"' "$child_pid") || return 1
     permission_timeout_cap "$deadline" 2 || return 1
-    text_identity=$(timeout_command "$REPLY" lsof -a -p "$child_pid" -d txt -Ffin 2>/dev/null |
-        awk '
+    text_identity=$(permission_pipeline_capture "$REPLY" '
+        /usr/sbin/lsof -a -p "$1" -d txt -Ffin 2>/dev/null | /usr/bin/awk '\''
             /^ftxt$/ { in_text = 1; next }
             in_text && /^i/ && inode == "" { inode = substr($0, 2); next }
             in_text && /^n/ { print inode "\t" substr($0, 2); exit }
-        ') || return 1
+        '\''' "$child_pid") || return 1
     observed_permission_inode="${text_identity%%$'\t'*}"
     observed_permission_executable="${text_identity#*$'\t'}"
     permission_timeout_cap "$deadline" 2 || return 1
-    observed_permission_command=$(timeout_command "$REPLY" ps -ww -p "$child_pid" -o command= |
-        sed 's/^[[:space:]]*//;s/[[:space:]]*$//') || return 1
+    observed_permission_command=$(permission_pipeline_capture "$REPLY" \
+        '/bin/ps -ww -p "$1" -o command= | /usr/bin/sed '\''s/^[[:space:]]*//;s/[[:space:]]*$//'\''' \
+        "$child_pid") || return 1
     permission_timeout_cap "$deadline" 2 || return 1
-    observed_permission_start=$(timeout_command "$REPLY" ps -p "$child_pid" -o lstart= |
-        sed 's/^[[:space:]]*//;s/[[:space:]]*$//') || return 1
+    observed_permission_start=$(permission_pipeline_capture "$REPLY" \
+        '/bin/ps -p "$1" -o lstart= | /usr/bin/sed '\''s/^[[:space:]]*//;s/[[:space:]]*$//'\''' \
+        "$child_pid") || return 1
     [[ -n "$observed_permission_ppid" && -n "$observed_permission_inode" &&
         -n "$observed_permission_executable" && -n "$observed_permission_command" &&
         -n "$observed_permission_start" ]]
@@ -563,8 +619,8 @@ permission_process_is_active() {
     kill -0 "$child_pid" 2>/dev/null || return 1
     permission_timeout_cap "$deadline" 1 || return 2
     local process_state
-    if ! process_state=$(timeout_command "$REPLY" ps -p "$child_pid" -o state= |
-        tr -d '[:space:]'); then
+    if ! process_state=$(permission_pipeline_capture "$REPLY" \
+        '/bin/ps -p "$1" -o state= | /usr/bin/tr -d "[:space:]"' "$child_pid"); then
         kill -0 "$child_pid" 2>/dev/null || return 1
         return 2
     fi
@@ -577,8 +633,8 @@ permission_marker_matches() {
     local child_pid="$1"
     local deadline="$2"
     permission_timeout_cap "$deadline" 2 || return 1
-    timeout_command "$REPLY" ps -E -ww -p "$child_pid" -o command= |
-        awk -v marker="$permission_marker" '
+    permission_pipeline_capture "$REPLY" '
+        /bin/ps -E -ww -p "$1" -o command= | /usr/bin/awk -v marker="$2" '\''
             {
                 for (field = 1; field <= NF; field += 1) {
                     if ($field == marker) {
@@ -587,7 +643,7 @@ permission_marker_matches() {
                 }
             }
             END { exit(found ? 0 : 1) }
-        ' >/dev/null
+        '\''' "$child_pid" "$permission_marker" >/dev/null
 }
 
 capture_permission_helper_identity() {
@@ -700,8 +756,8 @@ permission_topology_for_observed() {
     local next_parent
     while [[ "$ancestor" == <-> ]] && (( ancestor > 1 && depth < 16 )); do
         permission_timeout_cap "$deadline" 2 || return 1
-        next_parent=$(timeout_command "$REPLY" ps -p "$ancestor" -o ppid= |
-            tr -d '[:space:]') || {
+        next_parent=$(permission_pipeline_capture "$REPLY" \
+            '/bin/ps -p "$1" -o ppid= | /usr/bin/tr -d "[:space:]"' "$ancestor") || {
             REPLY="reparented-unknown"
             return 0
         }
@@ -1094,7 +1150,8 @@ run_permission_result_parser_self_test() {
     timeout_command "$REPLY" chmod 0700 "$resolved_run_root" "$permission_helper_executable"
     permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     expected_process_digest=$(print -rn -- "$permission_launch_token:$permission_app_pid" |
-        timeout_command "$REPLY" shasum -a 256 | awk '{ print $1 }')
+        permission_pipeline_capture "$REPLY" \
+            "/usr/bin/shasum -a 256 | /usr/bin/awk '{ print \$1 }'")
     local extra=""
     local digest="$expected_process_digest"
     [[ "$scenario" == extra_key ]] && extra=',"private":"rejected"'
@@ -1131,7 +1188,9 @@ run_permission_cleanup_self_test() {
         cleanup_root_timeout|cleanup_root_failure|cleanup_deadline_expired|cleanup_term|cleanup_int|\
         cleanup_root_symlink|cleanup_root_replaced|cleanup_parent_replaced|cleanup_swap_after_open|\
         cleanup_tombstone_collision|cleanup_post_rename_mismatch|cleanup_sensitive_symlink|\
-        cleanup_sensitive_hardlink|cleanup_sensitive_type|cleanup_unexpected_name|\
+        cleanup_sensitive_hardlink|cleanup_sensitive_type|cleanup_sensitive_replaced|\
+        cleanup_regular_replaced|cleanup_directory_replaced|cleanup_final_tombstone_replaced|\
+        cleanup_unexpected_name|\
         cleanup_hard_timeout_matrix) ;;
         *) exit 64 ;;
     esac
@@ -1170,6 +1229,18 @@ run_permission_cleanup_self_test() {
         cleanup_sensitive_symlink) permission_root_guard_test_action="sensitive_symlink" ;;
         cleanup_sensitive_hardlink) permission_root_guard_test_action="sensitive_hardlink" ;;
         cleanup_sensitive_type) permission_root_guard_test_action="sensitive_type" ;;
+        cleanup_sensitive_replaced) permission_root_guard_test_action="sensitive_replaced" ;;
+        cleanup_regular_replaced)
+            permission_root_guard_test_action="regular_replaced"
+            print -rn -- fixture > "$resolved_run_root/dv-p0b-camera-authorization-fixture"
+            ;;
+        cleanup_directory_replaced)
+            permission_root_guard_test_action="directory_replaced"
+            mkdir "$resolved_run_root/home"
+            ;;
+        cleanup_final_tombstone_replaced)
+            permission_root_guard_test_action="final_tombstone_replaced"
+            ;;
         cleanup_unexpected_name) permission_root_guard_test_action="unexpected_name" ;;
         cleanup_hard_timeout_matrix)
             permission_root_guard_test_action="timeout_fixture"
@@ -1215,6 +1286,33 @@ run_permission_hard_timeout_self_test() {
     }
     [[ "$(<"$parent_record")" == <-> && "$(<"$child_record")" == <-> ]] || {
         print -r -- "permission_hard_timeout_test=failed_record"
+        exit 1
+    }
+    local producer="$resolved_run_root/timeout-pipeline-producer"
+    local consumer="$resolved_run_root/timeout-pipeline-consumer"
+    local consumer_record="$resolved_run_root/timeout-pipeline-consumer-pid"
+    local pipeline_child_record="$resolved_run_root/timeout-pipeline-child-pid"
+    print -rl -- '#!/bin/zsh' 'trap "" TERM' \
+        'while true; do print -r -- value; sleep 10; done' > "$producer"
+    print -rl -- '#!/bin/zsh' 'trap "" TERM' 'print -r -- "$$" > "$1"' \
+        '( trap "" TERM; while true; do sleep 10; done ) &' \
+        'print -r -- "$!" > "$2"' 'while IFS= read -r value; do :; done' 'wait' > "$consumer"
+    chmod 0700 "$producer" "$consumer"
+    local pipeline_attempt pipeline_status=1
+    for pipeline_attempt in 1 2 3; do
+        : > "$consumer_record"
+        : > "$pipeline_child_record"
+        set +e
+        permission_hard_timeout_command 1.000000 /bin/zsh -c \
+            '"$1" | "$2" "$3" "$4"' permission-pipeline "$producer" "$consumer" \
+            "$consumer_record" "$pipeline_child_record"
+        pipeline_status=$?
+        set -e
+        (( pipeline_status == 124 )) && \
+            [[ -s "$consumer_record" && -s "$pipeline_child_record" ]] && break
+    done
+    (( pipeline_status == 124 )) && [[ -s "$consumer_record" && -s "$pipeline_child_record" ]] || {
+        print -r -- "permission_hard_timeout_test=failed_pipeline"
         exit 1
     }
     permission_hard_timeout_command 0.500000 /usr/bin/true || {
@@ -1506,8 +1604,8 @@ if [[ "$mode" == "--request-camera-permission" ]]; then
     }
     permission_timeout_cap "$permission_work_deadline" 2 || exit 124
     expected_process_digest=$(print -rn -- "$permission_launch_token:$permission_app_pid" |
-        timeout_command "$REPLY" shasum -a 256 |
-        awk '{ print $1 }')
+        permission_pipeline_capture "$REPLY" \
+            "/usr/bin/shasum -a 256 | /usr/bin/awk '{ print \$1 }'")
     publish_permission_acknowledgment "$expected_process_digest" "$permission_work_deadline" || exit 1
     wait_for_permission_helper_exit "$permission_work_deadline" || exit 1
     reap_permission_app "$permission_work_deadline" || exit 1

@@ -5,6 +5,7 @@ import Foundation
 import Testing
 @testable import HoldType
 
+@Suite(.serialized)
 @MainActor
 struct DevVlogsPhase0BCameraAuthorizationLaunchServicesTests {
     @Test func validNoFollowAcknowledgmentPassesAndDigestIsStable() async throws {
@@ -146,6 +147,10 @@ struct DevVlogsPhase0BCameraAuthorizationLaunchServicesTests {
             ("cleanup_sensitive_symlink", 70, 1, true),
             ("cleanup_sensitive_hardlink", 70, 1, true),
             ("cleanup_sensitive_type", 70, 1, true),
+            ("cleanup_sensitive_replaced", 70, 1, true),
+            ("cleanup_regular_replaced", 70, 0, false),
+            ("cleanup_directory_replaced", 70, 0, false),
+            ("cleanup_final_tombstone_replaced", 70, 0, false),
             ("cleanup_unexpected_name", 70, 0, false),
             ("cleanup_hard_timeout_matrix", 0, 0, false),
             ("cleanup_term", 143, 0, false),
@@ -165,6 +170,14 @@ struct DevVlogsPhase0BCameraAuthorizationLaunchServicesTests {
             }
             if scenario == "cleanup_unexpected_name" {
                 #expect(try root.namedArtifact("unexpected-private", for: scenario))
+            }
+            let replacementPrefix = ["cleanup_sensitive_replaced": ".dv-p0b-sensitive-",
+                "cleanup_regular_replaced": ".dv-p0b-regular-",
+                "cleanup_directory_replaced": ".dv-p0b-directory-final-",
+                "cleanup_final_tombstone_replaced": ".dv-p0b-root-final-"][scenario]
+            if let replacementPrefix {
+                #expect(try root.namedArtifact(".dv-p0b-preserved-", for: scenario))
+                #expect(try root.namedArtifact(replacementPrefix, for: scenario))
             }
         }
     }
@@ -388,7 +401,7 @@ private final class ScriptFixture {
     func namedArtifact(_ name: String, for scenario: String) throws -> Bool {
         let base = parent.appendingPathComponent(scenario)
         return try #require(FileManager.default.enumerator(at: base,
-            includingPropertiesForKeys: nil)).contains { ($0 as? URL)?.lastPathComponent == name }
+            includingPropertiesForKeys: nil)).contains { ($0 as? URL)?.lastPathComponent.hasPrefix(name) == true }
     }
 
     func remove() { try? FileManager.default.removeItem(at: parent) }
