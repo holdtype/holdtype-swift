@@ -213,9 +213,11 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | rejected | receipt below | Return registry-only observer/barrier/schema repair; W01 remains blocked. |
 | `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | rejected | `d14a927`; receipt below | Canonical design is sound, but three internal contradictions require registry-only R2. |
 | `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1@d14a927` | read-only exact design review | rejected | receipt below | Repair continuation storage, observable cleanup evidence and protocol-overload wording. |
-| `DV-P0B-E07-E01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R1 | registry design receipt only | review | exact receipt below | Three internal contradictions repaired; independent Review-R2 required. |
-| `DV-P0B-E07-E01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R2` terminal artifact | read-only exact design review | queued | — | W01 remains blocked until acceptance. |
-| `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R2` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
+| `DV-P0B-E07-E01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R1 | registry design receipt only | rejected | `1616247`; receipt below | Cleanup/overload repaired; slow-gate race contract still inconsistent. |
+| `DV-P0B-E07-E01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R2@1616247` | read-only exact design review | rejected | receipt below | Return minimal waiter-consumption and joined-cancellation R3. |
+| `DV-P0B-E07-E01-R3` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R2 | registry design receipt only | running | — | Repair only slow-gate idempotency, cancellation join and post-resume check. |
+| `DV-P0B-E07-E01-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R3` terminal artifact | read-only exact design review | queued | — | W01 remains blocked until acceptance. |
+| `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted current E07 design review | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
@@ -6292,5 +6294,50 @@ residual: Any accepted repair still proves deterministic fake-backed E07 only,
 not a shipping audio lease or real hardware/media/storage/provider behavior.
 next_dependency: DV-P0B-E07-E01-R2, then independent
 DV-P0B-E07-E01-REVIEW-R2. DV-P0B-E07-W01 remains blocked.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-E01-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW-R2
+status: rejected
+reviewed_commit: 1616247088409eaeeed0b9cc46d9b8e9847f1365
+parent: 31e7bae800976d89a39f66aad107f69e01482d0f
+scope: exact one-path registry-only repair; diff hygiene passes.
+
+accepted_repairs:
+- sessionCleanupCount is removed everywhere. The replacement
+  terminalActionCompletedWithObservedResourcesClosed is limited to awaited
+  public action completion, public state and zero observable/injected resource
+  counters; it makes no private cleanup inference.
+- Exact AudioRecorderService protocol overload witnesses remain allowed; only
+  additional overloads are forbidden.
+- All observer, case, schema, provenance, parent-pin, path and residual clauses
+  outside the slow-gate repair remain unchanged.
+
+blocking_findings:
+1. waitUntilEntered is both immediately idempotent after enterCount == 1 and
+   required to reject a second entry wait, but the permitted state cannot
+   distinguish first post-entry observation from later calls.
+2. Cancellation uses untracked relay Tasks. Normal entry/resolution may win and
+   allow the suspending method to return before the losing relay, so nil-on-exit
+   and zero outstanding tasks are unprovable.
+3. An entry/cancellation race can let waitUntilEntered return success without a
+   post-resumption cancellation check while resolution continuation/relay work
+   remains outstanding.
+
+smallest_repair: Registry-only R3. Make post-entry waitUntilEntered explicitly
+idempotent and limit duplicateEntry to a concurrent second pending waiter or
+second enter, or add exact waiter-consumption state. Use synchronously safe or
+explicitly tracked-and-joined cancellation cleanup; permit only its minimal
+private state and expose closure in snapshot/hard stops. Recheck cancellation
+after waitUntilEntered resumes and require terminal cleanup before return.
+
+scope_check: Read-only review only. No edit, build, test, app/runtime, process,
+hardware, provider, Keychain, media, permission or storage action.
+residual: An eventual acceptance remains deterministic fake-backed E07 only.
+next_dependency: DV-P0B-E07-E01-R3, then independent
+DV-P0B-E07-E01-REVIEW-R3. DV-P0B-E07-W01 remains blocked.
 runtime_or_visual_handoff: none
 ```
