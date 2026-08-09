@@ -178,8 +178,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
 | `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
 | `DV-P0B-STORAGE-INVENTORY-R01` | `/root/dv_p0b_storage_inventory_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4 | read-only mounted-volume metadata only | accepted_with_residual | receipt below | Writable external SSD and HDD candidates are currently mounted; exact-root runtime awaits explicit user authorization. |
-| `DV-P0B-STORAGE-R01` | `/root/dv_p0b_storage_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4; accepted inventory; exact user authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted QA evidence root only | review / protected-scope-fail | `f7bbc9d`; receipt below | Both storage cells pass, but an existing TranscriptionRecovery artifact changed mtime during the HDD test-host window. |
-| `DV-P0B-STORAGE-R01-REVIEW` | `/root/dv_p0b_storage_r01_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R01@f7bbc9d` | read-only exact runtime evidence and accepted seam/source provenance | running | — | Classify protected-artifact attribution and decide external-cell evidence acceptance without another runtime. |
+| `DV-P0B-STORAGE-R01` | `/root/dv_p0b_storage_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4; accepted inventory; exact user authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted QA evidence root only | rejected_scope / cells_accepted | `f7bbc9d`; receipt below | Both storage mechanics cells are accepted; packet scope failed because normal app-host lifecycle exposed TranscriptionRecovery. |
+| `DV-P0B-STORAGE-R01-REVIEW` | `/root/dv_p0b_storage_r01_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R01@f7bbc9d` | read-only exact runtime evidence and accepted seam/source provenance | rejected | receipt below | Add and review a closed inert Debug storage test-host route before any rerun. |
+| `DV-P0B-STORAGE-W03` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected storage R01 scope review | exact Debug entry/storage-host route, wrapper, launch/wrapper tests, one QA summary | running | — | Prevent normal lifecycle/recovery owners from constructing during external storage tests; no runtime. |
+| `DV-P0B-STORAGE-W03-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | terminal `DV-P0B-STORAGE-W03` | read-only exact repair commit | queued | — | Verify inert route, fail-closed configuration, wrapper environment, Release isolation, and protected owners. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -327,10 +329,13 @@ other external root remain unauthorized.
   unplug/remount or write/delete outside those scratch directories is
   authorized. `DV-P0B-STORAGE-R01@f7bbc9d` completed both exact cells with
   functional pass and zero external scratch/process residue. Packet-level
-  scope remains failed pending review because one pre-existing
-  TranscriptionRecovery artifact received a new mtime during the HDD test-host
-  window while count/path-set stayed unchanged; no retry or restorative action
-  is authorized.
+  scope is rejected because one pre-existing TranscriptionRecovery artifact
+  received a new mtime during the HDD test-host window while count/path-set
+  stayed unchanged. Independent review accepted both mechanics cells and
+  proved the deterministic exposure: the app-hosted storage test selected
+  normal `HoldTypeApp` lifecycle and could construct the live recovery owner.
+  Debug-only inert test-host repair W03 is running; no retry or restorative
+  action is authorized before its independent review.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3304,6 +3309,39 @@ parent: ea8b92b4ea792b653f617bfe87dd61a5ef445f8f
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-STORAGE-R01-REVIEW` of `f7bbc9d`
+
+```text
+packet_id: DV-P0B-STORAGE-R01-REVIEW
+status: done
+verdict: reject
+functional_cell_verdicts: external_ssd_hfsplus=accept;
+external_hdd_apfs=accept
+packet_scope_verdict: reject
+
+outcome: Both external mechanics cells are truthful and accepted. Packet-level
+scope fails because the app-hosted storage test selected normal HoldType
+lifecycle, which can initialize and atomically persist the live
+TranscriptionRecovery store. The observed protected mtime change is consistent
+with that deterministic exposure; exact content/predicate remains unknowable.
+checks_run: Exact seven-file commit/current-blob and structured evidence audit;
+accepted wrapper/test provenance; redaction/cleanup review; minimal app-host,
+router, runtime, and recovery-owner source trace. No runtime or protected-file
+access by reviewer.
+findings: TEST_HOST is HoldType.app; storage wrapper keys do not select a Debug
+route; normal HoldTypeApp constructs DictationRuntime and recovery store. Outer
+session caffeinate also failed to span the full two-cell session, though wrapper
+coverage preserves the accepted mechanics observations.
+scope_check: Read-only; no external volume, protected artifact, process, or
+repository mutation.
+residual: Exact protected content delta is unavailable. No restorative action
+is authorized.
+exact_next_dependency: Add and independently review a complete opt-in inert
+Debug storage test-host route before any runtime rerun.
+runtime_or_visual_handoff: none
+reviewed_commit: f7bbc9d803e802e2564f3943cd7725cffe4bc5b1
+```
 
 ### `DV-P0B-CAPTURE-W07-REVIEW-R2` of `b34dc16`
 
