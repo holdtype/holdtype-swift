@@ -211,9 +211,9 @@ other external root remain unauthorized.
 | `DV-P0B-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | terminal capture/media, UI, storage evidence and reviews | read-only | rejected_for_phase0c | receipt below | Phase 0B terminal evidence has functional/protected blockers; explicit user disposition required. |
 | `DV-P0B-E07-E01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-REVIEW`; resumed evidence cycle | read-only exact dictation/capture ownership, fake/sanitized route, paired-action matrix, and future writable envelope | rejected | receipt below | Canonical test-only route is feasible; durable observer/evidence/review contract is incomplete. |
 | `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | rejected | receipt below | Return registry-only observer/barrier/schema repair; W01 remains blocked. |
-| `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | running | resume receipt below | Source/target/protected-blob confirmation is complete; resume only the exact self-contained registry contract. |
+| `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Self-contained W01 contract is complete; independent Review-R1 required. |
 | `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1` terminal artifact | read-only exact design review | queued | — | W01 stays blocked until acceptance. |
-| `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
+| `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R1` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
@@ -3995,6 +3995,634 @@ storage closure or quantitative measurements.
 next_dependency: DV-P0B-E07-E01-REVIEW, then exact W01 plus independent review.
 runtime_or_visual_handoff: none
 ```
+
+### DV-P0B-E07-E01-R1
+
+~~~text
+packet_id: DV-P0B-E07-E01-R1
+status: design_complete_pending_independent_review
+outcome: A complete future writable E07 packet is defined below. It uses two
+new DEBUG-only test files and exactly eight redacted QA files. It requires no
+product hook, product/source change, existing-test change, second microphone,
+shipping audio lease, live provider, Keychain, camera, storage or runtime.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance; agent
+onboarding; specification README/index; complete DV-DRAFT-4@2f3266a; complete
+Dev Vlogs implementation plan and Phase 0B protocol; registry header, scope,
+decisions, epoch, table, current coordination, E01, rejected E01 review,
+integrated Phase 0B review, W02 and W07-R3 receipts/reviews; SWIFT; agent
+tooling; active microphone-text-input, recording-durability-and-interruption,
+privacy-and-permissions, settings-and-secret-storage, OpenAI-transcription,
+text-correction, post-transcription-actions, text-output-workflow and
+transcript-history specifications. root-orchestration was not read because
+this finite authority explorer is not /root.
+
+expected: Under DV-CAPTURE-1..5, DV-CAPTURE-7..10, DV-ACC-CAPTURE-1 and
+Phase 0B E02/E07/E08, every baseline dictation remains usable under the paired
+spike attempt. Baseline and spike compare canonical start, recording, finish
+or cancel, one authoritative audio owner, completed-artifact identity, journal
+checkpoint/release/discard, provider authorization/seal/dispatch/request/
+acceptance, correction/translation, accepted output, History, Recording Cache,
+output handoff and exact terminal cleanup. Camera unavailable/busy/slow-
+timeout, destination unavailable/disconnect and mux failure remain subordinate
+observer outcomes and cannot alter canonical dictation.
+
+observed_evidence: DictationSessionController is the canonical injected state
+owner and AudioRecorderService is the sole microphone owner. Existing recorder,
+journal, recovery, provider, transcript pipeline, correction, translation,
+History, cache, output, settings, credential, monitor and event seams are
+sufficient for deterministic fakes. Existing dictation and Dev Vlogs tests
+exercise branches separately but never form E07 pairs. The existing Debug
+DevVlogsPhase0BHarness is not reusable as E07 orchestration because it owns a
+separate recorder, cancels it on capture failures and never enters canonical
+provider/output flow.
+
+discrepancy_classification: qa_evidence_gap. The expected contract is
+specified and current source is reusable, but E07 remains not_exercised. No
+product implementation defect, specification conflict or protected semantic
+dependency was found. Change mode is discover; specification delta is none.
+
+literal_paths_and_symbols:
+Only these ten new paths may be written:
+1. HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests.swift
+2. HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTestSupport.swift
+3. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/summary.md
+4. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/source-feasibility.md
+5. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/environment.json
+6. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/matrix.csv
+7. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/measurements.csv
+8. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/artifacts.csv
+9. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/residuals.md
+10. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/events/e07-pairs.jsonl
+
+Both Swift files have at most 500 physical lines; first nonblank line is
+#if DEBUG; last nonblank line is #endif; HoldTypeTests membership comes only
+from its existing PBXFileSystemSynchronizedRootGroup. No project edit is
+permitted.
+
+DevVlogsPhase0BDictationNonRegressionTests.swift declares only:
+@MainActor struct DevVlogsPhase0BDictationNonRegressionTests, with exactly
+standardSuccessPairMatchesBaseline,
+correctedSuccessPairMatchesBaseline,
+translatedSuccessPairMatchesBaseline,
+explicitCancelPairMatchesBaseline,
+cameraUnavailablePairMatchesBaseline,
+cameraBusyPairMatchesBaseline,
+cameraSlowTimeoutPairMatchesBaseline,
+destinationUnavailablePairMatchesBaseline,
+destinationDisconnectPairMatchesBaseline,
+muxFailurePairMatchesBaseline and
+evidenceArtifactsMatchClosedSchemasAndRedactionPolicy.
+It has no file-local helper.
+
+DevVlogsPhase0BDictationNonRegressionTestSupport.swift declares only:
+DevVlogsPhase0BE07CaseID,
+DevVlogsPhase0BE07AttemptMode,
+DevVlogsPhase0BE07ActionState,
+DevVlogsPhase0BE07DictationTerminal,
+DevVlogsPhase0BE07AudioOwner,
+DevVlogsPhase0BE07ArtifactIdentity,
+DevVlogsPhase0BE07AcceptedOutputClass,
+DevVlogsPhase0BE07TerminalCause,
+DevVlogsPhase0BE07Durability,
+DevVlogsPhase0BE07ObserverPhase,
+DevVlogsPhase0BE07ObserverTerminal,
+DevVlogsPhase0BE07ObserverCallResult,
+DevVlogsPhase0BE07GateResolution,
+DevVlogsPhase0BE07GateSnapshot,
+DevVlogsPhase0BE07AccessSnapshot,
+DevVlogsPhase0BE07TemporaryAudioAccess,
+DevVlogsPhase0BE07ObserverSnapshot,
+DevVlogsPhase0BE07DictationSnapshot,
+DevVlogsPhase0BE07AttemptSnapshot,
+DevVlogsPhase0BE07PairResult,
+DevVlogsPhase0BE07AccessError,
+DevVlogsPhase0BE07GateError,
+DevVlogsPhase0BE07HarnessError,
+DevVlogsPhase0BE07EvidenceValidationError,
+DevVlogsPhase0BE07TemporaryAccessToken,
+DevVlogsPhase0BE07SlowPreparationGate,
+DevVlogsPhase0BE07Observer,
+DevVlogsPhase0BE07RecorderSpy,
+DevVlogsPhase0BE07CaptureJournalSpy,
+DevVlogsPhase0BE07RecoverySpy,
+DevVlogsPhase0BE07InjectedServicesSpy,
+DevVlogsPhase0BE07PairHarness and
+DevVlogsPhase0BE07EvidenceValidator.
+
+The closed enum cases are:
+- CaseID: standard_success, corrected_success, translated_success,
+  explicit_cancel, camera_unavailable, camera_busy, camera_slow_timeout,
+  destination_unavailable, destination_disconnect, mux_failure.
+- AttemptMode: baseline, spike.
+- ActionState: idle, recording, transcribing, success.
+- DictationTerminal: success, cancelled.
+- AudioOwner: dictationRecorder.
+- ArtifactIdentity: none, dictationAudio.
+- AcceptedOutputClass: none, standard, corrected, translated.
+- TerminalCause: none, userFinished, explicitUserDiscard.
+- Durability: none, historyCheckpoint, explicitlyDiscarded.
+- ObserverPhase: disabled, idle, preparing, capturing, finalizing, ready,
+  failed, cancelled, cleaned.
+- ObserverTerminal: disabled, ready, cancelled, cameraUnavailable, cameraBusy,
+  cameraPreparationTimedOut, destinationUnavailable, destinationDisconnected,
+  muxFailed.
+- ObserverCallResult: continued, terminal(ObserverTerminal),
+  rejectedLateDuplicate(ObserverTerminal).
+- GateResolution: ready, timedOut.
+- AccessError: artifactMismatch, unavailable, alreadyAcquired, invalidRelease,
+  alreadyReleased.
+- GateError: duplicateEntry, duplicateResolution.
+- HarnessError: unsupportedCase, providerReleaseBeforeDispatch,
+  missingCompletedArtifact, snapshotMismatch, unexpectedTerminal,
+  outstandingResource.
+- EvidenceValidationError: missingFile, unexpectedFile, oversizedFile,
+  symlinkNotAllowed, invalidHeading, invalidSchema, duplicateKey,
+  invalidCardinality, invalidOrder, forbiddenContent.
+
+No global function, extension, extra helper type, overload or nested helper is
+permitted. Production protocol witnesses use the current protocol declarations
+verbatim and do not expand the helper API. The only additional named methods
+are:
+- TemporaryAccessToken: init(completedArtifact:identity:),
+  acquire(completedArtifact:), release(_:), snapshot().
+- SlowPreparationGate: enterAndWaitForResolution(), waitUntilEntered(),
+  resolve(_:), snapshot().
+- Observer: init(caseID:slowPreparationGate:), prepare(),
+  finish(completedArtifact:temporaryAccessToken:), cancel(),
+  destinationDidDisconnect(), snapshot(), and private complete(_:).
+- RecorderSpy: exact AudioRecorderService witnesses,
+  waitUntilCompletedArtifact(), snapshot().
+- CaptureJournalSpy: exact RecordingCaptureJournaling witnesses, snapshot().
+- RecoverySpy: exact TranscriptionFailureRecoveryRecording witnesses,
+  snapshot().
+- InjectedServicesSpy: exact remaining injected-service witnesses,
+  waitUntilProviderDispatch(), releaseProviderResponse(), snapshot().
+- PairHarness: runPair(caseID:), assertPair(caseID:), and private
+  runAttempt(caseID:mode:), expectedDictationSnapshot(caseID:),
+  expectedObserverSnapshot(caseID:), makeSettings(caseID:),
+  makeSnapshot(dictation:observer:).
+- EvidenceValidator: validate(fromTestFilePath:), and private
+  validateFileInventory(_:), validateMarkdown(_:), validateEnvironment(_:),
+  validateCSVFiles(_:), validateEvents(_:), validateSizes(_:),
+  validateRedaction(_:).
+
+observer_contract:
+The observer retains only case ID, optional slow gate, value counters and
+terminal state. It never receives or retains recorder, journal, controller,
+provider, URL, path, microphone or shipping lease. Its only audio input is the
+already-completed AudioRecordingArtifact value plus
+DevVlogsPhase0BE07TemporaryAccessToken passed to
+finish(completedArtifact:temporaryAccessToken:).
+
+The pair harness creates that token exactly once after RecorderSpy publishes
+the artifact returned by canonical stopRecording. The token binds exact
+artifact equality to redacted identity dictationAudio and fixed accessID 1,
+permits one acquire and one matching release, rejects mismatch/second acquire/
+invalid or second release, never opens/reads/copies/moves/deletes/serializes
+the artifact, and exposes only identity and counters.
+
+DevVlogsPhase0BE07TemporaryAudioAccess has exactly
+identity:ArtifactIdentity, accessID:Int and artifact:AudioRecordingArtifact;
+artifact is never serialized or logged. DevVlogsPhase0BE07AccessSnapshot has
+exactly acquireCount:Int, releaseCount:Int and outstandingCount:Int.
+Observer prepare returns terminal cameraUnavailable, cameraBusy or
+destinationUnavailable for those cases; it waits on the injected gate for
+cameraSlowTimeout; it returns continued/capturing for success, mux, cancel and
+disconnect. finish is valid only from capturing and returns terminal ready for
+the three success cases or terminal muxFailed for mux_failure. cancel and
+destinationDidDisconnect return their named terminal only from capturing.
+
+Ready and muxFailed acquire/release/outstanding are 1/1/0; mux release is in
+defer. Cancel, all preparation faults and disconnect are 0/0/0. Every spike
+has exactly one observer terminal and cleanup. Repeating the same terminal API
+returns rejectedLateDuplicate(existingTerminal), increments only the duplicate
+counter and never repeats terminal, release or cleanup.
+
+pair_sequences:
+Baseline success order is settings snapshot; credential resolution; journal
+prepare; playback stop; canonical recorder start; recording barrier; finish;
+recorder stop and completed artifact; recovery checkpoint; journal release;
+userFinished/historyCheckpoint/providerAuthorized terminal; transcribing;
+credential reuse; provider seal; dispatch/request; accept; usage; correction;
+optional translation; accepted output/success state; History; recovery
+removal; output; cache; duration/provider/session/task cleanup.
+
+Baseline cancel order is settings; credential; journal prepare; recorder start;
+recording; cancel; recorder cancel; journal discard; explicitUserDiscard/
+explicitlyDiscarded/providerAuthorized=false; idle; monitor/session cleanup.
+Provider seal/dispatch/request/accept, usage, correction, translation, History,
+output and cache remain zero.
+
+Spike success/mux order is canonical recording; observer prepare/capturing;
+controller finish; recorder publishes its already-completed artifact;
+controller checkpoints/releases/seals/dispatches then blocks at the injected
+provider continuation before acceptance; harness confirms dispatch, creates
+the token and calls observer finish; observer reaches ready or muxFailed and
+releases access; observer cleanup; harness releases provider; canonical
+accept/correction/translation/History/recovery removal/output/cache/success/
+cleanup; duplicate finish rejected.
+
+For camera unavailable/busy and destination unavailable, canonical recording
+precedes observer prepare terminal/cleanup and duplicate rejection, then
+canonical finish follows baseline success. Destination disconnect reaches
+capturing, then destinationDidDisconnect terminal/cleanup and duplicate
+rejection before canonical finish. Explicit cancel reaches canonical recording
+and observer capturing, observer cancel/cleanup and duplicate rejection, then
+canonical baseline cancel. Observer failure never cancels canonical audio.
+
+slow_barrier:
+DevVlogsPhase0BE07SlowPreparationGate has only enterCount:Int,
+resolutionCount:Int, waiterCount:Int and isResolved:Bool. Start observer prepare;
+await waitUntilEntered; assert 1/0/1/false; start canonical controller; await
+.recording; while gate is unresolved assert recorder start 1, resolution 0 and
+observer terminal 0; only then resolve(.timedOut); await
+cameraPreparationTimedOut; assert 1/1/0/true; finish canonical dictation; reject
+duplicate observer terminal. Task.sleep, ContinuousClock, asyncAfter, polling
+and real waiting are forbidden. Failure to reach .recording before resolution
+is a functional fail.
+
+snapshot_schema:
+DevVlogsPhase0BE07DictationSnapshot has exactly:
+actionStates:[ActionState]; terminal:DictationTerminal; audioOwner:AudioOwner;
+microphoneOwnerCount:Int; recorderStartCount:Int; recorderStopCount:Int;
+recorderCancelCount:Int; preparedArtifactIdentity:ArtifactIdentity;
+finalizedArtifactIdentity:ArtifactIdentity; settingsSnapshotCount:Int;
+credentialResolutionCount:Int; credentialConsumerCheckCount:Int;
+credentialMismatchCount:Int; journalPrepareCount:Int; journalReleaseCount:Int;
+journalDiscardCount:Int; journalOutstandingCount:Int;
+recoveryCheckpointCount:Int; recoveryRemoveCount:Int;
+recoveryOutstandingCount:Int; providerAuthorizationDecisionCount:Int;
+providerAuthorized:Bool; providerSealCount:Int;
+providerDispatchEventCount:Int; providerRequestCount:Int;
+providerAcceptCount:Int; providerRequestArtifactIdentity:ArtifactIdentity;
+correctionCount:Int; remoteCorrectionEnabled:Bool; translationCount:Int;
+usageCount:Int; acceptedOutputClass:AcceptedOutputClass;
+lastTranscriptAcceptedCount:Int; historyCount:Int; outputCount:Int;
+cacheCount:Int; terminalCause:TerminalCause;
+terminalDurability:Durability; durationMonitorStartCount:Int;
+durationMonitorStopCount:Int; sessionCleanupCount:Int;
+providerOutstandingCount:Int; outstandingTaskCount:Int.
+
+Success values are states idle/recording/transcribing/success, terminal success,
+owner dictationRecorder/1, recorder 1/1/0, all three artifact identities
+dictationAudio, settings/credential 1/1, credential mismatch 0, credential
+consumer checks 2 or 3 for translated, journal 1/1/0/0, recovery 1/1/0,
+provider decision 1/authorized true, provider seal/dispatch/request/accept
+1/1/1/1, correction 1, translation only for translated, usage/accepted/
+History/output/cache 1 each, userFinished/historyCheckpoint, monitor 1/1,
+session cleanup 1, and provider/task outstanding 0/0.
+
+Cancel values are states idle/recording/idle, terminal cancelled, owner
+dictationRecorder/1, recorder 1/0/1, prepared dictationAudio and finalized/
+provider artifact none, settings/credential 1/1, credential-consumer/mismatch
+0/0, journal 1/0/1/0, recovery all zero, provider decision 1/authorized false,
+all provider/correction/translation/usage/accepted/History/output/cache zero,
+explicitUserDiscard/explicitlyDiscarded, monitor 1/1, cleanup 1 and outstanding
+0/0.
+
+ObserverSnapshot has exactly phases:[ObserverPhase],
+terminal:ObserverTerminal, terminalCount:Int, cleanupCount:Int,
+lateDuplicateRejectedCount:Int, accessAcquireCount:Int,
+accessReleaseCount:Int, outstandingAccessCount:Int, outstandingTaskCount:Int.
+Baseline is phases disabled, terminal disabled and all counts zero. Every spike
+has terminal/cleanup/lateDuplicate 1/1/1 and outstanding 0/0.
+Ready phases are idle/preparing/capturing/finalizing/ready/cleaned; preparation
+failure phases are idle/preparing/failed/cleaned; disconnect phases are
+idle/preparing/capturing/failed/cleaned; mux phases are
+idle/preparing/capturing/finalizing/failed/cleaned; cancel phases are
+idle/preparing/capturing/cancelled/cleaned. A late duplicate adds no phase.
+AttemptSnapshot has exactly dictation and observer. PairResult has exactly
+caseID, baseline, spike and dictationSnapshotsEqual. No snapshot contains text,
+prompt, transcript, URL, path, credential, provider payload/response, media
+bytes, camera/device/user/machine identity, UUID or timing sample.
+
+case_matrix:
+- standard_success: success/success; observer ready; accepted standard;
+  provider/output/History/cache 1/1/1/1; observer acquire/release 1/1.
+- corrected_success: success/success; observer ready; accepted corrected;
+  provider/output/History/cache 1/1/1/1; observer 1/1.
+- translated_success: success/success; observer ready; accepted translated;
+  provider/output/History/cache 1/1/1/1; observer 1/1.
+- explicit_cancel: cancelled/cancelled; observer cancelled; accepted none;
+  provider/output/History/cache 0/0/0/0; observer 0/0.
+- camera_unavailable: success/success; observer cameraUnavailable; accepted
+  standard; provider/output/History/cache 1/1/1/1; observer 0/0.
+- camera_busy: success/success; observer cameraBusy; accepted standard;
+  provider/output/History/cache 1/1/1/1; observer 0/0.
+- camera_slow_timeout: success/success; observer cameraPreparationTimedOut;
+  accepted standard; provider/output/History/cache 1/1/1/1; observer 0/0.
+- destination_unavailable: success/success; observer destinationUnavailable;
+  accepted standard; provider/output/History/cache 1/1/1/1; observer 0/0.
+- destination_disconnect: success/success; observer destinationDisconnected;
+  accepted standard; provider/output/History/cache 1/1/1/1; observer 0/0.
+- mux_failure: success/success; observer muxFailed; accepted standard;
+  provider/output/History/cache 1/1/1/1; observer 1/1.
+Every baseline and spike must equal the closed expected dictation snapshot and
+each other. Any mismatch is a functional fail, never evidence_only.
+
+evidence_schemas:
+All eight paths are regular nonsymlink files. Unknown, missing, duplicate,
+reordered or extra fields/rows/files fail.
+
+summary.md: maximum 12288 bytes. Exact unique headings, in order:
+# DV-P0B-E07-W01 Summary; ## Authority; ## Scope;
+## Paired Matrix Result; ## Checks; ## Redaction; ## Residuals.
+Required literal claims:
+- Execution was fake-backed only.
+- Exactly ten baseline/spike pairs were exercised.
+- Canonical dictation retained exactly one recorder and one microphone owner.
+- No second microphone was introduced.
+- No product, Debug, script, project, or existing-test file changed.
+- W02 and W07-R3 are provenance only and do not prove E07.
+- A shipping audio lease was not exercised or proven.
+- Functional result: pass.
+Failure substitutes Functional result: fail and names at least one unequal case
+without payload.
+
+source-feasibility.md: maximum 12288 bytes. Exact headings:
+# DV-P0B-E07-W01 Source Feasibility; ## Canonical Owners;
+## Reused Injection Boundaries; ## Rejected Orchestrator;
+## Target Membership; ## Protected Blobs; ## Residual.
+Required literal claims:
+- DictationSessionController remained the canonical state owner.
+- AudioRecorderService remained the sole microphone owner.
+- The existing Debug Phase 0B harness was not used as E07 orchestration.
+- HoldTypeTests membership was supplied by the filesystem-synchronized target root.
+- No Xcode project edit was required.
+- No product hook was required.
+- The temporary-access token was test-only and was not a shipping lease.
+
+environment.json: maximum 4096 bytes; exact keys/types:
+schema_version:String exactly dv-p0b-e07-environment-v1;
+packet_id:String exactly DV-P0B-E07-W01;
+contract_revision:String exactly DV-DRAFT-4@2f3266a;
+implementation_parent_commit:String exactly 40 lowercase hexadecimal
+characters and equal to the actual W01 commit parent pinned in the dispatch
+receipt, source-manifest calculation and protected-blob audit;
+swift_source_manifest_sha256:String exactly 64 lowercase hexadecimal;
+macos_product_version:String; xcode_version:String; swift_version:String;
+execution_mode enum fake_backed; functional_result enum pass|fail;
+live_keychain_access:Bool false; live_provider_request:Bool false;
+app_launched:Bool false; microphone_opened:Bool false;
+camera_opened:Bool false; external_storage_accessed:Bool false;
+media_created:Bool false.
+
+matrix.csv: maximum 20480 bytes. Exact header:
+schema_version,case_id,baseline_terminal,spike_terminal,snapshot_equal,observer_terminal,baseline_audio_owner_count,spike_audio_owner_count,baseline_provider_dispatch_count,spike_provider_dispatch_count,baseline_output_count,spike_output_count,observer_acquire_count,observer_release_count,observer_terminal_count,outstanding_access_count,outstanding_task_count,functional_result,disposition
+Exactly ten rows in CaseID order; schema dv-p0b-e07-matrix-v1;
+terminals success|cancelled; observer terminals use closed snake_case values;
+lowercase booleans; nonnegative integers; result pass|fail; disposition exactly
+functional_gate.
+
+measurements.csv: maximum 8192 bytes. Exact header:
+schema_version,case_id,metric,value,unit,disposition
+Exactly nine rows: camera_slow_timeout,
+recording_before_gate_resolution,true,boolean,functional_gate; then case_id all
+for dictation_start_latency, camera_start_latency, audio_video_offset,
+end_drift, cpu, memory, byte_rate and finalization_overhead, each value
+not_measured, unit not_applicable, disposition not_applicable_fake_backed.
+Schema dv-p0b-e07-measurements-v1.
+
+artifacts.csv: maximum 8192 bytes. Exact header:
+schema_version,case_id,artifact_class,retained,byte_count,checksum,cleanup_status,disposition
+Exactly ten case rows; schema dv-p0b-e07-artifacts-v1; artifact_class
+fake_audio_identity; retained false; byte_count 0; checksum not_applicable;
+cleanup_status no_file_created; disposition fake_backed_no_media.
+
+residuals.md: maximum 8192 bytes. Exact headings:
+# DV-P0B-E07-W01 Residuals; ## Proven; ## Not Proven;
+## Next Dependency.
+Required literal claims:
+- Proven: deterministic fake-backed E07 paired non-regression only.
+- Not proven: shipping audio lease, real media, hardware, camera, microphone,
+  destination storage, timing thresholds, or live provider behavior.
+- E02, E03, E04, E05, and E06 remain unchanged.
+- Next dependency: DV-P0B-E07-W01-REVIEW.
+
+events/e07-pairs.jsonl: maximum 65536 bytes; exactly 80 nonblank lines,
+eight per CaseID in order. Exact ordered keys/types are:
+schema_version:String exactly dv-p0b-e07-events-v1; sequence:Int exactly 1...80;
+case_id:closed snake_case CaseID; mode baseline|spike|pair;
+action attempt_started|dictation_recording|dictation_terminal|
+observer_terminal|pair_compared;
+result started|recording|success|cancelled|ready|camera_unavailable|
+camera_busy|camera_preparation_timed_out|destination_unavailable|
+destination_disconnected|mux_failed|equal|unequal;
+artifact_token none|dictation_audio; snapshot_equal Bool|null.
+Per-case order is baseline start/recording/terminal; spike
+start/recording/observer-terminal/dictation-terminal; pair comparison.
+snapshot_equal is null except pair comparison. Token is none before recording
+and for cancelled terminals, dictation_audio for recording and successful
+artifact events. Duplicate JSON keys fail.
+
+redaction_contract:
+EvidenceValidator resolves repository root only by deleting HoldTypeTests from
+#filePath, reads exactly the eight files and performs no writes. It rejects
+/Users/, /Volumes/, /private/, /tmp/, file://, Windows drive paths,
+sk-[A-Za-z0-9_-]{8,}, Bearer, Authorization:, and case-insensitive api_key,
+authorization_header, transcript_text, raw_text, prompt_text, provider_payload,
+provider_response, audio_file_url, video_file_url, device_unique_id,
+camera_label, machine_name and user_name. Media content, serials, UUIDs,
+credentials, transcript/prompt/provider content, absolute paths and device/
+user identifiers are forbidden. Commit/source hashes, counters, enums and
+repository-relative paths are allowed.
+
+commands_and_bounds:
+- 60 seconds exactly:
+  python3 scripts/check_swift_structure.py
+- 600 seconds exactly:
+  xcodebuild -project HoldType.xcodeproj -scheme HoldType
+  -destination 'platform=macOS'
+  -only-testing:HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests test
+- 600 seconds exactly:
+  xcodebuild -project HoldType.xcodeproj -scheme HoldType
+  -destination 'platform=macOS'
+  -only-testing:HoldTypeTests/DictationSessionControllerRecordingActionTests
+  -only-testing:HoldTypeTests/DevVlogsPhase0BLaunchTests test
+- 600 seconds exactly:
+  xcodebuild -project HoldType.xcodeproj -scheme HoldType
+  -destination 'platform=macOS' build
+- 30 seconds exactly: git diff --check
+- 30 seconds exactly for each Swift file:
+  test "$(wc -l < PATH)" -le 500
+- 30 seconds exactly for each Swift file:
+  awk 'NF {print; exit}' PATH
+  and awk 'NF {line=$0} END {print line}' PATH; results must be #if DEBUG and
+  #endif.
+- 30 seconds exactly:
+  rg -n 'PBXFileSystemSynchronizedRootGroup|path = HoldTypeTests;'
+  HoldType.xcodeproj/project.pbxproj
+- 30 seconds exactly:
+  git diff --name-only DISPATCH_PARENT...HEAD; output must equal the ten-path
+  allowlist and DISPATCH_PARENT must equal environment.json
+  implementation_parent_commit.
+- 30 seconds exactly:
+  shasum -a 256
+  HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests.swift
+  HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTestSupport.swift |
+  shasum -a 256; first hexadecimal field must equal environment.json
+  swift_source_manifest_sha256.
+- 30 seconds exactly: git ls-tree -r DISPATCH_PARENT for every protected path;
+  every result must equal this contract.
+- 30 seconds exactly: the evidence-validator test plus a case-insensitive rg
+  scan for every redaction token/pattern in redaction_contract.
+- The two Swift files must contain no AVAudioRecorder, AVCapture, URLSession,
+  Keychain, Security, Task.sleep, ContinuousClock, asyncAfter or FileManager
+  create/remove/move/copy call.
+
+No app launch, Computer Use, caffeinate, microphone/camera, custom run root,
+external volume, live provider or process census is relevant. The bounded
+runner terminates only its exact xcodebuild child and descendants on timeout
+and records failure; broad ps/pkill or unrelated signaling is forbidden.
+
+protected_blob_contract:
+W02 accepted commit is f7ff6bfd445dee1857514d21b5898ab85e59cb66.
+Each accepted/current-at-9101428 path and blob pair is:
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BCameraCapture.swift:
+  ccd70159595d223aab09ce6bd155be8ce9278e18 /
+  ccd70159595d223aab09ce6bd155be8ce9278e18.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BEventLog.swift:
+  789f8f0683dc9402a9c3940dd4f840c5701110f3 /
+  d78fa923b0460d2974aa8134fb2a05d24b61ef5b.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BLaunch.swift:
+  0507b92405e55e95cf084b0d98f43c801954c3d3 /
+  935b69007e6132b94b1202b4c8c8e8e6ac6f621a.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BMediaFinalizer.swift:
+  75a88907b4a125316ef6a9969fa3b2c4faa7a3d8 /
+  75a88907b4a125316ef6a9969fa3b2c4faa7a3d8.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BMediaProbe.swift:
+  62789850c64c1939ff039ab73e6f78dbbef5392c /
+  62789850c64c1939ff039ab73e6f78dbbef5392c.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BVideoPreservation.swift:
+  97c6e101c4322f4c957eaabe5f66569a318ce731 /
+  97c6e101c4322f4c957eaabe5f66569a318ce731.
+- HoldTypeTests/DevVlogsPhase0BCameraCaptureTests.swift:
+  cd0b08bf1951d36e7c39d3a7490482a95204436d /
+  cd0b08bf1951d36e7c39d3a7490482a95204436d.
+- HoldTypeTests/DevVlogsPhase0BEventLogTests.swift:
+  0f406cd7bb80065f66d4a298ceeb2db08f667c44 /
+  3a1114a9c72dfe94e24ed300576b8ac32e1d95be.
+- HoldTypeTests/DevVlogsPhase0BLaunchTests.swift:
+  30ba05fe56d0ec47faa383d57291ee314d1f488b /
+  ba837f5a32fb40867e27f414dd0daae1eb357735.
+- HoldTypeTests/DevVlogsPhase0BMediaFinalizerTests.swift:
+  f0226e9cc6e40bc13d35010676a6258dbe0fe335 /
+  f0226e9cc6e40bc13d35010676a6258dbe0fe335.
+- HoldTypeTests/DevVlogsPhase0BMediaProbeTests.swift:
+  5173a4adfd155f44760168cffe1bf6047782cb64 /
+  5173a4adfd155f44760168cffe1bf6047782cb64.
+- HoldTypeTests/DevVlogsPhase0BVideoPreservationTests.swift:
+  48ac82ef3233ede585cf13a21d9e1daa10ce6809 /
+  5a61b46f6b63a28a7130296911748597c21945ef.
+- docs/qa/runs/dev-vlogs-phase-0b-capture-w01/summary.md:
+  47cc70636677df2164807fc252b0570e5e248119 /
+  4bf5bf20a888a55e9579a535e89a273041bf27db.
+
+W07-R3 accepted commit a90f88809b569aaf07151b58d40f8394ae81f330
+and current-at-9101428 blobs are identical:
+- HoldTypeTests/DevVlogsPhase0BHardwareEvidenceHandoffTests.swift:
+  674c0055b5767e40f33fd96e8879698d1b0eded0.
+- docs/qa/runs/dev-vlogs-phase-0b-capture-w01/summary.md:
+  4bf5bf20a888a55e9579a535e89a273041bf27db.
+- script/dev_vlogs_phase_0b_spike.sh:
+  28b4e45f1e93d5ceabc276cdca565bd42aebbd20.
+
+Current owner seals at provenance checkpoint
+9101428fb7662e6890a1622d7c168a10f62575b4 are:
+- HoldType/Services/DictationSessionController.swift
+  130fdf5ad9af8da007392ecbae67047100c5ca35.
+- HoldType/Services/AudioRecorderContracts.swift
+  44a7be8c5d322d60fa0dcf721f8859662cae3319.
+- HoldType/Services/AudioRecorderService.swift
+  92c593e6e99bb23e24c5cbf68e9f98db4b86d298.
+- HoldType/Services/RecordingCaptureJournal.swift
+  7af644e57f99bc58130bf0b11398bd14d4c9c1b6.
+- HoldType/Services/DictationTranscriptPipeline.swift
+  fd815d1953603509a88dde8fbf3ba89d7646f721.
+- HoldType/Services/TranscriptOutputDelivering.swift
+  4d756fb6c896f71ae07e2f1259419b41b775cff9.
+- HoldType/Services/TranscriptRecoveryHistoryStore.swift
+  67e892658de7a7845cf62ab79e6c009ae2844d2a.
+- HoldType/Services/TranscriptTextCorrectionService.swift
+  558b06c5abb45baca62b11317076b40605ddef4b.
+- HoldType/Services/TranscriptTranslationService.swift
+  e0470741d66056169cdbc91e4f1709cfc7232e7b.
+- HoldType/Services/TranscriptionFailureRecoveryModels.swift
+  5389de2006e8c445e4a7a9a5d02753b5f1e27135.
+- Packages/HoldTypeDomain/Sources/HoldTypeDomain/AudioRecordingArtifact.swift
+  989dc0c46bdc32a8dceb545df98c7416092261f5.
+- Packages/HoldTypeDomain/Sources/HoldTypeDomain/RecordingCacheLifecycleHandling.swift
+  3d18f1441a322574a28f6c1a2f118d7d1df34b17.
+- Packages/HoldTypeDomain/Sources/HoldTypeDomain/SuccessfulTranscriptionUsage.swift
+  c3c41e5a5ac97ced0c29b82ec99ba4fb5fa2df22.
+- Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAITranscriptionService.swift
+  a6e44718353ddac9669a7d1a0c256b5388337d0f.
+- HoldTypeTests/FakeTranscriptionFailureRecovery.swift
+  17321f3daee934e104d2c2440b1df12a0fb42d6a.
+- HoldTypeTests/DictationSessionControllerRecordingActionTests.swift
+  571369b9db0ec708057e10f8709317176c4d92dd.
+- HoldTypeTests/DictationSessionControllerTests.swift
+  c3217185a5befb0278d7436c3ab7cb78b7ebcd57.
+- HoldType.xcodeproj/project.pbxproj
+  10c2b9e2a750a33842a37f3f5ddaa4f5c23ad857.
+Each path/hash must remain equal at the actual W01 dispatch parent. Any
+difference makes W01 stale and requires revalidation; it may not be silently
+updated. W02/W07-R3 are provenance only, never E07 proof.
+
+stop_table:
+- Outside the ten-path allowlist, or product/Debug/project/script/spec/registry/
+  existing-test change: stop and reject scope.
+- Pre-existing overlap on any exact allowlist path: stop and report overlap.
+  Unrelated dirty paths are preserved, excluded and never a blocker.
+- Observer retains recorder/journal/controller/provider/URL/path, or a second
+  recorder/microphone/shipping lease appears: stop on protected dependency.
+- Cancel has provider/correction/translation/History/output/cache activity:
+  functional fail.
+- Recording does not precede slow-gate resolution: functional fail.
+- Terminal/cleanup is not exact one, duplicate mutates state, or access/journal/
+  recovery/provider/task remains outstanding: functional fail.
+- Baseline differs from expectation, baseline becomes unusable, or pair
+  snapshots differ: functional fail.
+- Evidence inventory/schema/order/cardinality/size/redaction violation:
+  evidence fail.
+- Protected blob differs or fails unique resolution: stale/scope failure.
+- Swift file >500 lines, DEBUG wrapper failure, or target needs project edit:
+  structural stop.
+- Structure, focused/adjacent test or build failure/timeout: fail; no pass
+  receipt.
+- W02/W07 presented as E07 proof or an expectation weakened to pass: reject.
+
+independent_review_matrix:
+Review-R1 verifies authority and no spec delta; exact ten-path diff; one
+canonical controller/recorder/microphone; observer completed-value/token-only
+boundary; success/cancel/failure/disconnect/mux/slow ordering; recording before
+slow resolution; ten closed snapshots and equality; terminal/access/cleanup
+cardinality and zero residue; cancel provider/output invariance; eight closed
+evidence schemas and redaction; W02/W07/current-parent provenance; <=500/
+DEBUG/target membership; exact selectors/bounds; residual truth; unrelated
+dirty-state preservation. Any stop-table condition requires rejection.
+
+scope_check: Registry design artifact only. No product/spec/source/test/script/
+QA implementation, build, test, runtime, process, hardware, provider, Keychain,
+media, storage, permission or UI action occurred.
+
+deviations: The future implementation_parent_commit is deliberately not frozen
+to resume checkpoint 9101428. It must be the exact 40-lowercase-hex W01 parent
+pinned at dispatch and equal across the dispatch receipt, manifest and blob
+audit. The 9101428 values remain provenance seals. No design expansion.
+
+residual: A future pass proves deterministic fake-backed E07 only. It does not
+prove a shipping audio lease, hardware/media/storage behavior, performance
+thresholds or live provider behavior. E02/E03/E04/E05/E06 remain unchanged.
+No product hook is needed because the canonical controller already exposes the
+required injection boundaries; the test token is not a product lease.
+
+next_dependency: DV-P0B-E07-E01-REVIEW-R1. DV-P0B-E07-W01 remains blocked
+until that review accepts this design. After a future W01, its evidence and
+registry dependency is DV-P0B-E07-W01-REVIEW.
+runtime_or_visual_handoff: none
+~~~
 
 ### `DV-P0B-STORAGE-OBSERVER-E01`
 
