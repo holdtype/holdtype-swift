@@ -196,7 +196,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W05-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05@8a98f73` | read-only exact two-path repair commit | rejected | receipt below | Pin DerivedData uid/mode/dev/inode and repair the canonical lifecycle fixture. |
 | `DV-P0B-STORAGE-W05-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W05 review | external-storage wrapper and canonical feasibility test only | accepted_with_residual | `b172bfd`; receipt below | Exact DerivedData identity pin and serial fixture repair accepted; runtime evidence remains. |
 | `DV-P0B-STORAGE-W05-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05-R1@b172bfd` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final serialized protected-scope runtime is dependency-ready. |
-| `DV-P0B-STORAGE-R04` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W05 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R04 QA root only | running | — | Prove hosted protected-scope closure once per authorized cell; no retry. |
+| `DV-P0B-STORAGE-R04` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W05 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R04 QA root only | review / mandatory_guard_stop | `9e2a3ee`; receipt below | No cell started; review the pre-baseline guard-continuity stop before any new authority. |
+| `DV-P0B-STORAGE-R04-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R04@9e2a3ee` | read-only exact seven-file evidence and accepted W05-R1 provenance | running | — | Classify guard-stop evidence and exact next dependency; no runtime. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -373,9 +374,11 @@ other external root remain unauthorized.
   18/19. W05-R1 `b172bfd` now pins uid/mode/dev/inode before both Xcode phases,
   retains all implicated objects on replacement, and reports a clean 19/19
   serial canonical suite. Independent review accepted the repair. One final
-  serialized protected-scope runtime is running under the prior exact-root
-  authorization. Mechanics remain accepted; no restorative action is
-  authorized.
+  serialized protected-scope runtime R04 stopped before baseline or volume
+  preflight when its one guard lost parent identity after the persistent PTY
+  closed. No cell, wrapper, Xcode, hosted test, or external I/O occurred. Its
+  exact evidence is in review; mechanics remain accepted and no restorative
+  action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3740,6 +3743,44 @@ next_dependency: DV-P0B-STORAGE-R04
 runtime_or_visual_handoff: none
 reviewed_commit: b172bfd69de8e4313e523f39386ade28a2eda8aa
 parent: b2a421d390b98f76a345977e38bffa121269395d
+```
+
+### `DV-P0B-STORAGE-R04`
+
+```text
+packet_id: DV-P0B-STORAGE-R04
+status: failed / mandatory guard stop
+functional_result_by_cell: external_ssd_hfsplus=not_invoked_guard_stop;
+external_hdd_apfs=not_invoked_guard_stop
+packet_scope_result: fail / protected metadata not_proven
+
+outcome: Accepted provenance passed, but the persistent PTY corrupted the
+private baseline command and closed after the one guard passed two exact
+checks. The guard became orphaned and changed parent identity. The packet
+stopped before protected baseline, volume preflight, cell/wrapper/Xcode/hosted
+test, retry, or replacement guard.
+observed_evidence: Accepted a50026a/7b1ba8d/029f836/b172bfd ancestry and blobs,
+wrapper syntax/help/default, and clean start passed. Both external scratch
+prefixes remained absent and zero cell processes were observed.
+single_guard_proof: One caffeinate guard started before baseline and passed two
+identity checks. PPID changed after its parent closed, so continuity=false and
+the mandatory stop fired. It was never replaced; its exact PID/start/command
+were verified before TERM and confirmed absent.
+protected_metadata_result: not_proven; baseline incomplete, no final snapshot,
+and no unchanged/change claim. Protected contents were not opened, read,
+hashed, parsed, restored, or attributed.
+cleanup: Both external scratch prefixes and wrapper task homes absent; private
+observer/helper absent; HoldType/HoldTypeTests/xcodebuild/xctest/caffeinate
+counts zero; no external deletion.
+scope_check: Exact seven redacted R04 evidence paths only; no source/script/
+spec/registry/project/product/TCC/Keychain/capture/media/UI/iOS/Release or
+protected corrective action.
+residual: Neither mechanics cell nor hosted protected-scope closure was
+exercised. Review must disposition the mandatory stop before any new runtime.
+next_dependency: DV-P0B-STORAGE-R04-REVIEW
+runtime_or_visual_handoff: none
+commit: 9e2a3eeee5c8c1004c6e396e740cf345c158c26c
+parent: 6bf645044c48d23dcd40e86e4a60eb91c94a9393
 ```
 
 ## Rejected Receipts
