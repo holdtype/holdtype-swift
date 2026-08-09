@@ -182,7 +182,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-R01-REVIEW` | `/root/dv_p0b_storage_r01_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R01@f7bbc9d` | read-only exact runtime evidence and accepted seam/source provenance | rejected | receipt below | Add and review a closed inert Debug storage test-host route before any rerun. |
 | `DV-P0B-STORAGE-W03` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected storage R01 scope review | exact Debug entry/storage-host route, wrapper, launch/wrapper tests, one QA summary | rejected | `89127cc`; receipt below | Router isolation passes, but inert host retains the private volume root in app state. |
 | `DV-P0B-STORAGE-W03-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W03@89127cc` | read-only exact repair commit | rejected | receipt below | Replace retained raw configuration with a value-free validated marker. |
-| `DV-P0B-STORAGE-W03-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W03 review | Debug storage-host source and focused test only; summary only if claim changes | running | — | Remove private root/config retention while preserving inert routing and runtime-test ownership. |
+| `DV-P0B-STORAGE-W03-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W03 review | Debug storage-host source and focused test only; summary only if claim changes | review | `7b1ba8d`; receipt below | Value-free marker repair is terminal; independent review decides acceptance. |
+| `DV-P0B-STORAGE-W03-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | W03 R1 repair `7b1ba8d` | read-only exact two-path repair commit | running | — | Verify raw configuration lifetime is eliminated without routing/wrapper/protected drift. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -3341,6 +3342,35 @@ next_dependency: DV-P0B-STORAGE-W03-REVIEW
 runtime_or_visual_handoff: none
 commit: 89127ccfa211b29d588bc09525ad17cabd7ffba8
 parent: 2492176ecb17cd9a8fad8b5f829de5cc8b5077ef
+```
+
+### `DV-P0B-STORAGE-W03-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W03-R1
+status: done
+
+outcome: Inert storage-host raw environment inputs now exist only as lexical-
+validation locals and immediately collapse to value-free `.validated` or a
+payload-free typed error. No route/runtime/product/spec behavior changed.
+changed_paths: Debug StorageTestHostLaunch source and its focused test only.
+checks_run: Structure/DEBUG/line limits; signed Debug build-for-testing;
+sanitized-HOME focused 11/11 and accepted route/storage tests; wrapper syntax/
+help/negative; signed Debug; bounded Release/settings/artifact isolation;
+protected 21/21 hashes; source/redaction/private-token/diff/path/process/temp
+audits.
+value_lifetime_proof: Configuration is a namespace with no stored instances;
+state/application retain only a value-free Result. String, reflection, dump,
+and Mirror tests prove valid and invalid raw sentinels are absent.
+scope_check: Exact two-path commit, clean worktree, no external/TCC/media/live-
+HOME/protected-artifact runtime.
+deviations: Signing build used normal environment while all host tests used
+sanitized HOME; task roots moved to recoverable Trash and verified absent.
+residual: Independent review only; no external rerun authorized.
+next_dependency: DV-P0B-STORAGE-W03-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: 7b1ba8deae6099ba7416751a894e0ca3ad1582fb
+parent: 877d2f00fbdc41352cf08e462bcefd11af2fe5cc
 ```
 
 ## Rejected Receipts
