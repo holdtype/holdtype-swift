@@ -102,27 +102,37 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   the already-proven camera probe, passthrough completion, final probe,
   realized closed codec/format evidence, and numeric probe metrics; timeout and
   cancellation remain distinct, and no preservation failure can emit Ready or
-  retry. The hardware script predeclares one exact raw event path before launch,
-  validates a descriptor-stable owner/mode/type/single-link/bounded snapshot
-  with an exact two-event schema and matching case/run/attempt IDs, then copies
-  it exclusively to one script-owned handoff path before bounded raw-root
-  cleanup. Zero, multiple, symlink, hardlink, malformed, oversize, wrong-case,
-  missing/duplicate terminal, Ready-plus-failure, unexpected-schema/event, and
-  private-data fixtures fail closed. This handoff was fake-verified only.
+  retry. Before hardware launch, the script creates a separate mode-0700
+  handoff authority beside (never beneath) the raw root. A no-follow descriptor
+  walk pins every trusted-base, raw-root/source, and destination ancestor by
+  device, inode, owner, mode, and type. The exact source is opened once and its
+  cardinality and identity are revalidated before an exclusive descriptor-
+  relative snapshot is published mode 0400. The raw root is then removed while
+  the retained snapshot survives script EXIT for the runtime evidence owner,
+  identified only by its closed root token and fixed file name; that owner must
+  consume and remove the exact retained root. The validator accepts exactly one
+  start plus one matching terminal, rejects duplicate keys at every nesting
+  level, and closes IDs, actions/results/categories, preservation dimensions,
+  device labels, probe/video evidence, metric names/units/dispositions/ranges,
+  count relationships, and Ready/failure consistency. Fifty-four ownership,
+  race, schema, redaction, and numeric adversarial fixtures fail closed; valid
+  failure, Ready, and cancelled streams survive raw cleanup. Timeout and
+  INT/TERM fixtures retain no validated snapshot. This handoff was fake-
+  verified only.
 
 ## Verification
 
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 70 logical tests include the accepted authorization/helper/handshake/lifecycle coverage plus new exhaustive typed preservation-dimension mapping and production-route hardware handoff tests. The handoff matrix accepts one exact valid stream and rejects zero, multiple, symlink, hardlink, malformed, oversize, wrong-case, missing/duplicate terminal, Ready-plus-failure, unexpected-schema/event, and private-data fixtures before exclusive copy. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, and redaction remain covered. |
+| Focused macOS fake tests | Pass; 73 logical tests include the accepted authorization/helper/handshake/lifecycle coverage plus exhaustive typed preservation-dimension mapping and production-route hardware handoff tests. The handoff suite accepts valid failure, Ready, and cancelled streams, proves post-EXIT snapshot consumption after raw-root removal, rejects 54 ownership/race/schema/redaction/numeric fixtures, and covers bounded timeout plus INT/TERM traps. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, and redaction remain covered. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration, descriptor-relative no-replacement publication, immutable snapshot validation, and success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision uses one absolute monotonic 420-second deadline established immediately after permission run-root creation, before its identity probe and the permission route's bounded Debug build/settings work. An exact 11-second tail inside that same deadline is reserved before work begins: at most 6 seconds for identity-safe process cleanup, 2 seconds for one no-follow descriptor-relative sensitive-artifact scrub and same-inode retention proof, and 3 seconds for exclusive quarantine, descriptor-relative owned-content deletion, and root-absence proof. Every cleanup subprocess receives only its remaining cap; complete identity producer/consumer pipelines execute inside one hard-wrapper-owned process group, whose TERM, KILL-after, reap, and disappearance proof fit that cap. The earlier work cutoff bounds compilation, parsing, acknowledgment, app supervision, signaling, and reap without consuming the cleanup tail. The initial bounded no-follow descriptor probe pins the canonical parent and root device/inode/owner/mode in shell memory. Cleanup reopens and fstat-matches both identities. Each sensitive artifact, regular child, directory child, and final root tombstone moves descriptor-relatively through exclusive `renameatx_np(RENAME_EXCL)` quarantine and is revalidated after the atomic move before unlink or rmdir; directories receive a second exclusive final quarantine while their proven descriptor remains open. A same-type replacement, symlink, parent replacement, ownership/type/link mismatch, or unknown top-level name is retained and forces status 70 rather than being deleted. Normal cleanup proves the original root absent; ownership uncertainty first proves sensitive artifacts absent from the same original inode, retains it, and fails with status 70. Scrub, quarantine, or removal timeout/failure likewise returns 70 with a truthful private-root residual. Deterministic reduced-deadline fakes cover normal removal, uncertainty retention, root and parent replacement, post-open swap, tombstone collision/mismatch, same-owner/mode/type sensitive and regular replacement, directory replacement after open, final-tombstone replacement, sensitive symlink/hardlink/type and unexpected-name rejection, and a TERM-ignoring complete pipeline consumer plus child with no group residue, as well as deadline expiry and INT/TERM cleanup. The executable parser hook is reachable only after explicit permission-mode selection; hook-set help, invalid, missing-camera hardware, mutually exclusive, and build-only behavior match their ordinary routes. The exact-binary baseline, W05 multi-process marker registry, fresh identity-safe signaling, quiet rescan, and permission-only valid/extra-key/wrong-digest parser behavior remain covered. The token exists transiently in the sanitized launch environment, helper memory, and exclusive acknowledgment artifact; the result stores only its digest. Neither token nor raw result enters argv or logs. Only the direct helper child is waited/reaped; LaunchServices app processes remain registry-owned non-children. Hardware mode additionally requires one exact predeclared JSONL source and completes the strict exclusive evidence handoff under a five-second TERM/KILL bound before reporting cleanup; non-hardware modes do not enter it. The W05/W06 process-ownership behavior remains protected. Neither real hardware nor permission-request mode was run. |
+| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration, descriptor-relative no-replacement publication, immutable snapshot validation, and success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision remains unchanged from the accepted permission-lane basis. Hardware mode additionally requires one exact predeclared JSONL source, pins separate raw and retained authorities under the canonical trusted temp base, and completes the closed-schema exclusive evidence handoff under a five-second TERM/KILL bound before raw cleanup; non-hardware modes do not enter it. The retained token/fixed-name cleanup contract exposes no full path or private payload. Neither real hardware nor permission-request mode was run. |
 | Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`

@@ -27,6 +27,9 @@ timeout_executable=""
 capture_supervisor_pid=""
 hardware_event_source=""
 hardware_event_handoff=""
+hardware_handoff_root=""
+hardware_handoff_root_name=""
+hardware_handoff_retained=0
 permission_app_pid=""
 permission_helper_pid=""
 permission_helper_executable=""
@@ -92,123 +95,345 @@ usage() {
 
 hardware_evidence_handoff_source=$(cat <<'PY'
 import json
+import math
 import os
+import re
 import stat
 import sys
+import time
 
 MAX_BYTES = 262_144
-OPTIONAL_EVENT_KEYS = {
-    "category", "furthest_stage", "deviceClass", "redactedDeviceLabel", "videoEvidence",
-    "preservation_failure_dimension", "failure_stage_evidence",
-}
-BASE_EVENT_KEYS = {
-    "runID", "caseID", "attemptID", "monotonicMilliseconds", "action", "result",
-    "metrics",
-}
+OPEN_DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+BASE_KEYS = {"runID", "caseID", "attemptID", "monotonicMilliseconds", "action", "result", "metrics"}
 STAGE_KEYS = {
-    "cameraProbePassed", "passthroughCompleted", "finalProbePassed",
-    "cameraMediaSubtype", "finalizedMediaSubtype", "finalizedAudioMediaSubtype",
-    "cameraFormat", "finalizedFormat",
+    "cameraProbePassed", "passthroughCompleted", "finalProbePassed", "cameraMediaSubtype",
+    "finalizedMediaSubtype", "finalizedAudioMediaSubtype", "cameraFormat", "finalizedFormat",
 }
+VIDEO_KEYS = {
+    "cameraMediaSubtype", "finalizedMediaSubtype", "finalizedAudioMediaSubtype", "cameraFormat",
+    "finalizedFormat", "preservationMethod", "preservedSampleCount", "preservedEncodedByteCount",
+    "matched",
+}
+HARDWARE_FAILURES = {
+    "invalid_configuration", "audio_start", "camera_permission_required", "camera_permission_denied",
+    "camera_selection_disconnected", "camera_start_device_unavailable", "camera_selection_busy",
+    "camera_configuration_video_input", "camera_configuration_movie_output",
+    "camera_configuration_sample_output", "camera_start_timed_out", "camera_first_frame_unavailable",
+    "camera_recording_failed", "camera_interruption_disconnected", "camera_session_runtime_failure",
+    "camera_session_not_capturing", "camera_unknown", "capture_stop", "camera_probe",
+    "passthrough_incompatible", "passthrough_export_failed", "finalization", "final_probe",
+    "event_log", "already_run",
+}
+PRESERVATION_DIMENSIONS = {
+    "expected_one_video_track", "reader_unavailable", "reading_failed", "sample_count_mismatch",
+    "sample_boundary_mismatch", "encoded_payload_mismatch", "sample_duration_mismatch",
+    "presentation_timestamp_mismatch", "decode_timestamp_mismatch", "format_description_mismatch",
+    "dimensions_mismatch", "transform_mismatch", "cancelled", "timed_out", "unknown",
+}
+IDENTIFIER = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+FORMAT = re.compile(
+    r"(?:unknown|[A-Za-z0-9 ._-]{4}):[1-9][0-9]{0,5}x[1-9][0-9]{0,5}:descriptions_[1-9][0-9]{0,3}"
+)
+SUBTYPE = re.compile(r"[A-Za-z0-9 ._-]{1,16}")
+ROOT_NAME = re.compile(r"holdtype-dv-p0b\.[A-Za-z0-9]{6,32}")
+HANDOFF_NAME = re.compile(r"holdtype-dv-p0b-handoff\.[A-Za-z0-9]{6,32}")
 
 def fail():
     raise RuntimeError("invalid")
 
-def safe_directory(path):
-    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    value = os.fstat(descriptor)
-    if not stat.S_ISDIR(value.st_mode) or value.st_uid != os.getuid() or stat.S_IMODE(value.st_mode) != 0o700:
-        os.close(descriptor)
-        fail()
-    return descriptor
+def identity(value):
+    return (value.st_dev, value.st_ino, value.st_uid, stat.S_IFMT(value.st_mode),
+            stat.S_IMODE(value.st_mode))
 
-def strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, list):
-        for item in value:
-            yield from strings(item)
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from strings(item)
-
-source = destination = None
-created = False
-try:
-    source = safe_directory(os.environ["DV_HARDWARE_EVENT_SOURCE_DIR"])
-    destination = safe_directory(os.environ["DV_HARDWARE_EVENT_HANDOFF_DIR"])
-    if os.listdir(source) != ["events.jsonl"] or os.listdir(destination):
+def exact_keys(value, keys):
+    if not isinstance(value, dict) or set(value) != keys:
         fail()
-    event_fd = os.open("events.jsonl", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=source)
+
+def integer(value, minimum=0, maximum=(1 << 63) - 1):
+    if isinstance(value, bool) or not isinstance(value, int) or not minimum <= value <= maximum:
+        fail()
+    return value
+
+def safe_string(value, pattern):
+    if not isinstance(value, str) or pattern.fullmatch(value) is None:
+        fail()
+    return value
+
+def unique_object(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            fail()
+        value[key] = item
+    return value
+
+def parse_event(line):
     try:
-        event_stat = os.fstat(event_fd)
-        if (not stat.S_ISREG(event_stat.st_mode) or event_stat.st_uid != os.getuid()
-                or stat.S_IMODE(event_stat.st_mode) != 0o600 or event_stat.st_nlink != 1
-                or not 0 < event_stat.st_size <= MAX_BYTES):
-            fail()
-        payload = b""
-        while len(payload) <= MAX_BYTES:
-            chunk = os.read(event_fd, min(65_536, MAX_BYTES + 1 - len(payload)))
-            if not chunk:
-                break
-            payload += chunk
-        if len(payload) != event_stat.st_size or len(payload) > MAX_BYTES:
-            fail()
-    finally:
-        os.close(event_fd)
-    if not payload.endswith(b"\n"):
+        return json.loads(line, object_pairs_hook=unique_object, parse_constant=lambda _: fail())
+    except (UnicodeDecodeError, json.JSONDecodeError, RuntimeError, ValueError):
         fail()
-    events = [json.loads(line) for line in payload.splitlines()]
-    if len(events) != 2 or any(
-            not BASE_EVENT_KEYS.issubset(event) or
-            not set(event).issubset(BASE_EVENT_KEYS | OPTIONAL_EVENT_KEYS)
-            for event in events):
+
+def metric_rules():
+    rules = {
+        "camera_video_duration": ("s", "evidence_only", 0.0, 86400.0, False),
+        "final_video_duration": ("s", "evidence_only", 0.0, 86400.0, False),
+        "audio_duration": ("s", "evidence_only", 0.0, 86400.0, False),
+        "camera_request_to_first_frame": ("ms", "evidence_only", 0.0, 1_000_000.0, False),
+        "preserved_sample_count": ("samples", "functional", 1.0, 1_000_000_000.0, True),
+        "preserved_encoded_bytes": ("bytes", "functional", 1.0, 1_000_000_000_000_000.0, True),
+    }
+    for prefix in ("camera", "final", "audio"):
+        for suffix in ("width", "height", "display_width", "display_height"):
+            rules[f"{prefix}_{suffix}"] = ("px", "evidence_only", 0.0, 100_000.0, False)
+        for suffix in ("nominal_fps", "derived_fps"):
+            rules[f"{prefix}_{suffix}"] = ("fps", "evidence_only", 0.0, 1_000.0, False)
+        for suffix in ("start_timestamp", "end_timestamp"):
+            rules[f"{prefix}_{suffix}"] = ("s", "evidence_only", -86_400.0, 86_400.0, False)
+        rules[f"{prefix}_estimated_data_rate"] = ("bps", "evidence_only", 0.0, 1e15, False)
+        for suffix in ("transform_a", "transform_b", "transform_c", "transform_d"):
+            rules[f"{prefix}_{suffix}"] = ("coefficient", "evidence_only", -100.0, 100.0, False)
+    return rules
+
+METRIC_RULES = metric_rules()
+
+def validate_metrics(metrics, result_kind):
+    if not isinstance(metrics, list) or len(metrics) > 80:
         fail()
-    expected_case = os.environ["DV_HARDWARE_CASE_ID"]
+    seen = {}
+    for metric in metrics:
+        exact_keys(metric, {"name", "value", "unit", "disposition"})
+        name = metric["name"]
+        if name not in METRIC_RULES or name in seen:
+            fail()
+        unit, disposition, minimum, maximum, integral = METRIC_RULES[name]
+        value = metric["value"]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            fail()
+        if not minimum <= value <= maximum or (integral and int(value) != value):
+            fail()
+        if metric["unit"] != unit or metric["disposition"] != disposition:
+            fail()
+        seen[name] = value
+    if result_kind == "start" and seen:
+        fail()
+    if result_kind == "ordinary_failure" and seen:
+        fail()
+    if result_kind == "ready":
+        required = {"camera_video_duration", "final_video_duration", "preserved_sample_count",
+                    "preserved_encoded_bytes"}
+        if not required.issubset(seen):
+            fail()
+    if result_kind == "preservation":
+        required = {"camera_width", "camera_height", "camera_start_timestamp", "camera_end_timestamp",
+                    "final_width", "final_height", "final_start_timestamp", "final_end_timestamp",
+                    "audio_start_timestamp", "audio_end_timestamp"}
+        if not required.issubset(seen) or any(name.startswith("preserved_") for name in seen):
+            fail()
+    return seen
+
+def validate_stage(value):
+    exact_keys(value, STAGE_KEYS)
+    if any(value[name] is not True for name in
+           ("cameraProbePassed", "passthroughCompleted", "finalProbePassed")):
+        fail()
+    safe_string(value["cameraMediaSubtype"], SUBTYPE)
+    safe_string(value["finalizedMediaSubtype"], SUBTYPE)
+    safe_string(value["finalizedAudioMediaSubtype"], SUBTYPE)
+    safe_string(value["cameraFormat"], FORMAT)
+    safe_string(value["finalizedFormat"], FORMAT)
+
+def validate_video(value, metrics):
+    exact_keys(value, VIDEO_KEYS)
+    safe_string(value["cameraMediaSubtype"], SUBTYPE)
+    safe_string(value["finalizedMediaSubtype"], SUBTYPE)
+    safe_string(value["finalizedAudioMediaSubtype"], SUBTYPE)
+    safe_string(value["cameraFormat"], FORMAT)
+    safe_string(value["finalizedFormat"], FORMAT)
+    if value["preservationMethod"] != "stored_sample_exact_v1" or value["matched"] is not True:
+        fail()
+    count = integer(value["preservedSampleCount"], 1, 1_000_000_000)
+    encoded = integer(value["preservedEncodedByteCount"], 1, 1_000_000_000_000_000)
+    if metrics["preserved_sample_count"] != count or metrics["preserved_encoded_bytes"] != encoded:
+        fail()
+
+def validate_events(payload, expected_case):
+    if not payload.endswith(b"\n") or payload.count(b"\n") != 2:
+        fail()
+    events = [parse_event(line) for line in payload.splitlines()]
     start, terminal = events
-    if (start["action"], start["result"]) != ("attempt", "started"):
+    exact_keys(start, BASE_KEYS)
+    for key in ("runID", "caseID", "attemptID"):
+        safe_string(start[key], IDENTIFIER)
+    if start["caseID"] != expected_case or start["action"] != "attempt" or start["result"] != "started":
         fail()
-    if set(start) != BASE_EVENT_KEYS:
-        fail()
-    if terminal["action"] != "attempt_terminal" or terminal["result"] not in {
-            "ready", "failed", "cancelled", "timed_out"}:
+    started_at = integer(start["monotonicMilliseconds"])
+    validate_metrics(start["metrics"], "start")
+    if not BASE_KEYS.issubset(terminal):
         fail()
     for key in ("runID", "caseID", "attemptID"):
-        if not isinstance(start[key], str) or start[key] != terminal[key]:
+        safe_string(terminal[key], IDENTIFIER)
+        if terminal[key] != start[key]:
             fail()
-    if start["caseID"] != expected_case:
+    if terminal["action"] != "attempt_terminal":
         fail()
-    if any(value.startswith("/") or any(token in value for token in
-            ("NSError", "userInfo", "sensitive-device-id", "HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT"))
-            for event in events for value in strings(event)):
+    if integer(terminal["monotonicMilliseconds"]) < started_at:
         fail()
-    category = terminal.get("category")
-    dimension = terminal.get("preservation_failure_dimension")
-    stage = terminal.get("failure_stage_evidence")
-    if terminal["result"] == "ready":
-        if set(terminal) != BASE_EVENT_KEYS | {
-                "deviceClass", "redactedDeviceLabel", "videoEvidence"}:
+    result = terminal["result"]
+    if result == "ready":
+        exact_keys(terminal, BASE_KEYS | {"deviceClass", "redactedDeviceLabel", "videoEvidence"})
+        if terminal["deviceClass"] not in {"built_in", "external", "continuity", "unknown"}:
             fail()
-    elif not isinstance(category, str):
+        if terminal["redactedDeviceLabel"] != terminal["deviceClass"] + "_camera":
+            fail()
+        metrics = validate_metrics(terminal["metrics"], "ready")
+        validate_video(terminal["videoEvidence"], metrics)
+        return result, "none", "none"
+    if terminal.get("category") == "video_preservation_failed":
+        exact_keys(terminal, BASE_KEYS | {
+            "category", "preservation_failure_dimension", "failure_stage_evidence"})
+        dimension = terminal["preservation_failure_dimension"]
+        if dimension not in PRESERVATION_DIMENSIONS:
+            fail()
+        expected_result = "cancelled" if dimension == "cancelled" else (
+            "timed_out" if dimension == "timed_out" else "failed")
+        if result != expected_result:
+            fail()
+        validate_metrics(terminal["metrics"], "preservation")
+        validate_stage(terminal["failure_stage_evidence"])
+        return result, terminal["category"], dimension
+    exact_keys(terminal, BASE_KEYS | {"category"})
+    category = terminal["category"]
+    if category not in HARDWARE_FAILURES:
         fail()
-    if category == "video_preservation_failed":
-        if set(terminal) != BASE_EVENT_KEYS | {
-                "category", "preservation_failure_dimension", "failure_stage_evidence"}:
-            fail()
-        if not isinstance(dimension, str) or not isinstance(stage, dict) or set(stage) != STAGE_KEYS:
-            fail()
-        if not all(stage[name] is True for name in
-                ("cameraProbePassed", "passthroughCompleted", "finalProbePassed")):
-            fail()
-    elif terminal["result"] != "ready":
-        if set(terminal) != BASE_EVENT_KEYS | {"category"}:
-            fail()
-    output_fd = os.open(
-        "events.jsonl", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600,
-        dir_fd=destination,
-    )
-    created = True
+    if result != "failed" and not (result == "cancelled" and category == "capture_stop"):
+        fail()
+    validate_metrics(terminal["metrics"], "ordinary_failure")
+    return result, terminal["category"], "none"
+
+def walk_absolute(path):
+    if not os.path.isabs(path) or os.path.normpath(path) != path:
+        fail()
+    descriptor = os.open("/", OPEN_DIRECTORY)
+    identities = [identity(os.fstat(descriptor))]
     try:
+        for component in [part for part in path.split("/") if part]:
+            next_descriptor = os.open(component, OPEN_DIRECTORY, dir_fd=descriptor)
+            value = os.fstat(next_descriptor)
+            if not stat.S_ISDIR(value.st_mode):
+                os.close(next_descriptor)
+                fail()
+            os.close(descriptor)
+            descriptor = next_descriptor
+            identities.append(identity(value))
+        return descriptor, tuple(identities)
+    except Exception:
+        os.close(descriptor)
+        raise
+
+def open_owned_directory(parent, name, expected_uid=None):
+    if expected_uid is None:
+        expected_uid = os.getuid()
+    descriptor = os.open(name, OPEN_DIRECTORY, dir_fd=parent)
+    value = os.fstat(descriptor)
+    if (not stat.S_ISDIR(value.st_mode) or value.st_uid != expected_uid
+            or stat.S_IMODE(value.st_mode) != 0o700):
+        os.close(descriptor)
+        fail()
+    return descriptor, identity(value)
+
+def reopen_matches(parent, name, wanted):
+    descriptor, observed = open_owned_directory(parent, name)
+    os.close(descriptor)
+    if observed != wanted:
+        fail()
+
+def apply_mutation(name, base, raw_root, raw_name, raw_media, source, handoff, handoff_name):
+    if name == "add_after_list":
+        fd = os.open("unexpected.jsonl", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=source)
+        os.close(fd)
+    elif name == "remove_after_list":
+        os.unlink("events.jsonl", dir_fd=source)
+    elif name == "source_replacement":
+        os.rename("events.jsonl", "events-old", src_dir_fd=source, dst_dir_fd=source)
+        fd = os.open("events.jsonl", os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=source)
+        os.write(fd, b"{}\n")
+        os.close(fd)
+        os.unlink("events-old", dir_fd=source)
+    elif name == "source_parent_swap":
+        os.rename("evidence", "evidence-old", src_dir_fd=raw_media, dst_dir_fd=raw_media)
+        os.mkdir("evidence", 0o700, dir_fd=raw_media)
+    elif name == "raw_root_swap":
+        os.rename(raw_name, raw_name + "-old", src_dir_fd=base, dst_dir_fd=base)
+        os.mkdir(raw_name, 0o700, dir_fd=base)
+    elif name == "destination_parent_swap":
+        os.rename(handoff_name, handoff_name + "-old", src_dir_fd=base, dst_dir_fd=base)
+        os.mkdir(handoff_name, 0o700, dir_fd=base)
+    elif name == "slow_validator":
+        time.sleep(10)
+
+def verify_bindings(base_path, base_identities, base, raw_name, raw_identity, raw_root,
+                    media_identity, raw_media, source_identity, handoff_name, handoff_identity):
+    check, observed = walk_absolute(base_path)
+    os.close(check)
+    if observed != base_identities:
+        fail()
+    reopen_matches(base, raw_name, raw_identity)
+    reopen_matches(raw_root, "hardware-raw", media_identity)
+    reopen_matches(raw_media, "evidence", source_identity)
+    reopen_matches(base, handoff_name, handoff_identity)
+
+base = raw_root = raw_media = source = handoff = event_fd = None
+created_identity = None
+try:
+    base_path = os.environ["DV_HARDWARE_BASE"]
+    raw_name = os.environ["DV_HARDWARE_RAW_ROOT_NAME"]
+    handoff_name = os.environ["DV_HARDWARE_HANDOFF_ROOT_NAME"]
+    if ROOT_NAME.fullmatch(raw_name) is None or HANDOFF_NAME.fullmatch(handoff_name) is None:
+        fail()
+    base, base_identities = walk_absolute(base_path)
+    base_value = os.fstat(base)
+    if base_value.st_uid != os.getuid() or stat.S_IMODE(base_value.st_mode) != 0o700:
+        fail()
+    raw_root, raw_identity = open_owned_directory(base, raw_name)
+    raw_media, media_identity = open_owned_directory(raw_root, "hardware-raw")
+    source, source_identity = open_owned_directory(raw_media, "evidence")
+    mutation = os.environ.get("DV_HARDWARE_MUTATION", "")
+    expected_handoff_uid = os.getuid() + 1 if mutation == "wrong_owner" else os.getuid()
+    handoff, handoff_identity = open_owned_directory(base, handoff_name, expected_handoff_uid)
+    if os.listdir(source) != ["events.jsonl"] or os.listdir(handoff):
+        fail()
+    event_fd = os.open("events.jsonl", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=source)
+    event_value = os.fstat(event_fd)
+    if (not stat.S_ISREG(event_value.st_mode) or event_value.st_uid != os.getuid()
+            or stat.S_IMODE(event_value.st_mode) != 0o600 or event_value.st_nlink != 1
+            or not 0 < event_value.st_size <= MAX_BYTES):
+        fail()
+    apply_mutation(mutation, base, raw_root, raw_name, raw_media, source, handoff, handoff_name)
+    payload = b""
+    while len(payload) <= MAX_BYTES:
+        chunk = os.read(event_fd, min(65_536, MAX_BYTES + 1 - len(payload)))
+        if not chunk:
+            break
+        payload += chunk
+    event_after = os.fstat(event_fd)
+    if (len(payload) != event_value.st_size or len(payload) > MAX_BYTES
+            or identity(event_after) != identity(event_value) or event_after.st_size != event_value.st_size):
+        fail()
+    if os.listdir(source) != ["events.jsonl"] or os.listdir(handoff):
+        fail()
+    rebound = os.open("events.jsonl", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=source)
+    try:
+        if identity(os.fstat(rebound)) != identity(event_value):
+            fail()
+    finally:
+        os.close(rebound)
+    verify_bindings(base_path, base_identities, base, raw_name, raw_identity, raw_root,
+                    media_identity, raw_media, source_identity, handoff_name, handoff_identity)
+    result, category, dimension = validate_events(payload, os.environ["DV_HARDWARE_CASE_ID"])
+    output_fd = os.open("events.jsonl", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                        0o600, dir_fd=handoff)
+    try:
+        created_identity = identity(os.fstat(output_fd))
         view = memoryview(payload)
         while view:
             written = os.write(output_fd, view)
@@ -216,54 +441,81 @@ try:
                 fail()
             view = view[written:]
         os.fsync(output_fd)
+        os.fchmod(output_fd, 0o400)
     finally:
         os.close(output_fd)
-    check_fd = os.open("events.jsonl", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=destination)
+    verify_bindings(base_path, base_identities, base, raw_name, raw_identity, raw_root,
+                    media_identity, raw_media, source_identity, handoff_name, handoff_identity)
+    check = os.open("events.jsonl", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=handoff)
     try:
-        check = os.fstat(check_fd)
-        if not stat.S_ISREG(check.st_mode) or check.st_nlink != 1 or check.st_size != len(payload):
+        check_value = os.fstat(check)
+        snapshot = b""
+        while True:
+            chunk = os.read(check, 65_536)
+            if not chunk:
+                break
+            snapshot += chunk
+        if (identity(check_value)[:4] != created_identity[:4] or stat.S_IMODE(check_value.st_mode) != 0o400
+                or check_value.st_nlink != 1 or snapshot != payload):
             fail()
     finally:
-        os.close(check_fd)
-    print("hardware_evidence_handoff=validated result=" + terminal["result"] +
-          " category=" + (category or "none") +
-          " preservation_error=" + (dimension or "none"))
+        os.close(check)
+    if os.listdir(source) != ["events.jsonl"] or os.listdir(handoff) != ["events.jsonl"]:
+        fail()
+    print("hardware_evidence_handoff=validated result=" + result + " category=" + category +
+          " preservation_error=" + dimension + " root_token=" + handoff_name +
+          " file=events.jsonl cleanup=runtime_owner_exact_root")
 except Exception:
-    if created and destination is not None:
+    if created_identity is not None and handoff is not None:
         try:
-            os.unlink("events.jsonl", dir_fd=destination)
+            cleanup = os.open("events.jsonl", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=handoff)
+            try:
+                if identity(os.fstat(cleanup))[:4] != created_identity[:4]:
+                    fail()
+            finally:
+                os.close(cleanup)
+            os.unlink("events.jsonl", dir_fd=handoff)
         except OSError:
             pass
     sys.exit(1)
 finally:
-    if source is not None:
-        os.close(source)
-    if destination is not None:
-        os.close(destination)
+    for descriptor in (event_fd, source, raw_media, raw_root, handoff, base):
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
 PY
 )
 
 prepare_hardware_evidence_handoff() {
+    [[ -z "$hardware_handoff_root" ]] || return 0
     local source_directory="${hardware_event_source:h}"
-    local handoff_directory="${hardware_event_handoff:h}"
     umask 077
-    mkdir -p -- "$source_directory" "$handoff_directory"
-    chmod 0700 "${source_directory:h}" "$source_directory" "$handoff_directory"
+    hardware_handoff_root=$(mktemp -d "$resolved_temp_root/holdtype-dv-p0b-handoff.XXXXXX")
+    hardware_handoff_root=${hardware_handoff_root:A}
+    hardware_handoff_root_name="${hardware_handoff_root:t}"
+    hardware_event_handoff="$hardware_handoff_root/events.jsonl"
+    mkdir -p -- "$source_directory"
+    chmod 0700 "$resolved_run_root" "${source_directory:h}" "$source_directory" \
+        "$hardware_handoff_root"
 }
 
 validate_and_handoff_hardware_evidence() {
-    local source_directory="${hardware_event_source:h}"
-    local handoff_directory="${hardware_event_handoff:h}"
-    DV_HARDWARE_EVENT_SOURCE_DIR="$source_directory" \
-        DV_HARDWARE_EVENT_HANDOFF_DIR="$handoff_directory" \
+    DV_HARDWARE_BASE="$resolved_temp_root" \
+        DV_HARDWARE_RAW_ROOT_NAME="${resolved_run_root:t}" \
+        DV_HARDWARE_HANDOFF_ROOT_NAME="$hardware_handoff_root_name" \
         DV_HARDWARE_CASE_ID="$case_id" \
+        DV_HARDWARE_MUTATION="${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_EVIDENCE_TEST:-}" \
         "$timeout_executable" --signal=TERM --kill-after=1s 5s \
-        /usr/bin/python3 -c "$hardware_evidence_handoff_source"
+        /usr/bin/python3 -c "$hardware_evidence_handoff_source" && hardware_handoff_retained=1
 }
 
 create_hardware_evidence_test_fixture() {
     local scenario="$1"
     DV_HARDWARE_EVENT_SOURCE="$hardware_event_source" \
+        DV_HARDWARE_EVENT_HANDOFF="$hardware_event_handoff" \
+        DV_HARDWARE_HANDOFF_ROOT="$hardware_handoff_root" \
         DV_HARDWARE_CASE_ID="$case_id" \
         DV_HARDWARE_SCENARIO="$scenario" \
         /usr/bin/python3 - <<'PY'
@@ -271,6 +523,8 @@ import json
 import os
 
 path = os.environ["DV_HARDWARE_EVENT_SOURCE"]
+handoff = os.environ["DV_HARDWARE_EVENT_HANDOFF"]
+handoff_root = os.environ["DV_HARDWARE_HANDOFF_ROOT"]
 case_id = os.environ["DV_HARDWARE_CASE_ID"]
 scenario = os.environ["DV_HARDWARE_SCENARIO"]
 base = {
@@ -285,18 +539,73 @@ stage = {
     "cameraFormat": "hvc1:1920x1080:descriptions_1",
     "finalizedFormat": "hvc1:1920x1080:descriptions_1",
 }
+metrics = [
+    {"name": "camera_width", "value": 1920, "unit": "px", "disposition": "evidence_only"},
+    {"name": "camera_height", "value": 1080, "unit": "px", "disposition": "evidence_only"},
+    {"name": "camera_start_timestamp", "value": 0, "unit": "s", "disposition": "evidence_only"},
+    {"name": "camera_end_timestamp", "value": 10, "unit": "s", "disposition": "evidence_only"},
+    {"name": "final_width", "value": 1920, "unit": "px", "disposition": "evidence_only"},
+    {"name": "final_height", "value": 1080, "unit": "px", "disposition": "evidence_only"},
+    {"name": "final_start_timestamp", "value": 0, "unit": "s", "disposition": "evidence_only"},
+    {"name": "final_end_timestamp", "value": 10, "unit": "s", "disposition": "evidence_only"},
+    {"name": "audio_start_timestamp", "value": 0, "unit": "s", "disposition": "evidence_only"},
+    {"name": "audio_end_timestamp", "value": 10, "unit": "s", "disposition": "evidence_only"},
+]
 terminal = dict(base)
 terminal.update({
     "monotonicMilliseconds": 2, "action": "attempt_terminal", "result": "failed",
     "category": "video_preservation_failed",
     "preservation_failure_dimension": "encoded_payload_mismatch",
-    "failure_stage_evidence": stage,
+    "failure_stage_evidence": stage, "metrics": metrics,
 })
+ready_metrics = metrics + [
+    {"name": "camera_video_duration", "value": 10, "unit": "s",
+     "disposition": "evidence_only"},
+    {"name": "final_video_duration", "value": 10, "unit": "s",
+     "disposition": "evidence_only"},
+    {"name": "audio_duration", "value": 10, "unit": "s", "disposition": "evidence_only"},
+    {"name": "preserved_sample_count", "value": 600, "unit": "samples",
+     "disposition": "functional"},
+    {"name": "preserved_encoded_bytes", "value": 1048576, "unit": "bytes",
+     "disposition": "functional"},
+]
+ready_video = {
+    "cameraMediaSubtype": "hvc1", "finalizedMediaSubtype": "hvc1",
+    "finalizedAudioMediaSubtype": "aac ",
+    "cameraFormat": "hvc1:1920x1080:descriptions_1",
+    "finalizedFormat": "hvc1:1920x1080:descriptions_1",
+    "preservationMethod": "stored_sample_exact_v1", "preservedSampleCount": 600,
+    "preservedEncodedByteCount": 1048576, "matched": True,
+}
+if scenario in {
+    "valid_ready", "ready_extra_video_key", "ready_count_mismatch", "ready_unmatched",
+    "ready_wrong_method", "ready_bad_device_label", "ready_bad_device_class",
+}:
+    terminal = dict(base)
+    terminal.update({
+        "monotonicMilliseconds": 2, "action": "attempt_terminal", "result": "ready",
+        "deviceClass": "continuity", "redactedDeviceLabel": "continuity_camera",
+        "videoEvidence": ready_video, "metrics": ready_metrics,
+    })
+elif scenario == "valid_cancelled":
+    terminal = dict(base)
+    terminal.update({
+        "monotonicMilliseconds": 2, "action": "attempt_terminal", "result": "cancelled",
+        "category": "capture_stop", "metrics": [],
+    })
 events = [base, terminal]
+mutation_scenarios = {
+    "add_after_list", "remove_after_list", "source_replacement", "source_parent_swap",
+    "raw_root_swap", "destination_parent_swap", "wrong_owner", "slow_validator",
+}
 if scenario == "zero":
     raise SystemExit(0)
 if scenario == "wrong_case":
     terminal["caseID"] = "other-case"
+elif scenario == "wrong_ids":
+    terminal["attemptID"] = "other-attempt"
+elif scenario == "wrong_order":
+    terminal["monotonicMilliseconds"] = 0
 elif scenario == "missing_start":
     events = [terminal]
 elif scenario == "missing_terminal":
@@ -307,16 +616,76 @@ elif scenario == "ready_plus_failure":
     terminal["result"] = "ready"
 elif scenario == "unexpected_schema":
     terminal["unexpected"] = True
+elif scenario == "extra_nested":
+    stage["unexpected"] = True
+elif scenario == "missing_stage_key":
+    stage.pop("cameraFormat")
+elif scenario == "false_stage":
+    stage["passthroughCompleted"] = False
 elif scenario == "unexpected_event":
     terminal["action"] = "probe"
+elif scenario == "arbitrary_category":
+    terminal["category"] = "raw_platform_error"
+elif scenario == "arbitrary_dimension":
+    terminal["preservation_failure_dimension"] = "secret_sample_mismatch"
+elif scenario == "wrong_result_dimension":
+    terminal["preservation_failure_dimension"] = "timed_out"
+elif scenario == "arbitrary_device":
+    terminal["deviceClass"] = "serial-device"
+elif scenario == "identifier_too_long":
+    terminal["runID"] = "x" * 65
 elif scenario == "private_data":
-    terminal["redactedDeviceLabel"] = "/tmp/private-device"
+    stage["cameraFormat"] = "/Users/private/sample.mov"
+elif scenario == "nonfinite_metric":
+    metrics[0]["value"] = float("nan")
+elif scenario == "out_of_range_metric":
+    metrics[0]["value"] = 1e100
+elif scenario == "unexpected_metric":
+    metrics[0]["name"] = "raw_private_metric"
+elif scenario == "wrong_unit":
+    metrics[0]["unit"] = "path"
+elif scenario == "wrong_disposition":
+    metrics[0]["disposition"] = "private"
+elif scenario == "wrong_metric_value":
+    metrics[0]["value"] = "1920"
+elif scenario == "duplicate_metric":
+    metrics.append(dict(metrics[0]))
+elif scenario == "missing_required_metric":
+    metrics.pop()
+elif scenario == "ready_extra_video_key":
+    ready_video["unexpected"] = True
+elif scenario == "ready_count_mismatch":
+    ready_video["preservedSampleCount"] = 599
+elif scenario == "ready_unmatched":
+    ready_video["matched"] = False
+elif scenario == "ready_wrong_method":
+    ready_video["preservationMethod"] = "codec_only"
+elif scenario == "ready_bad_device_label":
+    terminal["redactedDeviceLabel"] = "private-camera"
+elif scenario == "ready_bad_device_class":
+    terminal["deviceClass"] = "serial-device"
 directory = os.path.dirname(path)
 if scenario == "symlink":
     target = os.path.join(os.path.dirname(directory), "event-target")
     with open(target, "w", encoding="utf-8") as output:
         output.write("\n".join(json.dumps(event, separators=(",", ":")) for event in events) + "\n")
     os.symlink(target, path)
+    raise SystemExit(0)
+if scenario == "source_ancestor_symlink":
+    source_parent = os.path.dirname(directory)
+    target = os.path.join(os.path.dirname(source_parent), "evidence-target")
+    os.rmdir(directory)
+    os.mkdir(target, 0o700)
+    with open(os.path.join(target, "events.jsonl"), "w", encoding="utf-8") as output:
+        output.write("\n".join(json.dumps(event, separators=(",", ":")) for event in events) + "\n")
+    os.chmod(os.path.join(target, "events.jsonl"), 0o600)
+    os.symlink(target, directory)
+    raise SystemExit(0)
+if scenario == "destination_ancestor_symlink":
+    target = handoff_root + "-target"
+    os.rmdir(handoff_root)
+    os.mkdir(target, 0o700)
+    os.symlink(target, handoff_root)
     raise SystemExit(0)
 if scenario == "oversize":
     with open(path, "wb") as output:
@@ -327,14 +696,33 @@ if scenario == "malformed":
     with open(path, "w", encoding="utf-8") as output:
         output.write("{malformed}\n")
 else:
+    lines = [json.dumps(event, separators=(",", ":")) for event in events]
+    if scenario == "duplicate_top":
+        lines[1] = lines[1].replace('"category":', '"category":"video_preservation_failed","category":', 1)
+    elif scenario == "duplicate_nested":
+        lines[1] = lines[1].replace('"cameraProbePassed":true',
+                                    '"cameraProbePassed":true,"cameraProbePassed":true', 1)
     with open(path, "w", encoding="utf-8") as output:
-        output.write("\n".join(json.dumps(event, separators=(",", ":")) for event in events) + "\n")
+        output.write("\n".join(lines) + "\n")
 os.chmod(path, 0o600)
 if scenario == "multiple":
     with open(os.path.join(directory, "unexpected.jsonl"), "w", encoding="utf-8") as output:
         output.write("{}\n")
 elif scenario == "hardlink":
     os.link(path, os.path.join(directory, "linked.jsonl"))
+elif scenario == "wrong_source_mode":
+    os.chmod(path, 0o644)
+elif scenario == "wrong_source_type":
+    os.unlink(path)
+    os.mkdir(path, 0o700)
+elif scenario == "wrong_source_parent_mode":
+    os.chmod(directory, 0o755)
+elif scenario == "wrong_destination_mode":
+    os.chmod(handoff_root, 0o755)
+elif scenario == "destination_collision":
+    with open(handoff, "w", encoding="utf-8") as output:
+        output.write("untrusted\n")
+    os.chmod(handoff, 0o600)
 PY
 }
 
@@ -769,7 +1157,6 @@ run_root=$(mktemp -d "${TMPDIR%/}/holdtype-dv-p0b.XXXXXX")
 resolved_temp_root=${TMPDIR:A}
 resolved_run_root=${run_root:A}
 hardware_event_source="$resolved_run_root/hardware-raw/evidence/events.jsonl"
-hardware_event_handoff="$resolved_run_root/hardware-handoff/events.jsonl"
 if [[ "$mode" == "--request-camera-permission" ]]; then
     permission_deadline=$(( SECONDS + permission_timeout_seconds ))
     permission_work_deadline=$(( permission_deadline - permission_cleanup_reserve_seconds ))
@@ -1677,6 +2064,10 @@ cleanup_nonpermission_mode() {
     if [[ "$resolved_run_root" == "$resolved_temp_root"/holdtype-dv-p0b.* && -d "$resolved_run_root" ]]; then
         "$timeout_executable" --signal=TERM --kill-after=1s 5s \
             rm -rf -- "$resolved_run_root" || return 1
+    fi
+    if [[ "$mode" == "--hardware" && -n "$hardware_handoff_root_name" &&
+          "$hardware_handoff_retained" != 1 ]]; then
+        print -u2 -r -- "hardware_evidence_handoff=not_retained root_token=$hardware_handoff_root_name cleanup=runtime_owner_exact_root"
     fi
 }
 
