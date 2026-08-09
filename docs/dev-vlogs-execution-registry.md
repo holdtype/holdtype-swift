@@ -196,8 +196,9 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W05-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05@8a98f73` | read-only exact two-path repair commit | rejected | receipt below | Pin DerivedData uid/mode/dev/inode and repair the canonical lifecycle fixture. |
 | `DV-P0B-STORAGE-W05-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W05 review | external-storage wrapper and canonical feasibility test only | accepted_with_residual | `b172bfd`; receipt below | Exact DerivedData identity pin and serial fixture repair accepted; runtime evidence remains. |
 | `DV-P0B-STORAGE-W05-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05-R1@b172bfd` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final serialized protected-scope runtime is dependency-ready. |
-| `DV-P0B-STORAGE-R04` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W05 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R04 QA root only | review / mandatory_guard_stop | `9e2a3ee`; receipt below | No cell started; review the pre-baseline guard-continuity stop before any new authority. |
-| `DV-P0B-STORAGE-R04-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R04@9e2a3ee` | read-only exact seven-file evidence and accepted W05-R1 provenance | running | — | Classify guard-stop evidence and exact next dependency; no runtime. |
+| `DV-P0B-STORAGE-R04` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W05 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R04 QA root only | accepted_evidence / mandatory_guard_stop | `9e2a3ee`; receipt below | Truthful pre-functional stop accepted; exact-root authority remained unexercised. |
+| `DV-P0B-STORAGE-R04-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R04@9e2a3ee` | read-only exact seven-file evidence and accepted W05-R1 provenance | accepted_with_residual | receipt below | Use one noninteractive single-shot controller for the final runtime. |
+| `DV-P0B-STORAGE-R05` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R04 evidence review; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R05 QA root only | running | — | Final protected-scope runtime via one stable-parent controller; no retry. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -377,8 +378,11 @@ other external root remain unauthorized.
   serialized protected-scope runtime R04 stopped before baseline or volume
   preflight when its one guard lost parent identity after the persistent PTY
   closed. No cell, wrapper, Xcode, hosted test, or external I/O occurred. Its
-  exact evidence is in review; mechanics remain accepted and no restorative
-  action is authorized.
+  exact evidence review accepted the fail-closed stop and confirmed that the
+  existing exact-root authority remained unexercised. R05 is the final runtime
+  attempt through one prevalidated noninteractive single-shot controller that
+  remains the stable guard parent throughout. Mechanics remain accepted and no
+  restorative action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3780,6 +3784,43 @@ exercised. Review must disposition the mandatory stop before any new runtime.
 next_dependency: DV-P0B-STORAGE-R04-REVIEW
 runtime_or_visual_handoff: none
 commit: 9e2a3eeee5c8c1004c6e396e740cf345c158c26c
+parent: 6bf645044c48d23dcd40e86e4a60eb91c94a9393
+```
+
+### `DV-P0B-STORAGE-R04-REVIEW`
+
+```text
+packet_id: DV-P0B-STORAGE-R04-REVIEW
+status: done
+verdict: accept_with_residual
+functional_cell_verdicts: SSD and HDD accepted as truthful
+not_invoked_guard_stop
+packet_scope_verdict: fail / protected metadata not_proven, accepted as
+truthful
+
+outcome: R04 is accepted as a truthful mandatory pre-baseline guard stop. No
+storage cell or protected-scope execution occurred. Cleanup is sufficient;
+prior mechanics remain accepted but were not re-proven.
+structured_evidence: Exact seven-file commit/current blobs; three packet-scope
+events with one terminal; zero matrix/measurement/artifact rows; no pass,
+capacity, fixture, private-HOME, DerivedData, or confinement claim.
+single_guard_review: One guard passed two checks, lost parent continuity, and
+triggered immediate stop without replacement or retry. Exact PID/start/command
+identity was revalidated before TERM and confirmed absent.
+classification: Environment/tooling transport residual; no W05-R1, wrapper,
+product, or protocol defect. The fail-closed protocol operated as specified.
+scope_check: Read-only; no repository edit, external volume/write, live HOME,
+protected path, process beyond exact guard cleanup, app/TCC/Keychain/camera/
+audio/media, Release, or restorative action.
+residual: Hosted confinement and protected-scope closure remain unexercised.
+Existing exact-root authority was not used and supports one separately
+packetized final runtime.
+exact_next_dependency: One prevalidated noninteractive single-shot controller
+must remain the guard's stable parent from creation through baseline, preflight,
+serialized cells, final snapshot, evidence and exact guard cleanup. Poll only;
+no incremental PTY injection, replacement, retry, or broader authority.
+runtime_or_visual_handoff: none
+reviewed_commit: 9e2a3eeee5c8c1004c6e396e740cf345c158c26c
 parent: 6bf645044c48d23dcd40e86e4a60eb91c94a9393
 ```
 
