@@ -182,8 +182,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-R01-REVIEW` | `/root/dv_p0b_storage_r01_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R01@f7bbc9d` | read-only exact runtime evidence and accepted seam/source provenance | rejected | receipt below | Add and review a closed inert Debug storage test-host route before any rerun. |
 | `DV-P0B-STORAGE-W03` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected storage R01 scope review | exact Debug entry/storage-host route, wrapper, launch/wrapper tests, one QA summary | rejected | `89127cc`; receipt below | Router isolation passes, but inert host retains the private volume root in app state. |
 | `DV-P0B-STORAGE-W03-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W03@89127cc` | read-only exact repair commit | rejected | receipt below | Replace retained raw configuration with a value-free validated marker. |
-| `DV-P0B-STORAGE-W03-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W03 review | Debug storage-host source and focused test only; summary only if claim changes | review | `7b1ba8d`; receipt below | Value-free marker repair is terminal; independent review decides acceptance. |
-| `DV-P0B-STORAGE-W03-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | W03 R1 repair `7b1ba8d` | read-only exact two-path repair commit | running | — | Verify raw configuration lifetime is eliminated without routing/wrapper/protected drift. |
+| `DV-P0B-STORAGE-W03-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W03 review | Debug storage-host source and focused test only; summary only if claim changes | accepted_with_residual | `7b1ba8d`; receipt below | Value-free inert-host repair accepted; external evidence still requires one controlled rerun. |
+| `DV-P0B-STORAGE-W03-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | W03 R1 repair `7b1ba8d` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded storage R02 under prior exact-root authority is dependency-ready. |
+| `DV-P0B-STORAGE-R02` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W03 review R1; prior exact-root authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted R02 QA root only | running | — | Repeat two serialized mechanics cells under one verified session guard and prove protected metadata stability. |
+| `DV-P0B-STORAGE-R02-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | terminal `DV-P0B-STORAGE-R02` | read-only exact runtime evidence and accepted W03 provenance | queued | — | Decide final external storage evidence and protected-scope closure. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -338,8 +340,11 @@ other external root remain unauthorized.
   normal `HoldTypeApp` lifecycle and could construct the live recovery owner.
   Debug-only inert test-host W03 proves outer routing and wrapper injection,
   but review rejected one private-value lifetime: the inert app state retained
-  the validated full volume root. Two-path value-free-marker repair W03-R1 is
-  running; no retry or restorative action is authorized before acceptance.
+  the validated full volume root. Two-path value-free-marker repair W03-R1
+  removed all raw configuration lifetime and is independently accepted. One
+  bounded R02 rerun under the prior exact-root/scratch authority is running
+  with one session guard and metadata-only protected before/after proof. No
+  restorative action against the historical artifact is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3371,6 +3376,30 @@ next_dependency: DV-P0B-STORAGE-W03-REVIEW-R1
 runtime_or_visual_handoff: none
 commit: 7b1ba8deae6099ba7416751a894e0ca3ad1582fb
 parent: 877d2f00fbdc41352cf08e462bcefd11af2fe5cc
+```
+
+### `DV-P0B-STORAGE-W03-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W03-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: Raw storage environment values remain synchronous lexical-validation
+locals and collapse into value-free `.validated` or payload-free errors. No
+routing, wrapper, product, recovery, or Release behavior changed.
+checks_run: Exact two-path commit/current-blob audit; value-lifetime source and
+reflection trace; signed Debug build-for-testing; sanitized-HOME focused 11/11;
+signed Debug; unsigned Release/settings/artifact isolation; structure/diff;
+protected paths, process, temp, and worktree audits.
+protected_scope: Separate external runtime configuration remains the sole root
+consumer. No Recovery.json or external volume was accessed during review.
+scope_check: Read-only, exact two paths, no repository/runtime mutation.
+residual: Original historical protected-content delta remains unknowable and no
+restorative action is authorized. Acceptance adds no external runtime evidence.
+next_dependency: One bounded DV-P0B-STORAGE-R02 under prior exact-root authority.
+runtime_or_visual_handoff: none
+reviewed_commit: 7b1ba8deae6099ba7416751a894e0ca3ad1582fb
 ```
 
 ## Rejected Receipts
