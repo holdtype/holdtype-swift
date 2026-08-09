@@ -1,0 +1,53 @@
+{
+  "case_id": "continuity-10s",
+  "evidence_basis": "closed terminal and accepted stage ordering; raw watcher evidence unavailable",
+  "camera_only": {
+    "probe_result": "pass",
+    "asset_playable": true,
+    "video_track_count": 1,
+    "audio_track_count": 0,
+    "dimensions": null,
+    "nominal_fps": null,
+    "average_fps": null,
+    "video_codec": null,
+    "format_description": null,
+    "preferred_transform_class": null,
+    "sample_count": null,
+    "encoded_bytes": null,
+    "duration_seconds": null,
+    "timestamp_bounds": null
+  },
+  "finalized": {
+    "probe_result": "pass",
+    "asset_playable": true,
+    "video_track_count": 1,
+    "audio_track_count": 1,
+    "passthrough_only": true,
+    "dimensions": null,
+    "nominal_fps": null,
+    "average_fps": null,
+    "video_codec": null,
+    "audio_codec": null,
+    "format_description": null,
+    "preferred_transform_class": null,
+    "video_sample_count": null,
+    "video_encoded_bytes": null,
+    "audio_bytes": null,
+    "final_bytes": null,
+    "duration_seconds": null,
+    "timestamp_bounds": null
+  },
+  "preservation": {
+    "method": "stored_sample_exact_v1",
+    "result": "fail",
+    "category": "video_preservation_failed",
+    "source_sample_count": null,
+    "final_sample_count": null,
+    "source_encoded_bytes": null,
+    "final_encoded_bytes": null,
+    "mismatch_detail": null
+  },
+  "ready_clip_count": 0,
+  "raw_metrics_recovered": false,
+  "quantitative_disposition": "evidence_only_unavailable"
+}

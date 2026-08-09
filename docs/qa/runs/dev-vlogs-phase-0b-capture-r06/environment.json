@@ -1,0 +1,57 @@
+{
+  "packet_id": "DV-P0B-CAPTURE-R06",
+  "case_id": "continuity-10s",
+  "contract": "DV-DRAFT-4@2f3266a",
+  "runtime_authority": "2ca4dfd",
+  "accepted_native_source_owner": "f7ff6bf",
+  "accepted_lifecycle_owner": "f141be6",
+  "hardware_tail_sha256": "b489ec6cbde5f690e312b87e1ef677e3aa04f95d27db66dc7f6c46560c92a3f5",
+  "operating_system": {
+    "family": "macOS",
+    "version": "26.6"
+  },
+  "machine_class": "Apple silicon Mac",
+  "architecture": "arm64",
+  "power_state": "AC power",
+  "thermal_state": "no warning reported",
+  "filesystem_class": "APFS",
+  "destination_class": "internal run-owned temporary storage",
+  "useful_capacity_bytes_observed": 14085406720,
+  "build_identity": {
+    "configuration": "Debug",
+    "bundle_identity_class": "same signed HoldType application identity",
+    "signing_class": "Apple Development",
+    "camera_purpose_present": true,
+    "continuity_declaration_present": true,
+    "camera_entitlement_present": true,
+    "audio_input_entitlement_present": true,
+    "release_isolation_reused": true
+  },
+  "authorization": {
+    "result": "authorized",
+    "evidence_basis": "accepted closed-route stage reachability",
+    "request_access_invoked": false,
+    "prompt_observed": false,
+    "tcc_action_performed": false
+  },
+  "idle_guard": {
+    "started_before_runtime": true,
+    "identity_verified": true,
+    "kept_through_evidence_validation": true,
+    "stopped": true,
+    "exit_verified": true
+  },
+  "protected_baseline": {
+    "application_support_file_count_before": 51,
+    "application_support_file_count_after": 51,
+    "active_recordings_file_count_before": 0,
+    "active_recordings_file_count_after": 0,
+    "transcription_recovery_file_count_before": 50,
+    "transcription_recovery_file_count_after": 50,
+    "default_dev_vlogs_file_count_before": 0,
+    "default_dev_vlogs_file_count_after": 0
+  },
+  "private_device_identity_retained": false,
+  "private_process_identity_retained": false,
+  "full_path_retained": false
+}
