@@ -217,8 +217,8 @@ other external root remain unauthorized.
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
 | `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
-| `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | running | — | Record literal paths, closed schemas, non-mutating primitive, route matrix, mutation coverage and controller state machine. |
-| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R1` terminal artifact | read-only exact design review | queued | — | No implementation before acceptance. |
+| `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
+| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R1` terminal artifact | read-only exact design review | running | — | No implementation before acceptance. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; resumed evidence cycle; accepted E07 W01 review | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | blocked | — | Wait for E07 acceptance and serialized runtime admission; no storage runtime or permission-only route. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -4875,4 +4875,170 @@ next_dependency: Original owner repairs CameraCapture, its concrete stop test,
 and the summary, then repeats review.
 runtime_or_visual_handoff: none
 reviewed_commit: ba058f8742dc409b91612f95e5254db6fac8b6e0
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01-R1
+status: done
+classification: discover; design_repaired; no implementation or runtime
+
+outcome: Recorded an exact implementable, default-disabled DEBUG provenance
+observer and a separate nonexternal, single-shot controller. The controller
+first runs build-for-testing and compares metadata after all build processes
+are reaped. Only an unchanged build phase admits one inert hosted observer test
+under a private HOME/CFFIXED_USER_HOME/TMPDIR and the same identity-pinned
+DerivedData, followed by a second compare. Any first change or uncertainty
+stops the packet. The design can correlate a closed run-owned canonical
+recovery mutation with a hosted-window change, but never claims an arbitrary
+writer identity; unsupported cases remain still_unknown. The accepted external
+storage wrapper is unchanged.
+
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E03/E04/E08; rejected integrated
+Phase 0B review; accepted storage mechanics, inert/value-free host, private
+HOME and shared DerivedData evidence; rejected observer E01 review. No prior
+external-root authorization is reused for implementation or runtime.
+
+exact_writable_implementation_envelope:
+1. HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BProtectedStorageObserver.swift
+   (new): @MainActor final class DevVlogsPhase0BProtectedStorageObserver,
+   shared owner, closed enums/token, install, recordOwnerInitialization,
+   observeMutation, classifyTargetScope and emit.
+2. HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BStorageTestHostLaunch.swift
+   (modify): closed observer configuration and inert-host routing only.
+3. HoldType/Services/TranscriptionFailureRecoveryStore.swift (modify): DEBUG
+   observer calls around the canonical mutation operations only; no parallel
+   mutation logic, reordered control flow or changed error policy.
+4. HoldTypeTests/DevVlogsPhase0BStorageTestHostLaunchTests.swift (modify).
+5. HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverTests.swift (new).
+6. HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverHostedTests.swift (new).
+7. HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverControllerTests.swift
+   (new).
+8. script/dev_vlogs_phase_0_b_protected_storage_observer.sh (new).
+9. script/dev_vlogs_phase_0_b_protected_storage_probe.c (new).
+10. docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md (new).
+HoldType/HoldTypeApp.swift is explicitly not writable and not required.
+
+exact_observer_environment_contract:
+- HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST=1
+- HOLDTYPE_DEV_VLOGS_PHASE_0B_PROTECTED_STORAGE_OBSERVER=stderr-json-v1
+- HOLDTYPE_DEV_VLOGS_PHASE_0B_PROTECTED_STORAGE_OBSERVER_RUN_ID=<lowercase UUID>
+- HOLDTYPE_DEV_VLOGS_PHASE_0B_PROTECTED_STORAGE_OBSERVER_CASE_ID=protected_metadata
+- HOLDTYPE_DEV_VLOGS_STORAGE_VALIDATE_PRIVATE_HOME=1
+- HOLDTYPE_AUTOMATION=1
+- HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip
+- HOME and CFFIXED_USER_HOME are the identical standardized task HOME; TMPDIR
+  is its mode-0700 child.
+Any observer-key presence selects the outer inert storage route. Every key has
+exactly one raw environ occurrence. Partial, empty, malformed, duplicate or
+unknown observer input fails closed in the inert host. Any external-storage,
+capture, authorization or preview route key conflicts.
+
+closed_stderr_schema: Each observer line begins exactly
+`HTDV_P0B_PROTECTED_STORAGE_OBSERVER_V1 ` and then fixed-order JSON keys
+`schema_version,run_id,case_id,sequence,event,action,category,target_scope,result`.
+Schema version is 1; run_id is a lowercase UUID; case_id is
+`protected_metadata`; sequence is 1...128. Each complete prefixed line is at
+most 512 bytes and a run emits at most 128 lines. Closed events are
+observer_ready, owner_initialized, mutation_begin, mutation_end and
+observer_overflow. Closed actions are none, ensure_recovery_directory,
+copy_recovery_audio, replace_recovery_index, the three marker-write actions,
+the three marker-delete actions and delete_recovery_audio. Closed categories
+are observer, recovery_directory, recovery_index, recovery_marker and
+recovery_audio. Closed target scopes are not_applicable, private_task_home,
+outside_private_task_home and indeterminate. Closed results are ready,
+observed, attempted, succeeded, failed and overflow. Exactly one ready is
+required; sequence/cardinality and adjacent begin/end pairs are validated.
+Gaps, unknown or duplicate keys/events, invalid pairings or overflow fail
+closed. Lines must never contain paths, filenames, Recovery.json,
+TranscriptionRecovery, user/volume names, content, payload, counts, timestamps,
+device/inode/mode/size, PID identities, errors, recovery/provider state,
+credentials or media.
+
+read_only_probe_contract: The controller compiles the new C helper in its
+private run root. The helper opens `/` with O_RDONLY|O_DIRECTORY|O_CLOEXEC,
+walks every directory component with openat using
+O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC plus fstat, and reads the final
+target only through fstatat(..., AT_SYMLINK_NOFOLLOW). It observes exactly the
+canonical recovery directory and its fixed recovery-index child. It never
+enumerates a directory, opens the index, or reads/hashes/parses/mutates
+content. Ephemeral in-memory tuples contain only present/missing, dev, inode,
+type+permissions, uid, gid, nlink, size and mtime seconds/nanoseconds and are
+unset after comparison. Symlink, wrong type/owner/mode, malformed or unexpected
+errno, replacement or discontinuity yields metadata_uncertain. Durable output
+contains only phase plus unchanged, changed, missing_unchanged or uncertain.
+
+canonical_mutation_coverage: DEBUG observeMutation wraps every createDirectory
+in copy/persist/marker writers, the recovery-audio copyItem, the atomic
+Recovery index writer, all three marker atomic writes, and the actual
+deleteExactRegularAudio removeItem boundary with a closed
+RecoveryArtifactDeletionKind propagated from its five callers. Owner
+initialization is observed after directoryURL assignment and before restore.
+The wrapper rethrows the exact operation error. An emitter failure never alters
+product flow but invalidates the later evidence run.
+
+controller_and_guard_state_machine:
+- command: script/dev_vlogs_phase_0_b_protected_storage_observer.sh --execute
+- one 900-second controller deadline; metadata/census 15 seconds each; helper
+  compile 60; build 600; hosted test 180; TERM/KILL waits 5; outer supervisor
+  ceiling 930.
+- S0 pins the single controller identity.
+- S1 creates and identity-pins the private run root, task HOME, TMPDIR,
+  DerivedData, logs and bin, then compiles the probe.
+- S2 starts and pins one direct-child caffeinate guard.
+- S3 rejects any pre-existing product process.
+- S4 captures the no-follow metadata baseline.
+- S5 runs build-for-testing under the invoking HOME with the pinned
+  DerivedData; then reaps, takes an exact process census and compares metadata.
+- S6 only after unchanged runs one inert observer-only hosted test under the
+  private HOME/CFFIX/TMPDIR, identical DerivedData and exact observer keys.
+- S7 reaps, censuses, compares and parses the closed observer stream.
+- S8 writes the authorized evidence set, performs exact run-owned
+  quarantine/cleanup, stops and reaps the guard, and unsets raw values.
+The accepted external wrapper stays byte-identical. The new controller copies
+the required W04/W05 invariants rather than extracting shared behavior.
+
+closed_stop_and_classification_matrix:
+- pre-existing product process -> stop, environment_conflict
+- concurrent external process uncertainty -> stop, still_unknown
+- controller or guard discontinuity -> stop, guard_discontinuity
+- build failure/timeout/signal -> stop, build_failed
+- build-window metadata change -> stop, build_window_change_correlated only
+- metadata/root identity uncertainty -> stop, metadata_uncertain
+- invalid observer stream -> stop, observer_invalid
+- hosted change plus an outside-private succeeded canonical event ->
+  run_owned_canonical_recovery_write_correlated
+- hosted change without a canonical event -> still_unknown
+- observer/metadata conflict -> still_unknown or evidence_conflict
+- outside-private event with unchanged metadata -> evidence_conflict
+- owner observed without mutation -> owner_exposed_no_mutation
+- hosted test failure -> hosted_test_failed
+- cleanup uncertainty -> cleanup_uncertain
+- both phases unchanged with valid stream -> pass_unchanged
+Every stop is first-failure/no-retry. No external-volume action, restoration,
+protected deletion, exact arbitrary-writer attribution, controller/guard
+replacement or live-home content access is authorized.
+
+future_runtime_evidence_envelope: A separately authorized runtime would write
+exactly seven text files under
+docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01/: summary.md,
+environment.json, matrix.csv, measurements.csv, artifacts.csv, residuals.md
+and events/storage-observer-r01.jsonl. Implementation acceptance does not
+authorize that runtime. Runtime requires explicit user authority for one
+nonexternal controller invocation, private root creation/cleanup,
+xcodebuild/hosted test, bounded census/signals limited to exact run-owned
+processes, and metadata-only no-follow traversal of the exact canonical
+recovery directory/index.
+
+checks_run: mandatory spec/protocol/registry/tooling gate; read-only source and
+target-membership confirmation sufficient to name the exact owners; no build,
+test, process, protected-path, volume, app, TCC or runtime action.
+scope_check: Registry design artifact only. No source/spec/product/Release/
+external-storage/protected-data mutation and no runtime authority consumed.
+residual: Independent design review is mandatory before implementation. Even
+after implementation, causal runtime remains separately user-authorized and
+arbitrary writer identity may remain still_unknown.
+next_dependency: DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1
+runtime_or_visual_handoff: none
 ```
