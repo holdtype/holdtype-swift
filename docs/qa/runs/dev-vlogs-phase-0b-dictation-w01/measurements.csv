@@ -1,0 +1,10 @@
+schema_version,case_id,metric,value,unit,disposition
+dv-p0b-e07-measurements-v1,camera_slow_timeout,recording_before_gate_resolution,true,boolean,functional_gate
+dv-p0b-e07-measurements-v1,all,dictation_start_latency,not_measured,not_applicable,not_applicable_fake_backed
+dv-p0b-e07-measurements-v1,all,camera_start_latency,not_measured,not_applicable,not_applicable_fake_backed
+dv-p0b-e07-measurements-v1,all,audio_video_offset,not_measured,not_applicable,not_applicable_fake_backed
+dv-p0b-e07-measurements-v1,all,end_drift,not_measured,not_applicable,not_applicable_fake_backed
+dv-p0b-e07-measurements-v1,all,cpu,not_measured,not_applicable,not_applicable_fake_backed
+dv-p0b-e07-measurements-v1,all,memory,not_measured,not_applicable,not_applicable_fake_backed
+dv-p0b-e07-measurements-v1,all,byte_rate,not_measured,not_applicable,not_applicable_fake_backed
+dv-p0b-e07-measurements-v1,all,finalization_overhead,not_measured,not_applicable,not_applicable_fake_backed

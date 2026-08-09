@@ -1,0 +1,11 @@
+schema_version,case_id,artifact_class,retained,byte_count,checksum,cleanup_status,disposition
+dv-p0b-e07-artifacts-v1,standard_success,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media
+dv-p0b-e07-artifacts-v1,corrected_success,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media
+dv-p0b-e07-artifacts-v1,translated_success,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media
+dv-p0b-e07-artifacts-v1,explicit_cancel,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media
+dv-p0b-e07-artifacts-v1,camera_unavailable,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media
+dv-p0b-e07-artifacts-v1,camera_busy,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media
+dv-p0b-e07-artifacts-v1,camera_slow_timeout,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media
+dv-p0b-e07-artifacts-v1,destination_unavailable,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media
+dv-p0b-e07-artifacts-v1,destination_disconnect,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media
+dv-p0b-e07-artifacts-v1,mux_failure,fake_audio_identity,false,0,not_applicable,no_file_created,fake_backed_no_media

@@ -1,0 +1,11 @@
+schema_version,case_id,baseline_terminal,spike_terminal,snapshot_equal,observer_terminal,baseline_audio_owner_count,spike_audio_owner_count,baseline_provider_dispatch_count,spike_provider_dispatch_count,baseline_output_count,spike_output_count,observer_acquire_count,observer_release_count,observer_terminal_count,outstanding_access_count,outstanding_task_count,functional_result,disposition
+dv-p0b-e07-matrix-v1,standard_success,success,success,true,ready,1,1,1,1,1,1,1,1,1,0,0,pass,functional_gate
+dv-p0b-e07-matrix-v1,corrected_success,success,success,true,ready,1,1,1,1,1,1,1,1,1,0,0,pass,functional_gate
+dv-p0b-e07-matrix-v1,translated_success,success,success,true,ready,1,1,1,1,1,1,1,1,1,0,0,pass,functional_gate
+dv-p0b-e07-matrix-v1,explicit_cancel,cancelled,cancelled,true,cancelled,1,1,0,0,0,0,0,0,1,0,0,pass,functional_gate
+dv-p0b-e07-matrix-v1,camera_unavailable,success,success,true,camera_unavailable,1,1,1,1,1,1,0,0,1,0,0,pass,functional_gate
+dv-p0b-e07-matrix-v1,camera_busy,success,success,true,camera_busy,1,1,1,1,1,1,0,0,1,0,0,pass,functional_gate
+dv-p0b-e07-matrix-v1,camera_slow_timeout,success,success,true,camera_preparation_timed_out,1,1,1,1,1,1,0,0,1,0,0,pass,functional_gate
+dv-p0b-e07-matrix-v1,destination_unavailable,success,success,true,destination_unavailable,1,1,1,1,1,1,0,0,1,0,0,pass,functional_gate
+dv-p0b-e07-matrix-v1,destination_disconnect,success,success,true,destination_disconnected,1,1,1,1,1,1,0,0,1,0,0,pass,functional_gate
+dv-p0b-e07-matrix-v1,mux_failure,success,success,true,mux_failed,1,1,1,1,1,1,1,1,1,0,0,pass,functional_gate
