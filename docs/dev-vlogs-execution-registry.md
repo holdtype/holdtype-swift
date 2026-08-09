@@ -163,9 +163,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
 | `DV-P0B-UI-E02-REVIEW` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-E02` receipt | read-only exact authority/source/platform/envelope review | accepted_with_residual | receipt below | Corrected seven-path W01 envelope accepted; no AppKit, project, plist, entitlement, script, or product path. |
-| `DV-P0B-UI-W01` | `/root/dv_p0b_ui_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-E02-REVIEW` | exact Debug preview route/session/view; two focused tests; one W01 summary | review | `085fa26`; receipt below | Fake/build spike is green; independent source/build review required before Camera/UI runtime. |
-| `DV-P0B-UI-W01-REVIEW` | `/root/dv_p0b_ui_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-W01@085fa26` | read-only exact seven-path commit and current artifact evidence | running | pending | Review isolation, lifecycle, frame pipeline, SwiftUI boundary, tests, and Release proof. |
-| `DV-P0B-UI` | unassigned | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW` required | one later controlled preview runtime/evidence packet | queued | — | Runtime only after W01 independent review; Phase 0B evidence only, not product UI. |
+| `DV-P0B-UI-W01` | `/root/dv_p0b_ui_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-E02-REVIEW` | exact Debug preview route/session/view; two focused tests; one W01 summary | accepted_with_residual | `085fa26`; receipt below | Fake/build implementation accepted; real preview behavior remains. |
+| `DV-P0B-UI-W01-REVIEW` | `/root/dv_p0b_ui_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-W01@085fa26` | read-only exact seven-path commit and current artifact evidence | accepted_with_residual | receipt below | No blocker; one controlled Camera/Computer Use runtime is dependency-ready. |
+| `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | running | pending | Prove explicit selection, Start/Stop, display-only mirroring, release, and reacquisition once. |
+| `DV-P0B-UI` | unassigned reviewer | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-R01` | read-only exact runtime evidence | queued | — | Review R01 evidence; Phase 0B only, not product UI acceptance. |
 | `DV-P0B-REVIEW` | unassigned reviewer | `DV-DRAFT-3@ed108fa` | all dispatched P0B packets | read-only | queued | — | Reconcile evidence, residuals, and protected-domain impact. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | `DV-P0B-REVIEW` | named specs and acceptance map | queued | — | Produce `DV-ACTIVE-1`; no implementation. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
@@ -306,8 +307,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   envelope. Independent `DV-P0B-UI-E02-REVIEW` accepted the corrected
   seven-path packet with runtime residuals. `DV-P0B-UI-W01@085fa26` completed
   the isolated SwiftUI frame spike with focused/full fake tests and Debug/
-  Release isolation. Independent `DV-P0B-UI-W01-REVIEW` is running; no Camera
-  or visual runtime may start before that review is accepted.
+  Release isolation. Independent `DV-P0B-UI-W01-REVIEW` accepted the exact
+  implementation with runtime residuals. One controlled `DV-P0B-UI-R01`
+  Camera/Computer Use packet is running; it may only test the isolated preview
+  and must not touch product UI, TCC settings, recording, or W07 cleanup.
 - Direct publication is outside the goal and must never be dispatched.
 
 ## Accepted Receipts
@@ -2948,6 +2951,47 @@ next_dependency: DV-P0B-UI-W01-REVIEW
 runtime_or_visual_handoff: none
 commit: 085fa26dc7040d91b9427a292aa62a9dbe0035c8
 parent: fc9001713097d835d7d7d762fa7c31770145d376
+```
+
+### `DV-P0B-UI-W01-REVIEW`
+
+```text
+packet_id: DV-P0B-UI-W01-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Commit 085fa26 satisfies the corrected seven-path Debug-only
+SwiftUI preview envelope. No blocking code, isolation, test, build, or claim
+finding remains.
+observed_evidence: Preview routing precedes the accepted harness; invalid or
+conflicting active configurations stay in a noncapturing error composition;
+valid composition instantiates no product or harness owner. Camera graph
+creation occurs only from explicit Start, authorization is status-only, exact
+device selection has no fallback, and the graph contains only video-data
+output. Frame conversion/coalescing, 30-second first-frame bound, generation
+checks, off-main synchronous stop, and cleanup-before-Stopped are coherent.
+SwiftUI owns all visible content and display-only mirroring.
+reviewed_commit_and_parent: 085fa26dc7040d91b9427a292aa62a9dbe0035c8;
+fc9001713097d835d7d7d762fa7c31770145d376. Exactly seven current blobs match.
+checks_run: Structure/diff; 13 preview XCTest plus 73 Phase 0B cases including
+12 existing Launch cases; Debug build; genuinely unsigned Release build and
+settings/artifact isolation; forbidden API and protected-blob comparisons;
+process/temp cleanup.
+protected_proof: Capture/auth/finalizer/probe/preservation/harness/script/
+project/plists/entitlements and every product/menu/Settings/dictation/storage/
+iOS owner remain byte-identical.
+scope_check: Read-only review; no edit, app runtime, Camera, TCC, Computer Use,
+screenshot, audio, video, or media action.
+deviations: One over-broad parallel test run contaminated the already-blocked
+permission-cleanup fixture; required serial proportional run passed. Exact
+run-owned roots were moved to Trash and processes exited; pre-existing HoldType
+was preserved.
+residual: Real cadence, camera orientation, visual mirroring, responsiveness,
+camera-indicator release, disappearance/failure/timeout release, and Stop→Start
+reacquisition remain controlled runtime evidence. No source-capture coexistence
+claim.
+next_dependency: DV-P0B-UI-R01 and independent evidence review.
+runtime_or_visual_handoff: Required later; none performed in review.
 ```
 
 ## Rejected Receipts
