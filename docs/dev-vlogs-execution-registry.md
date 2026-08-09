@@ -194,8 +194,9 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-R03-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R03@dc81960` | read-only exact seven-file runtime evidence and accepted wrapper provenance | accepted_with_residual | receipt below | Add one explicit task-owned DerivedData path shared by both Xcode phases. |
 | `DV-P0B-STORAGE-W05` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R03 evidence review | external-storage wrapper and canonical feasibility test only | rejected | `8a98f73`; receipt below | Shared DerivedData path works, but its identity is not pinned and the canonical fixture is non-green. |
 | `DV-P0B-STORAGE-W05-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05@8a98f73` | read-only exact two-path repair commit | rejected | receipt below | Pin DerivedData uid/mode/dev/inode and repair the canonical lifecycle fixture. |
-| `DV-P0B-STORAGE-W05-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W05 review | external-storage wrapper and canonical feasibility test only | review | `b172bfd`; receipt below | DerivedData identity pin and canonical fixture repair complete; independent review required. |
-| `DV-P0B-STORAGE-W05-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05-R1@b172bfd` | read-only exact two-path repair commit | running | — | Verify exact identity pin, replacement retention, serial suite, and protected isolation. |
+| `DV-P0B-STORAGE-W05-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W05 review | external-storage wrapper and canonical feasibility test only | accepted_with_residual | `b172bfd`; receipt below | Exact DerivedData identity pin and serial fixture repair accepted; runtime evidence remains. |
+| `DV-P0B-STORAGE-W05-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05-R1@b172bfd` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final serialized protected-scope runtime is dependency-ready. |
+| `DV-P0B-STORAGE-R04` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W05 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R04 QA root only | running | — | Prove hosted protected-scope closure once per authorized cell; no retry. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -371,8 +372,10 @@ other external root remain unauthorized.
   identity was not pinned and the canonical lifecycle fixture passed only
   18/19. W05-R1 `b172bfd` now pins uid/mode/dev/inode before both Xcode phases,
   retains all implicated objects on replacement, and reports a clean 19/19
-  serial canonical suite. Independent review is running. Mechanics remain
-  accepted; no external runtime or restorative action is authorized.
+  serial canonical suite. Independent review accepted the repair. One final
+  serialized protected-scope runtime is running under the prior exact-root
+  authorization. Mechanics remain accepted; no restorative action is
+  authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
 - The connected iPhone is reserved for the later dependency-ready Continuity
@@ -3700,6 +3703,42 @@ residual: Independent W05-R1 review only; no storage runtime before acceptance.
 next_dependency: DV-P0B-STORAGE-W05-REVIEW-R1
 runtime_or_visual_handoff: none
 commit: b172bfd69de8e4313e523f39386ade28a2eda8aa
+parent: b2a421d390b98f76a345977e38bffa121269395d
+```
+
+### `DV-P0B-STORAGE-W05-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W05-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: W05-R1 closes both rejected findings. DerivedData has one creation-
+time uid/mode/device/inode pin, both Xcode phases require exact equality without
+repinning, replacement blocks test execution and task-HOME cleanup, and state
+clears only after W04-R1 cleanup proves source and quarantine absent. The
+canonical lifecycle suite is clean.
+identity_review: Creation pins the normalized identity once; canonical child,
+task-HOME identity, symlink, owner, mode, device and inode are checked before
+both phases. No recreate/repin path exists. Missing/replaced/wrong-mode state
+returns 70. All state clears only after exact deletion and absence proof.
+fixture_review: Production functions validate the original for build, move it
+aside, install a valid-looking replacement and sibling, then return 70 from
+test validation and cleanup. No test or cleanup-success marker emits; original,
+replacement, sibling, task root and original identity survive until explicit
+fixture teardown.
+checks_run: Exact commit/parent/two-path/current-blob/worktree; structure/zsh/
+diff/help/default/invalid/redaction; identical DerivedData argv and hosted-only
+private HOME; sanitized unsigned split build/test and Foundation confinement;
+canonical 19/19; route regression 23/23; protected owner/process/root audits.
+scope_check: Read-only; no edit, commit, external volume, live HOME, protected
+path, process signaling, app UI, TCC, Keychain, camera/audio/media, or
+restorative action.
+residual: Acceptance adds no external evidence. One final serialized protected-
+scope runtime remains under prior exact-root authority.
+next_dependency: DV-P0B-STORAGE-R04
+runtime_or_visual_handoff: none
+reviewed_commit: b172bfd69de8e4313e523f39386ade28a2eda8aa
 parent: b2a421d390b98f76a345977e38bffa121269395d
 ```
 
