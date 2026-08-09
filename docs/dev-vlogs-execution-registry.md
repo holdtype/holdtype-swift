@@ -235,8 +235,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01@8d1c48a` | read-only exact implementation review | rejected | receipt below | Repair event-derived parsing, bounds, pins, redaction and summary truthfulness. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 review | controller, controller tests and W01 summary only | rejected | `2a25dd3`; receipt below | Parser/pins pass; terminal evidence, cleanup, exact types, outer binding and summary remain open. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R1@2a25dd3` | read-only exact repair review | rejected | receipt below | Return bounded three-path R2; no observer runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R2` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R1 | controller, controller tests and W01 summary only | review | `84aec4d`; receipt below | Terminal evidence/cleanup, exact types, outer binding and summary repaired; review pending. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2@84aec4d` | read-only exact repair review | running | — | No runtime before acceptance. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R2` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R1 | controller, controller tests and W01 summary only | rejected | `84aec4d`; receipt below | Five prior defects pass; raw-event and write-failure evidence integrity require R3. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2@84aec4d` | read-only exact repair review | rejected | receipt below | Return exact three-path evidence-integrity R3; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R3` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R2 | controller, controller tests and W01 summary only | running | — | Persist validated events only and make every eight-file write/postcondition fail closed. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R3` terminal artifact | read-only exact repair review | queued | — | No runtime before acceptance. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7193,5 +7195,50 @@ reruns used task-owned private result bundles.
 residual: Independent review remains mandatory. No task-owned roots/processes
 remain and no runtime authority is granted.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2
+status: rejected
+reviewed_commit: 84aec4db3eaf6214ccf4f76440425e363e9eab67
+parent: ca862ae2d600942d70e3a5cf80abee8cc62da51e
+
+accepted_repairs: Exact three paths/current blobs/modes and seven frozen W01
+blobs pass. R2 terminal state machine, exact JSON integer rejection,
+outer-only route, cleanup-before-success, deadlines, identity pins, summary
+correction, signed Debug, unsigned Release isolation and focused/protected tests
+otherwise review correctly.
+
+blocking_findings:
+1. The controller collects every prefixed hosted.log line before validation and
+blindly writes that raw value to retained events JSONL. A malformed prefixed
+line containing arbitrary/private text therefore classifies observer_invalid
+yet is durably retained. The current fixture explicitly accepts non-JSON text.
+2. write_runtime_evidence does not check each directory creation, write or
+append. Because it runs as an if-condition, zsh suppresses errexit inside the
+function; an intermediate failed write can be followed by later successful
+writes and falsely set evidence_write_state=complete.
+
+smallest_repair: Persist observer events only after complete production stream
+validation; malformed and pre-hosted outcomes retain an empty JSONL. Hard-check
+every directory/write/append and verify exactly eight regular closed-schema
+files before evidence success. Production-function tests must prove malformed
+prefixed secret/path text is absent and mid-write failure produces
+evidence_write_failed, retains partial evidence and emits no success. Preserve
+the exact three-path envelope and every accepted R2 repair.
+
+scope_check: Read-only review. No observer --execute, external volume, live
+HOME/protected inspection, product runtime, Camera/TCC/Keychain/provider/media
+action, source edit or commit.
+deviations: One reviewer private-HOME fixture topology was initially wrong,
+then corrected and rerun canonically. Signing used normal environment only for
+build; launched tests were private/inert.
+residual: Non-run-owned writers may remain still_unknown. Implementation and
+observer runtime remain blocked.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R3, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3.
 runtime_or_visual_handoff: none
 ```
