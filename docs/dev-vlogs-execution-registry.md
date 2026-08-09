@@ -211,8 +211,10 @@ other external root remain unauthorized.
 | `DV-P0B-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | terminal capture/media, UI, storage evidence and reviews | read-only | rejected_for_phase0c | receipt below | Phase 0B terminal evidence has functional/protected blockers; explicit user disposition required. |
 | `DV-P0B-E07-E01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-REVIEW`; resumed evidence cycle | read-only exact dictation/capture ownership, fake/sanitized route, paired-action matrix, and future writable envelope | rejected | receipt below | Canonical test-only route is feasible; durable observer/evidence/review contract is incomplete. |
 | `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | rejected | receipt below | Return registry-only observer/barrier/schema repair; W01 remains blocked. |
-| `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Self-contained W01 contract is complete; independent Review-R1 required. |
-| `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1@d14a927` | read-only exact design review | running | — | W01 stays blocked until acceptance. |
+| `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | rejected | `d14a927`; receipt below | Canonical design is sound, but three internal contradictions require registry-only R2. |
+| `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1@d14a927` | read-only exact design review | rejected | receipt below | Repair continuation storage, observable cleanup evidence and protocol-overload wording. |
+| `DV-P0B-E07-E01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R1 | registry design receipt only | running | — | Resolve exactly three internal contradictions; no envelope expansion. |
+| `DV-P0B-E07-E01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R2` terminal artifact | read-only exact design review | queued | — | W01 remains blocked until acceptance. |
 | `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R1` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
 | `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
@@ -6055,5 +6057,46 @@ may still classify truthfully as still_unknown.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01, then independent
 DV-P0B-STORAGE-OBSERVER-W01-REVIEW. Any nonexternal observer runtime requires
 separate explicit authority.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-E01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW-R1
+status: rejected
+reviewed_commit: d14a927b25ed378acd11cbf94390da0bb4d5b86f
+parent: 794b73314ed44955865f0dbceaf6820e32ea7abc
+scope: exact one-path registry-only design artifact; diff hygiene passes.
+
+accepted_direction: Canonical DictationSessionController/sole-recorder pairing,
+completed-artifact and one-shot-token observer boundary, ten sequences, closed
+snapshots and evidence schemas, redaction, dispatch-parent pinning, protected
+provenance, exact ten-path envelope and residual limits are sound. No product
+hook or runtime claim is needed.
+
+blocking_findings:
+1. DevVlogsPhase0BE07SlowPreparationGate permits only four scalar fields, but
+   its nonpolling enter/wait/resolve API needs retained entry and resolution
+   continuations; globals, polling, sleep and extra helpers are forbidden.
+2. sessionCleanupCount has no injected or public observation source because
+   finishSession and activeSessionID are private. A harness-return counter would
+   manufacture canonical cleanup evidence.
+3. The blanket prohibition on overloads conflicts with the two exact
+   AudioRecorderService startRecording protocol witnesses.
+
+smallest_repair: Registry-only R2 by the same design owner. Permit exactly two
+private optional one-shot continuations while retaining the four scalar public
+gate snapshot fields; replace sessionCleanupCount with a truthfully observable
+action-completion/resource-closure field or an existing-source observation
+requiring no product hook; limit the overload ban to additional overloads
+beyond exact protocol witnesses. Add the same rules to the stop/review matrix.
+
+scope_check: Read-only review only. No edit, build, test, app/runtime, process,
+hardware, provider, Keychain, media, permission or storage action.
+residual: Any accepted repair still proves deterministic fake-backed E07 only,
+not a shipping audio lease or real hardware/media/storage/provider behavior.
+next_dependency: DV-P0B-E07-E01-R2, then independent
+DV-P0B-E07-E01-REVIEW-R2. DV-P0B-E07-W01 remains blocked.
 runtime_or_visual_handoff: none
 ```
