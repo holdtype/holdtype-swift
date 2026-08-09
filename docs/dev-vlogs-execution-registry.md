@@ -141,7 +141,8 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `f989aa8` | read-only exact three-path repair commit | rejected | receipt below | Pathname deletion still follows final validation; do not dispatch runtime. |
 | `DV-P0B-CAMERA-AUTH-E07` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | rejected W06 R4 review | read-only Darwin cleanup API and current script/test evidence | blocked | receipt below | Darwin has no supported exact-fd unlink/rmdir; protocol authority is required before a fail-closed retained-root lane. |
 | `DV-P0B-CAMERA-AUTH-CLEANUP-DECISION` | user decision | `DV-DRAFT-4@2f3266a`; Phase 0B E08 | blocked E07 | no writable scope | pending | — | Choose a narrow permission-only retained-root residual or a privileged/different-UID cleanup boundary. |
-| `DV-P0B-CAPTURE-E08` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a`; accepted capture W02/R03 and hardware supervisor | user reports Camera permission enabled on 2026-08-09 | read-only exact accepted capture/auth/script/runtime evidence | running | — | Decide whether one direct hardware capture status/run is dependency-ready without invoking the blocked permission-only mode. |
+| `DV-P0B-CAPTURE-E08` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a`; accepted capture W02/R03 and hardware supervisor | user reports Camera permission enabled on 2026-08-09 | read-only exact accepted capture/auth/script/runtime evidence | accepted_with_residual | receipt below | One direct no-retry Continuity 10-second hardware attempt is dependency-ready; permission-only cleanup remains blocked separately. |
+| `DV-P0B-CAPTURE-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a`; accepted E08/W02/R03 hardware path | accepted `DV-P0B-CAPTURE-E08`; fresh explicit Continuity uniqueID required | eight redacted capture-R06 QA files; raw media in exact internal run root only | running | — | One 10-second attempt, no fallback/retry/requestAccess; retain only redacted evidence, then exact cleanup. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -248,10 +249,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
   delete for files or directories. A narrow protocol-authority decision is
   required before a fail-closed retained-root permission lane; capture remains
   blocked through that lane. On 2026-08-09 the user reported enabling Camera
-  permission. `DV-P0B-CAPTURE-E08` is checking whether this external state
-  permits a direct controlled hardware capture through the separately accepted
-  hardware supervisor, without invoking or relaxing the blocked permission-only
-  cleanup path. The
+  permission. `DV-P0B-CAPTURE-E08` accepted one direct controlled hardware
+  capture through the separately accepted hardware supervisor, without
+  invoking or relaxing the blocked permission-only cleanup path. `DV-P0B-
+  CAPTURE-R06` is running one no-retry Continuity 10-second cell. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2495,6 +2496,51 @@ next_dependency: User/protocol authority must choose a fail-closed retained-
 root residual for the permission-only evidence lane or a privileged/different-
 UID cleanup boundary. No further script-only exact-delete repair is supported.
 runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-E08`
+
+```text
+packet_id: DV-P0B-CAPTURE-E08
+status: done
+verdict: ready
+
+outcome: One direct, no-retry Continuity 10-second hardware attempt is
+dependency-ready. The exact signed Debug app verifies Camera authorization
+status immediately before discovery/session setup; a non-authorized status
+terminates through the existing typed hardware result without requestAccess.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; accepted W02,
+R03, R05 evidence; preserved hardware supervisor; E07 blocker; Apple
+AVFoundation authorization APIs.
+observed_evidence: Current camera/finalizer/probe blobs match accepted W02 and
+the hardware script tail remains hash-identical through current HEAD. Hardware
+sets only the ordinary Phase 0B run environment, uses one explicit camera ID,
+and selects the capture harness after the permission-only route returns nil.
+mode_cleanup_separation: Permission mode alone creates LaunchServices token,
+acknowledgment, helper, and rejected root-guard ownership. Hardware mode creates
+none of those artifacts and uses accepted cleanup_nonpermission_mode.
+authorization_verification: Hardware calls authorizationStatus(.video);
+authorized continues, notDetermined returns camera_permission_required, and
+denied/restricted return camera_permission_denied. Hardware never calls
+requestAccess.
+runtime_packet: One freshly enumerated, explicit, non-suspended Continuity
+uniqueID; one 10-second attempt; no fallback, retry, prompt, permission route,
+TCC reset, or identity change. Retain only eight redacted QA files and remove
+raw media under the accepted hardware cleanup owner.
+cleanup_decision_disposition: DV-P0B-CAMERA-AUTH-CLEANUP-DECISION continues to
+block permission-only mode but does not invalidate the independently accepted
+hardware cleanup baseline or this attempt.
+checks_run: Full governing-document read; exact source/script/evidence,
+ancestry, blob, hash, dispatch, environment, and cleanup trace; clean diff and
+status. Read-only only.
+scope_check: No file edit, build, test, app, Camera/Microphone/TCC, process,
+media, UI, or external-storage action.
+deviations: one read-only hash command was retried after a zsh PATH-shadowing
+mistake; no persistent effect.
+residual: Signed Debug authorization and current Continuity availability remain
+unverified until the single runtime cell. Permission-only cleanup stays pending.
+next_dependency: DV-P0B-CAPTURE-R06, followed by independent evidence review.
+changed_paths: none
 ```
 
 ### `DV-P0B-UI-SKILL-E01`
