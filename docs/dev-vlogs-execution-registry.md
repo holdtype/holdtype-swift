@@ -190,7 +190,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-W04-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04@03fac5c` | read-only exact two-path repair commit | rejected | receipt below | Repair the wrapper cleanup race and add an exact replacement fixture. |
 | `DV-P0B-STORAGE-W04-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W04 review | external-storage wrapper and canonical feasibility test only | accepted_with_residual | `029f836`; receipt below | Replacement-safe task-HOME cleanup accepted; runtime evidence remains. |
 | `DV-P0B-STORAGE-W04-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04-R1@029f836` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final protected-scope runtime is dependency-ready. |
-| `DV-P0B-STORAGE-R03` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W04 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R03 QA root only | running | — | Final one-pass scope confirmation with private HOME; mechanics are not reopened. |
+| `DV-P0B-STORAGE-R03` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W04 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R03 QA root only | review / functional_fail | `dc81960`; receipt below | Private HOME changed Xcode's default DerivedData lookup; host did not launch and HDD was not run. |
+| `DV-P0B-STORAGE-R03-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R03@dc81960` | read-only exact seven-file runtime evidence and accepted wrapper provenance | running | — | Review failure truth, unchanged protected metadata, cleanup, and exact DerivedData dependency. |
 | `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
 | `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
 | `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
@@ -357,8 +358,10 @@ other external root remain unauthorized.
   Foundation user-domain path. Wrapper-owned private-HOME repair `03fac5c`
   proves confinement but was rejected because cleanup can delete a pathname
   replacement after its identity check. Wrapper-only R1 repair `029f836` is
-  independently accepted. One final protected-scope runtime is running under
-  the prior exact-root authority; mechanics remain accepted and no restorative
+  independently accepted. Final protected-scope runtime R03 stopped after its
+  sole SSD invocation: build-for-testing passed, but private HOME changed the
+  default DerivedData lookup and the hosted test could not launch; HDD was not
+  run. Evidence is in review. Mechanics remain accepted and no restorative
   action is authorized.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
@@ -3550,6 +3553,44 @@ scope runtime remains required.
 next_dependency: DV-P0B-STORAGE-R03
 runtime_or_visual_handoff: none
 reviewed_commit: 029f8364bb80b58c9f77cb49dbaea05869c989fb
+```
+
+### `DV-P0B-STORAGE-R03`
+
+```text
+packet_id: DV-P0B-STORAGE-R03
+status: failed
+functional_result_by_cell: external_ssd_hfsplus=fail;
+external_hdd_apfs=not_available
+packet_scope_result: pass_protected_metadata_unchanged, but not exercised by a
+launched hosted test
+
+outcome: One SSD wrapper invocation completed build-for-testing, then the
+private-HOME test-without-building phase resolved a new default DerivedData
+location and could not locate HoldType.app. Test execution failed with zero
+wrapper success terminals. No SSD retry and no HDD invocation occurred.
+protected_scope: One continuous exact guard spanned baseline, SSD boundary,
+final snapshot, evidence capture, and exact stop/reap. Protected path/count and
+all tracked metadata tuples were unchanged, but host confinement is not proven
+because the hosted test never launched.
+cleanup: Both external scratch prefixes, private task roots, and all run-owned
+app/build/test/wrapper/helper/guard processes are absent. No external deletion
+or protected corrective action occurred.
+changed_paths: Exactly seven redacted text files under
+docs/qa/runs/dev-vlogs-phase-0b-storage-r03/**.
+checks_run: Accepted ancestry/blob/syntax/help; exact SSD preflight and one
+bounded wrapper invocation; structured evidence, redaction/no-media,
+checksum/cap, exact path/mode/diff/commit, process/root/protected metadata
+audits; clean worktree.
+deviations: A private observer used zsh's readonly status variable and initially
+self-matched its process filter. Closed wrapper/build/test terminals establish
+the functional fail; exact non-self checks replaced the unusable process row.
+residual: Make build/test product lookup explicit while retaining the private
+Foundation HOME, then review before any further runtime.
+next_dependency: DV-P0B-STORAGE-R03-REVIEW
+runtime_or_visual_handoff: none
+commit: dc81960300bc0a48ce858e7e00cb71d09f6d13e1
+parent: 10c2a5a42027a12478c463d91b7d1e33a11a9bd0
 ```
 
 ## Rejected Receipts
