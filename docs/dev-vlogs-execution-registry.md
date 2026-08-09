@@ -213,8 +213,8 @@ other external root remain unauthorized.
 | `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | queued | — | Accept a non-invented paired E07 route and exact future packet before implementation. |
 | `DV-P0B-E07-W01` | unassigned finite implementation owner | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW` | exact paths from accepted E07 evidence envelope only | blocked | — | Prove or reject E07 through paired fake-backed/sanitized attempts; no camera/storage runtime. |
 | `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01` terminal receipt | read-only exact E07 artifact/provenance review | queued | — | Independent E07 acceptance before it can affect integrated Phase 0B. |
-| `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | running | — | No external volume, protected content, metadata snapshot, process launch, or storage runtime; return one independently reviewable observer design. |
-| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | queued | — | Acceptance is required before any separately authorized causal storage runtime may be proposed. |
+| `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | review | receipt below | Phase-separated closed-provenance observer design returned; no runtime or live protected access. |
+| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | running | — | Acceptance is required before any separately authorized causal storage runtime may be proposed. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; resumed evidence cycle; accepted E07 W01 review | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | blocked | — | Wait for E07 acceptance and serialized runtime admission; no storage runtime or permission-only route. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -3933,6 +3933,54 @@ independently reviewed read-only observer design before any runtime.
 runtime_or_visual_handoff: none
 reviewed_commit: bec67515ed855f1fba5ad3f63c91ac09146434da
 parent: c54c798f1543f03cfcd0d0e87d7b6320a256a22e
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01
+status: done
+outcome: design_complete
+
+specified_expectation: Design only one non-external, independently reviewable
+observer that can separate the build/Xcode window from the hosted-test window
+without reading protected content, touching external volumes, attributing an
+unknown writer, restoring data, or changing accepted storage mechanics.
+observed_evidence: R01 proved normal-route recovery-owner exposure; R02 changed
+the same protected metadata under the inert route but live HOME; R05 changed an
+unretained protected tuple after one combined build-plus-private-HOME test
+window. Current evidence cannot distinguish build/Xcode activity, unexpected
+run-owned recovery ownership, a concurrent HoldType process, or another writer.
+selected_design: Add a default-disabled DEBUG closed provenance emitter at the
+canonical recovery mutation boundaries and a separate single-shot controller.
+The controller uses one private task HOME, one pinned DerivedData identity and
+one direct-child guard, rejects any pre-existing HoldType, takes component-safe
+metadata-only observations for exactly the canonical recovery directory and
+Recovery.json, then separates build-for-testing from an observer-only inert
+hosted test with an immediate comparison after each phase. First change stops
+the packet; one run, no retry, no external-volume variables or actions.
+classification: build_xcode_tooling_window_correlated only when the first
+change follows build before hosted launch; run_owned_in_process_recovery_write_
+correlated only when the hosted-window change agrees with a closed canonical
+outside-private-HOME mutation event; every conflict or unsupported writer
+remains still_unknown. No exact external syscall attribution is claimed.
+future_paths: New Debug observer owner; observer-only extension of the existing
+inert storage host and outer Debug router; DEBUG-only calls at existing recovery
+mutation boundaries; one focused observer test; one new non-external controller
+script; one W01 summary. Existing external wrapper stays unchanged.
+checks_required: Disabled semantic equivalence; closed schema/redaction;
+malformed/conflicting route isolation; controller phase/order and guard/identity
+fakes; identical pinned DerivedData; private HOME only for hosted test; no
+external keys; Release/artifact isolation; independent review before runtime.
+scope_check: Read-only repository/spec/committed-evidence inspection only. No
+edit, build, test, process, live HOME/protected metadata, or volume action.
+residual: The design can establish phase correlation and canonical in-process
+provenance, not an arbitrary external writer's exact syscall. Ambiguous results
+remain still_unknown and R05's discarded exact delta is unrecoverable.
+next_dependency: DV-P0B-STORAGE-OBSERVER-E01-REVIEW. Implementation and later
+no-external observer runtime each require their own accepted packet; the prior
+external-root authority does not authorize either runtime.
+runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
