@@ -102,37 +102,43 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   the already-proven camera probe, passthrough completion, final probe,
   realized closed codec/format evidence, and numeric probe metrics; timeout and
   cancellation remain distinct, and no preservation failure can emit Ready or
-  retry. Before hardware launch, the script creates a separate mode-0700
-  handoff authority beside (never beneath) the raw root. A no-follow descriptor
-  walk pins every trusted-base, raw-root/source, and destination ancestor by
-  device, inode, owner, mode, and type. The exact source is opened once and its
-  cardinality and identity are revalidated before an exclusive descriptor-
-  relative snapshot is published mode 0400. The raw root is then removed while
-  the retained snapshot survives script EXIT for the runtime evidence owner,
-  identified only by its closed root token and fixed file name; that owner must
-  consume and remove the exact retained root. The validator accepts exactly one
-  start plus one matching terminal, rejects duplicate keys at every nesting
-  level, and closes IDs, actions/results/categories, preservation dimensions,
-  device labels, probe/video evidence, metric names/units/dispositions/ranges,
-  count relationships, and Ready/failure consistency. Fifty-four ownership,
-  race, schema, redaction, and numeric adversarial fixtures fail closed; valid
-  failure, Ready, and cancelled streams survive raw cleanup. Timeout and
-  INT/TERM fixtures retain no validated snapshot. This handoff was fake-
-  verified only.
+  retry. For this Phase 0B Debug evidence lane only, the accepted trust boundary
+  treats one random run-owned mode-0700 temp root as trusted against undetected
+  same-UID namespace replacement; this is not a same-UID adversary-resistance
+  claim and does not weaken product storage or deletion rules. Cleanup ownership
+  and exact root paths are installed before creation, then raw and retained root
+  identities are captured immediately. A no-follow descriptor walk pins the
+  trusted base, raw source, destination, and snapshot. SHA-256 over the pinned
+  source is rechecked after schema validation and after exclusive publication,
+  detecting same-size in-place mutation as well as identity replacement. The
+  closed handoff authority reports only root/snapshot device and inode, snapshot
+  digest, a random root token, and the fixed JSONL name. The retained mode-0400
+  snapshot survives raw EXIT cleanup. Its production consumer reads and
+  validates that one pinned snapshot, rechecks identity and digest, and makes one
+  bounded descriptor-relative cleanup attempt. Observed root, snapshot, digest,
+  owner, schema, or cleanup mismatches fail closed without an uncertain success
+  claim and report the exact private residual by token for fixture-owned audit.
+  The validator accepts exactly one matching start and one protected Swift
+  terminal, rejects duplicate/unknown/missing keys and non-finite or out-of-range
+  values, and closes every emitted failure, preservation, Ready, device, metric,
+  stage-evidence, and redaction combination. Valid ordinary failures, strict
+  preservation failures, Ready, and cancellation survive raw cleanup and are
+  consumed once. Timeout and preparation-time INT/TERM cases are bounded and
+  leave no run-owned root or process. This handoff was fake-verified only.
 
 ## Verification
 
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 73 logical tests include the accepted authorization/helper/handshake/lifecycle coverage plus exhaustive typed preservation-dimension mapping and production-route hardware handoff tests. The handoff suite accepts valid failure, Ready, and cancelled streams, proves post-EXIT snapshot consumption after raw-root removal, rejects 54 ownership/race/schema/redaction/numeric fixtures, and covers bounded timeout plus INT/TERM traps. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, and redaction remain covered. |
+| Focused macOS fake tests | Pass; accepted authorization/helper/handshake/lifecycle coverage remains alongside exhaustive typed preservation mapping and the production-route handoff suite. The handoff suite accepts every protected ordinary failure plus valid preservation-failure, Ready, and cancelled forms; proves post-EXIT one-shot consumption after raw cleanup; rejects ownership, same-size/source/post-publication mutation, duplicate/unknown/partial schema, private-data, and numeric fixtures; retains detected substitutions for fixture audit; and covers bounded timeout plus preparation-time INT/TERM cleanup. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, and redaction remain covered. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration, descriptor-relative no-replacement publication, immutable snapshot validation, and success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision remains unchanged from the accepted permission-lane basis. Hardware mode additionally requires one exact predeclared JSONL source, pins separate raw and retained authorities under the canonical trusted temp base, and completes the closed-schema exclusive evidence handoff under a five-second TERM/KILL bound before raw cleanup; non-hardware modes do not enter it. The retained token/fixed-name cleanup contract exposes no full path or private payload. Neither real hardware nor permission-request mode was run. |
+| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration, descriptor-relative no-replacement publication, immutable snapshot validation, and success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision remains unchanged from the accepted permission-lane basis. Hardware mode additionally requires one exact predeclared JSONL source, pins separate raw and retained authorities under the canonical trusted temp base, proves content stability with a descriptor-stable digest, and completes the closed-schema exclusive handoff under a five-second TERM/KILL bound before raw cleanup. The explicit consumer accepts the reported identity/digest authority, consumes the pinned snapshot once, and performs one bounded trusted-root cleanup attempt. Detected mismatch output names only the private random token and retains the residual; no full path or private payload is exposed. Non-hardware modes do not enter this route. Neither real hardware nor permission-request mode was run. |
 | Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`
@@ -151,5 +157,8 @@ playability, timing, sync/drift, and quantitative evidence remain deferred to a
 separately authorized controlled hardware run. The shipping shared-audio lease
 is not implemented by this Debug spike. One separately authorized runtime and
 review step is still required before the repaired typed preservation evidence
-and validated event handoff can support a new hardware claim; this repair does
-not retroactively classify the accepted R06 preservation failure.
+and validated event handoff can support a new hardware claim. The Debug-only
+trusted-root model does not claim protection from a malicious same-UID namespace
+actor. Green fixtures leave no root or process; deliberate mismatch fixtures
+audit the reported retained token and remove that residual themselves. This
+repair does not retroactively classify the accepted R06 preservation failure.
