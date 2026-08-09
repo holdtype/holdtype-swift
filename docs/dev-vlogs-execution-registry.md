@@ -146,8 +146,10 @@ new HoldType preset or control; HoldType simply does not downsample it.
 | `DV-P0B-CAPTURE-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R06@7fbeab8` | read-only exact evidence commit plus accepted current capture/finalizer/probe/comparator provenance | rejected | receipt below | Three-path evidence-only causal-wording repair required; no runtime retry. |
 | `DV-P0B-CAPTURE-R06-R1` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | rejected R06 review | exact R06 summary, residuals, and measurements only | accepted_with_residual | `323844e`; receipt below | Functional fail/nulls preserved; collapsed failure evidence is separated from watcher loss. |
 | `DV-P0B-CAPTURE-R06-REVIEW-R1` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | R06 evidence repair `323844e` | read-only exact three-path repair | accepted_with_residual | receipt below | Evidence is truthful; exact mismatch and realized metrics remain unavailable from R06. |
-| `DV-P0B-CAPTURE-W07` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a`; accepted R06 evidence | accepted R06 review R1 | exact Debug event/launch/script, four focused test files, W01 summary | review | `fc514a7`; receipt below | Closed preservation dimension, failure-stage probe evidence, and deterministic event handoff implemented; media semantics protected. |
-| `DV-P0B-CAPTURE-W07-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 repair `fc514a7` | read-only exact eight-path repair commit | running | — | No hardware retry before independent acceptance. |
+| `DV-P0B-CAPTURE-W07` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a`; accepted R06 evidence | accepted R06 review R1 | exact Debug event/launch/script, four focused test files, W01 summary | rejected | `fc514a7`; receipt below | Preservation diagnostics pass; handoff is deleted at EXIT and lacks closed schema/ancestor pinning. |
+| `DV-P0B-CAPTURE-W07-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 repair `fc514a7` | read-only exact eight-path repair commit | rejected | receipt below | Three-path handoff-only repair required; no hardware retry. |
+| `DV-P0B-CAPTURE-W07-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W07 review | script, hardware handoff tests, W01 summary only | running | — | Retained external snapshot, descriptor-pinned ancestry, closed schema/duplicate rejection, bounded behavioral tests. |
+| `DV-P0B-CAPTURE-W07-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 R1 repair | read-only exact three-path repair | queued | — | No hardware retry before acceptance. |
 | `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
 | `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
 | `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
@@ -266,10 +268,12 @@ new HoldType preset or control; HoldType simply does not downsample it.
   route also collapses typed preservation errors and omits probe evidence. A
   three-path evidence-only repair `323844e` is accepted_with_residual. The
   exact mismatch and realized metrics remain unavailable from R06. Debug-only
-  diagnostic/handoff repair W07 `fc514a7` is in independent review. It changes
-  only failure evidence propagation and deterministic event handoff; camera,
-  finalizer, probe, and comparator blobs remain protected. No hardware retry
-  precedes independent acceptance. The
+  diagnostic/handoff repair W07 `fc514a7` was rejected only for handoff
+  ownership/schema defects: the copy was deleted at EXIT, nested evidence was
+  not closed, and ancestor replacement could escape the run root. Preservation
+  mappings/stage evidence passed. Three-path W07-R1 repair is running; camera,
+  finalizer, probe, comparator, and accepted Swift diagnostic blobs remain
+  protected. No hardware retry precedes independent acceptance. The
   final Build fallback remains separate and does not block source evidence.
 - `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
   The test-only seam is fail-closed and bounded; no external I/O was performed.
@@ -2729,6 +2733,41 @@ runtime_or_visual_handoff: none
 ```
 
 ## Rejected Receipts
+
+### `DV-P0B-CAPTURE-W07-REVIEW` of `fc514a7`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-REVIEW
+status: done
+verdict: reject
+
+outcome: Preservation mapping and attempt-local failure evidence are sound, but
+the hardware JSONL handoff is neither retained nor closed/ownership-safe.
+closed_mapping_review: Accepted; all fourteen current typed errors map
+exhaustively, foreign errors alone map unknown, and comparator is unchanged.
+stage_evidence_review: Accepted; same-attempt camera probe, passthrough, and
+final probe precede failure, local immutable evidence emits one terminal and no
+Ready/retry, and sanitized probe summaries are closed.
+handoff_findings: Destination remains inside resolved_run_root and is removed
+by EXIT cleanup; nested metrics/videoEvidence/category/IDs/values are not a
+closed schema and duplicate keys pass; arbitrary private content can be copied
+and printed; O_NOFOLLOW checks only final components, allowing replaced
+ancestor symlinks to redirect source/destination outside the run root; source
+cardinality is not revalidated against the snapshot.
+checks_run: Exact eight-path/blob/scope; structure and syntax; focused suites;
+real valid and fourteen invalid hooks; Debug build-only; help/negative modes;
+independent survival, private-schema, duplicate/ancestor replacement probes;
+protected blob and cleanup audits.
+exact_repair: Script, HardwareEvidenceHandoffTests, and W01 summary only. Publish
+one retained script-owned immutable snapshot outside raw-cleanup target;
+descriptor-walk/pin no-follow ancestry; closed nested schema with duplicate-key
+rejection; bounded behavioral proof of post-exit survival and rejection of
+ancestor/private/malformed inputs.
+scope_check: Read-only; no runtime or repository change.
+residual: R06 remains generic and new hardware evidence is blocked.
+next_dependency: DV-P0B-CAPTURE-W07-R1 and independent review.
+changed_paths: none
+```
 
 ### `DV-P0B-CAPTURE-R06-REVIEW` of `7fbeab8`
 
