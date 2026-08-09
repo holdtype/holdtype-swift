@@ -61,6 +61,47 @@ enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
     case alreadyRun = "already_run"
 }
 
+enum DevVlogsPhase0BVideoPreservationFailureDimension: String, Codable, Equatable, CaseIterable {
+    case expectedOneVideoTrack = "expected_one_video_track"
+    case readerUnavailable = "reader_unavailable"
+    case readingFailed = "reading_failed"
+    case sampleCountMismatch = "sample_count_mismatch"
+    case sampleBoundaryMismatch = "sample_boundary_mismatch"
+    case encodedPayloadMismatch = "encoded_payload_mismatch"
+    case sampleDurationMismatch = "sample_duration_mismatch"
+    case presentationTimestampMismatch = "presentation_timestamp_mismatch"
+    case decodeTimestampMismatch = "decode_timestamp_mismatch"
+    case formatDescriptionMismatch = "format_description_mismatch"
+    case dimensionsMismatch = "dimensions_mismatch"
+    case transformMismatch = "transform_mismatch"
+    case cancelled
+    case timedOut = "timed_out"
+    case unknown
+
+    init(error: Error) {
+        guard let error = error as? DevVlogsPhase0BVideoPreservationError else {
+            self = .unknown
+            return
+        }
+        switch error {
+        case .expectedOneVideoTrack: self = .expectedOneVideoTrack
+        case .readerUnavailable: self = .readerUnavailable
+        case .readingFailed: self = .readingFailed
+        case .sampleCountMismatch: self = .sampleCountMismatch
+        case .sampleBoundaryMismatch: self = .sampleBoundaryMismatch
+        case .encodedPayloadMismatch: self = .encodedPayloadMismatch
+        case .sampleDurationMismatch: self = .sampleDurationMismatch
+        case .presentationTimestampMismatch: self = .presentationTimestampMismatch
+        case .decodeTimestampMismatch: self = .decodeTimestampMismatch
+        case .formatDescriptionMismatch: self = .formatDescriptionMismatch
+        case .dimensionsMismatch: self = .dimensionsMismatch
+        case .transformMismatch: self = .transformMismatch
+        case .cancelled: self = .cancelled
+        case .timedOut: self = .timedOut
+        }
+    }
+}
+
 enum DevVlogsPhase0BCameraAuthorizationStage: String, Codable, Equatable, CaseIterable {
     case routeStarted = "route_started"
     case regularPolicySet = "regular_policy_set"
@@ -80,7 +121,8 @@ enum DevVlogsPhase0BHarnessFailure: Error, Equatable {
     case invalidConfiguration, audioStart
     case cameraStart(DevVlogsPhase0BFailureCategory)
     case captureStop, cameraProbe, passthroughIncompatible, passthroughExportFailed
-    case finalization, finalProbe, videoPreservationFailed, eventLog, alreadyRun
+    case finalization, finalProbe, eventLog, alreadyRun
+    case videoPreservationFailed(DevVlogsPhase0BVideoPreservationFailureDimension)
 
     var category: DevVlogsPhase0BFailureCategory {
         switch self {
@@ -104,9 +146,20 @@ enum DevVlogsPhase0BOperatorSummary {
     static func line(for outcome: DevVlogsPhase0BHarnessOutcome) -> String {
         switch outcome {
         case .ready:
-            "dev_vlogs_phase_0b result=ready"
+            return "dev_vlogs_phase_0b result=ready"
         case .failed(let failure):
-            "dev_vlogs_phase_0b result=failed category=\(failure.category.rawValue)"
+            if case .videoPreservationFailed(let dimension) = failure {
+                let result = switch dimension {
+                case .cancelled: "cancelled"
+                case .timedOut: "timed_out"
+                default: "failed"
+                }
+                return "dev_vlogs_phase_0b result=\(result) category=\(failure.category.rawValue) " +
+                    "preservation_error=\(dimension.rawValue) " +
+                    "stages=camera_probe,passthrough,final_probe"
+            } else {
+                return "dev_vlogs_phase_0b result=failed category=\(failure.category.rawValue)"
+            }
         }
     }
 }
@@ -145,6 +198,17 @@ struct DevVlogsPhase0BMetric: Codable, Equatable {
 }
 
 extension DevVlogsPhase0BMetric {
+    static func realizedMediaEvidence(
+        cameraProbe: DevVlogsPhase0BMediaProbeResult,
+        finalProbe: DevVlogsPhase0BMediaProbeResult
+    ) -> [Self] {
+        var values: [Self] = []
+        appendTrack("camera", cameraProbe.video, to: &values)
+        appendTrack("final", finalProbe.video, to: &values)
+        if let audio = finalProbe.audio { appendTrack("audio", audio, to: &values) }
+        return values
+    }
+
     static func captureEvidence(
         camera: DevVlogsPhase0BCameraCaptureArtifact,
         cameraProbe: DevVlogsPhase0BMediaProbeResult,
@@ -216,6 +280,17 @@ struct DevVlogsPhase0BVideoEvidence: Codable, Equatable {
     let matched: Bool
 }
 
+struct DevVlogsPhase0BFailureStageEvidence: Codable, Equatable {
+    let cameraProbePassed: Bool
+    let passthroughCompleted: Bool
+    let finalProbePassed: Bool
+    let cameraMediaSubtype: String
+    let finalizedMediaSubtype: String
+    let finalizedAudioMediaSubtype: String?
+    let cameraFormat: String
+    let finalizedFormat: String
+}
+
 struct DevVlogsPhase0BEvent: Codable, Equatable {
     let runID: String
     let caseID: String
@@ -229,11 +304,15 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
     let redactedDeviceLabel: String?
     let metrics: [DevVlogsPhase0BMetric]
     let videoEvidence: DevVlogsPhase0BVideoEvidence?
+    let preservationFailureDimension: DevVlogsPhase0BVideoPreservationFailureDimension?
+    let failureStageEvidence: DevVlogsPhase0BFailureStageEvidence?
 
     private enum CodingKeys: String, CodingKey {
         case runID, caseID, attemptID, monotonicMilliseconds, action, result, category
         case furthestStage = "furthest_stage"
         case deviceClass, redactedDeviceLabel, metrics, videoEvidence
+        case preservationFailureDimension = "preservation_failure_dimension"
+        case failureStageEvidence = "failure_stage_evidence"
     }
 
     init(
@@ -248,7 +327,9 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         deviceClass: DevVlogsPhase0BDeviceClass? = nil,
         redactedDeviceLabel: String? = nil,
         metrics: [DevVlogsPhase0BMetric] = [],
-        videoEvidence: DevVlogsPhase0BVideoEvidence? = nil
+        videoEvidence: DevVlogsPhase0BVideoEvidence? = nil,
+        preservationFailureDimension: DevVlogsPhase0BVideoPreservationFailureDimension? = nil,
+        failureStageEvidence: DevVlogsPhase0BFailureStageEvidence? = nil
     ) {
         self.runID = runID
         self.caseID = caseID
@@ -262,6 +343,8 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         self.redactedDeviceLabel = redactedDeviceLabel
         self.metrics = metrics
         self.videoEvidence = videoEvidence
+        self.preservationFailureDimension = preservationFailureDimension
+        self.failureStageEvidence = failureStageEvidence
     }
 }
 

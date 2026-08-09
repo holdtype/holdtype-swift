@@ -23,37 +23,38 @@ struct DevVlogsPhase0BEventLogTests {
                 monotonicMilliseconds: 1_250,
                 action: "attempt_terminal",
                 result: .failed,
-                category: .cameraSelectionBusy,
-                deviceClass: .continuity,
-                redactedDeviceLabel: "continuity_camera",
+                category: .videoPreservationFailed,
                 metrics: [
                     .init(name: "video_duration", value: 10, unit: "s", disposition: "evidence_only"),
                 ],
-                videoEvidence: .init(
-                    cameraMediaSubtype: "hvc1",
-                    finalizedMediaSubtype: "hvc1",
-                    finalizedAudioMediaSubtype: "aac ",
+                preservationFailureDimension: .encodedPayloadMismatch,
+                failureStageEvidence: .init(
+                    cameraProbePassed: true, passthroughCompleted: true,
+                    finalProbePassed: true, cameraMediaSubtype: "hvc1",
+                    finalizedMediaSubtype: "hvc1", finalizedAudioMediaSubtype: "aac ",
                     cameraFormat: "hvc1:1920x1080:descriptions_1",
-                    finalizedFormat: "hvc1:1920x1080:descriptions_1",
-                    preservationMethod: "stored_sample_exact_v1",
-                    preservedSampleCount: 600,
-                    preservedEncodedByteCount: 4_000_000,
-                    matched: true
+                    finalizedFormat: "hvc1:1920x1080:descriptions_1"
                 )
             )
         )
 
         let payload = try String(contentsOf: fileURL, encoding: .utf8)
         #expect(payload.hasSuffix("\n"))
-        #expect(payload.contains("continuity_camera"))
-        #expect(payload.contains("camera_selection_busy"))
-        #expect(payload.contains("stored_sample_exact_v1"))
+        #expect(payload.contains("video_preservation_failed"))
         #expect(payload.contains("hvc1"))
+        #expect(payload.contains("encoded_payload_mismatch"))
+        #expect(payload.contains("passthroughCompleted"))
         #expect(!payload.contains("digest"))
         #expect(!payload.contains(directory.path))
         #expect(!payload.contains("sensitive-device-id"))
         #expect(!payload.contains("NSError"))
         #expect(!payload.contains("userInfo"))
+        let object = try #require(JSONSerialization.jsonObject(with: Data(payload.utf8)) as? [String: Any])
+        #expect(Set(object.keys) == [
+            "runID", "caseID", "attemptID", "monotonicMilliseconds", "action", "result",
+            "category", "metrics", "preservation_failure_dimension",
+            "failure_stage_evidence",
+        ])
     }
 
     @Test func acknowledgmentCategoriesAndStageRemainClosedAndRedacted() throws {

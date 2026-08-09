@@ -6,6 +6,31 @@ import Testing
 
 @MainActor
 struct DevVlogsPhase0BVideoPreservationTests {
+    @Test func everyTypedErrorHasOneClosedRedactedDimension() {
+        let mappings: [(DevVlogsPhase0BVideoPreservationError,
+                        DevVlogsPhase0BVideoPreservationFailureDimension)] = [
+            (.expectedOneVideoTrack, .expectedOneVideoTrack),
+            (.readerUnavailable, .readerUnavailable), (.readingFailed, .readingFailed),
+            (.sampleCountMismatch, .sampleCountMismatch),
+            (.sampleBoundaryMismatch, .sampleBoundaryMismatch),
+            (.encodedPayloadMismatch, .encodedPayloadMismatch),
+            (.sampleDurationMismatch, .sampleDurationMismatch),
+            (.presentationTimestampMismatch, .presentationTimestampMismatch),
+            (.decodeTimestampMismatch, .decodeTimestampMismatch),
+            (.formatDescriptionMismatch, .formatDescriptionMismatch),
+            (.dimensionsMismatch, .dimensionsMismatch), (.transformMismatch, .transformMismatch),
+            (.cancelled, .cancelled), (.timedOut, .timedOut),
+        ]
+        #expect(mappings.count == DevVlogsPhase0BVideoPreservationFailureDimension.allCases.count - 1)
+        for (error, expected) in mappings {
+            #expect(DevVlogsPhase0BVideoPreservationFailureDimension(error: error) == expected)
+        }
+        #expect(DevVlogsPhase0BVideoPreservationFailureDimension(error: MaliciousError()) == .unknown)
+        let values = DevVlogsPhase0BVideoPreservationFailureDimension.allCases.map(\.rawValue)
+        #expect(Set(values).count == values.count)
+        #expect(values.allSatisfy { !$0.contains("/") && !$0.contains("private") })
+    }
+
     @Test func identicalStoredSamplesWithOneConstantInsertionOffsetPass() throws {
         let camera = try [
             sample([1, 2, 3], pts: 0, dts: -0.02, duration: 0.04),
@@ -204,6 +229,10 @@ struct DevVlogsPhase0BVideoPreservationTests {
     private func time(_ seconds: TimeInterval) -> CMTime {
         CMTime(seconds: seconds, preferredTimescale: 60_000)
     }
+}
+
+private struct MaliciousError: Error, CustomStringConvertible {
+    var description: String { "NSError /tmp/private.mov userInfo sample-bytes" }
 }
 
 nonisolated private final class Phase0BPendingStoredVideoComparator:

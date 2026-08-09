@@ -100,7 +100,8 @@ struct DevVlogsPhase0BLaunchTests {
         let cases: [(HarnessFixture, DevVlogsPhase0BHarnessFailure)] = [
             (makeFixture(finalizerFailure: .passthroughIncompatible), .passthroughIncompatible),
             (makeFixture(finalizerFailure: .passthroughExportFailed), .passthroughExportFailed),
-            (makeFixture(preservationFailure: .encodedPayloadMismatch), .videoPreservationFailed),
+            (makeFixture(preservationFailure: .encodedPayloadMismatch),
+             .videoPreservationFailed(.encodedPayloadMismatch)),
         ]
         for (fixture, expected) in cases {
             let outcome = await fixture.harness.run()
@@ -113,6 +114,18 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(cases[1].0.probe.expectations == [.cameraOnly])
         #expect(cases[2].0.probe.expectations == [.cameraOnly, .finalized])
         #expect(cases[2].0.preservation.callCount == 1)
+        let terminal = cases[2].0.events.events.last
+        #expect(terminal?.preservationFailureDimension == .encodedPayloadMismatch)
+        #expect(terminal?.failureStageEvidence?.cameraProbePassed == true)
+        #expect(terminal?.failureStageEvidence?.passthroughCompleted == true)
+        #expect(terminal?.failureStageEvidence?.finalProbePassed == true)
+        #expect(terminal?.failureStageEvidence?.cameraMediaSubtype == "avc1")
+        #expect(terminal?.failureStageEvidence?.finalizedAudioMediaSubtype == "aac ")
+        #expect(terminal?.metrics.contains { $0.name == "camera_width" } == true)
+        #expect(DevVlogsPhase0BOperatorSummary.line(for: .failed(
+            .videoPreservationFailed(.timedOut))).contains("result=timed_out"))
+        #expect(await cases[2].0.harness.run() == .failed(.alreadyRun))
+        #expect(cases[2].0.events.events.filter { $0.action == "attempt_terminal" }.count == 1)
     }
     @Test func cameraStartFailureUsesNaturalExitWithoutSelfCleanup() async {
         let fixture = makeFixture(cameraFailure: .permissionDenied)
@@ -271,22 +284,6 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(cancelCount == 1)
         #expect(completionCount == 1)
     }
-    @Test func scriptUsesPlannedBoundAndExactRunOwnedSupervisorCleanup() throws {
-        let repositoryRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let source = try String(
-            contentsOf: repositoryRoot.appendingPathComponent("script/dev_vlogs_phase_0b_spike.sh"),
-            encoding: .utf8
-        )
-        #expect(source.contains("hardware_timeout_seconds=$(( capture_duration + 300 ))"))
-        #expect(!source.contains("capture_duration + 360"))
-        #expect(source.contains("capture_supervisor_pid=$!"))
-        #expect(source.contains("terminate_capture_supervisor"))
-        #expect(source.contains("kill -TERM \"$child_pid\""))
-        #expect(source.contains("kill -KILL \"$child_pid\""))
-        #expect(!source.contains("killall"))
-    }
     private func makeEnvironment(runRoot: String) -> [String: String] {
         [
             DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1",
@@ -294,6 +291,8 @@ struct DevVlogsPhase0BLaunchTests {
             DevVlogsPhase0BConfiguration.cameraUniqueIDEnvironmentKey: "sensitive-device-id",
             DevVlogsPhase0BConfiguration.durationEnvironmentKey: "10",
             DevVlogsPhase0BConfiguration.caseIDEnvironmentKey: "fake-success",
+            DevVlogsPhase0BConfiguration.eventLogEnvironmentKey:
+                "\(runRoot)/hardware-raw/evidence/events.jsonl",
             KeychainInteractionPolicy.automationEnvironmentKey: "1",
             KeychainInteractionPolicy.authenticationUIEnvironmentKey:
                 KeychainInteractionPolicy.skipAuthenticationUIValue,

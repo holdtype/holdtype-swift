@@ -8,6 +8,7 @@ struct DevVlogsPhase0BConfiguration: Equatable {
     static let cameraUniqueIDEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_CAMERA_ID"
     static let durationEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_DURATION"
     static let caseIDEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_CASE_ID"
+    static let eventLogEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_EVENT_LOG"
     static let defaultDuration: TimeInterval = 10
     static let maximumDuration: TimeInterval = 900
     let runRoot: URL
@@ -26,6 +27,7 @@ struct DevVlogsPhase0BConfiguration: Equatable {
               environment[KeychainInteractionPolicy.authenticationUIEnvironmentKey] ==
                 KeychainInteractionPolicy.skipAuthenticationUIValue,
               let rawRoot = environment[runRootEnvironmentKey],
+              let rawEventLog = environment[eventLogEnvironmentKey],
               let rawCameraID = environment[cameraUniqueIDEnvironmentKey]?.trimmingCharacters(
                   in: .whitespacesAndNewlines
               ),
@@ -36,6 +38,11 @@ struct DevVlogsPhase0BConfiguration: Equatable {
         let safeRoot = temporaryRoot.standardizedFileURL.resolvingSymlinksInPath()
         let resolvedRunRoot = runRoot.resolvingSymlinksInPath()
         guard resolvedRunRoot.path.hasPrefix(safeRoot.path + "/") else { return nil }
+        let expectedEventLog = resolvedRunRoot
+            .appendingPathComponent("hardware-raw/evidence/events.jsonl").standardizedFileURL
+        guard URL(fileURLWithPath: rawEventLog).standardizedFileURL == expectedEventLog else {
+            return nil
+        }
         let duration = environment[durationEnvironmentKey]
             .flatMap(TimeInterval.init) ?? defaultDuration
         guard duration.isFinite, (1 ... maximumDuration).contains(duration) else { return nil }
@@ -58,6 +65,7 @@ struct DevVlogsPhase0BRunPaths: Equatable {
     let runDirectory, mediaDirectory, eventLogURL, audioURL, videoURL, finalURL: URL
     static func prepare(
         configuration: DevVlogsPhase0BConfiguration,
+        eventLogURL: URL? = nil,
         fileManager: FileManager = .default,
         makeID: () -> UUID = UUID.init
     ) throws -> DevVlogsPhase0BRunPaths {
@@ -74,7 +82,7 @@ struct DevVlogsPhase0BRunPaths: Equatable {
             runID: runID,
             runDirectory: runDirectory,
             mediaDirectory: mediaDirectory,
-            eventLogURL: evidenceDirectory.appendingPathComponent("events.jsonl"),
+            eventLogURL: eventLogURL ?? evidenceDirectory.appendingPathComponent("events.jsonl"),
             audioURL: mediaDirectory.appendingPathComponent("audio.m4a"),
             videoURL: mediaDirectory.appendingPathComponent("video.mov"),
             finalURL: mediaDirectory.appendingPathComponent("candidate.mov")
@@ -223,7 +231,19 @@ final class DevVlogsPhase0BHarness {
                 )
             )
         } catch {
-            return fail(.videoPreservationFailed, attemptID: attemptID)
+            let dimension = DevVlogsPhase0BVideoPreservationFailureDimension(error: error)
+            let result: DevVlogsPhase0BResult = switch dimension {
+            case .cancelled: .cancelled
+            case .timedOut: .timedOut
+            default: .failed
+            }
+            return fail(
+                .videoPreservationFailed(dimension),
+                attemptID: attemptID,
+                result: result,
+                cameraProbe: cameraProbe,
+                finalProbe: finalProbe
+            )
         }
         do {
             guard record(
@@ -258,13 +278,35 @@ final class DevVlogsPhase0BHarness {
     private func fail(
         _ failure: DevVlogsPhase0BHarnessFailure,
         attemptID: String,
-        result: DevVlogsPhase0BResult = .failed
+        result: DevVlogsPhase0BResult = .failed,
+        cameraProbe: DevVlogsPhase0BMediaProbeResult? = nil,
+        finalProbe: DevVlogsPhase0BMediaProbeResult? = nil
     ) -> DevVlogsPhase0BHarnessOutcome {
+        let dimension: DevVlogsPhase0BVideoPreservationFailureDimension?
+        if case .videoPreservationFailed(let value) = failure { dimension = value } else {
+            dimension = nil
+        }
+        let stageEvidence = cameraProbe.flatMap { camera in finalProbe.map { final in
+            DevVlogsPhase0BFailureStageEvidence(
+                cameraProbePassed: true, passthroughCompleted: true, finalProbePassed: true,
+                cameraMediaSubtype: camera.video.codec,
+                finalizedMediaSubtype: final.video.codec,
+                finalizedAudioMediaSubtype: final.audio?.codec,
+                cameraFormat: camera.video.formatDescription,
+                finalizedFormat: final.video.formatDescription
+            )
+        } }
+        let metrics = cameraProbe.flatMap { camera in finalProbe.map {
+            DevVlogsPhase0BMetric.realizedMediaEvidence(cameraProbe: camera, finalProbe: $0)
+        } } ?? []
         guard record(
             action: "attempt_terminal",
             result: result,
             attemptID: attemptID,
-            category: failure.category
+            category: failure.category,
+            metrics: metrics,
+            preservationFailureDimension: dimension,
+            failureStageEvidence: stageEvidence
         ) else {
             return .failed(.eventLog)
         }
@@ -278,7 +320,9 @@ final class DevVlogsPhase0BHarness {
         deviceClass: DevVlogsPhase0BDeviceClass? = nil,
         redactedDeviceLabel: String? = nil,
         metrics: [DevVlogsPhase0BMetric] = [],
-        videoEvidence: DevVlogsPhase0BVideoEvidence? = nil
+        videoEvidence: DevVlogsPhase0BVideoEvidence? = nil,
+        preservationFailureDimension: DevVlogsPhase0BVideoPreservationFailureDimension? = nil,
+        failureStageEvidence: DevVlogsPhase0BFailureStageEvidence? = nil
     ) -> Bool {
         let event = DevVlogsPhase0BEvent(
             runID: paths.runID,
@@ -291,7 +335,9 @@ final class DevVlogsPhase0BHarness {
             deviceClass: deviceClass,
             redactedDeviceLabel: redactedDeviceLabel,
             metrics: metrics,
-            videoEvidence: videoEvidence
+            videoEvidence: videoEvidence,
+            preservationFailureDimension: preservationFailureDimension,
+            failureStageEvidence: failureStageEvidence
         )
         do { try eventLog.record(event); return true } catch { return false }
     }
@@ -341,7 +387,12 @@ enum DevVlogsPhase0BLaunch {
         guard let configuration = DevVlogsPhase0BConfiguration.resolve(environment: environment) else {
             throw DevVlogsPhase0BHarnessFailure.invalidConfiguration
         }
-        let paths = try DevVlogsPhase0BRunPaths.prepare(configuration: configuration)
+        let eventLogURL = configuration.runRoot
+            .appendingPathComponent("hardware-raw/evidence/events.jsonl")
+        let paths = try DevVlogsPhase0BRunPaths.prepare(
+            configuration: configuration,
+            eventLogURL: eventLogURL
+        )
         return DevVlogsPhase0BHarness(
             configuration: configuration,
             paths: paths,
