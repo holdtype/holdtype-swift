@@ -102,7 +102,11 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   The vocabulary distinguishes disabled isolation/automation, unsuppressed
   Keychain UI, missing run/event/camera inputs, unsafe run root, mismatched
   event path, invalid duration/case ID, run-path preparation failure, and a
-  foreign `unknown` fallback. Before a hardware launch the script opens one
+  foreign `unknown` fallback. The event path requires the exact `events.jsonl`
+  leaf and its parent is resolved symmetrically against the validated
+  `<run root>/hardware-raw/evidence` parent, so equivalent filesystem aliases
+  pass while foreign or symlink-escaping parents fail before harness creation.
+  Before a hardware launch the script opens one
   fixed descriptor in the already-pinned handoff authority; the Debug target
   may emit only one ASCII closed line terminated by exactly one LF and EOF to
   that descriptor. Missing LF, CRLF, extra records or bytes, NUL, non-ASCII,

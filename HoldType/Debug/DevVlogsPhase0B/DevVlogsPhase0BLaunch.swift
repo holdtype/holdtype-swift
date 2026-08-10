@@ -45,19 +45,19 @@ struct DevVlogsPhase0BConfiguration: Equatable {
         let runRoot = URL(fileURLWithPath: rawRoot, isDirectory: true).standardizedFileURL
         let safeRoot = temporaryRoot.standardizedFileURL.resolvingSymlinksInPath()
         let resolvedRunRoot = runRoot.resolvingSymlinksInPath()
-        guard resolvedRunRoot.path.hasPrefix(safeRoot.path + "/") else {
-            return .failure(.runRootOutsideTemporaryRoot)
-        }
-        let expectedEventLog = resolvedRunRoot.appendingPathComponent(
-            "hardware-raw/evidence/events.jsonl"
-        ).standardizedFileURL
-        guard URL(fileURLWithPath: rawEventLog).standardizedFileURL == expectedEventLog else {
-            return .failure(.eventLogPathMismatch)
-        }
+        guard resolvedRunRoot.path.hasPrefix(safeRoot.path + "/") else { return .failure(.runRootOutsideTemporaryRoot) }
+        let eventLog = URL(fileURLWithPath: rawEventLog)
+        let expectedParent = resolvedRunRoot.appendingPathComponent(
+            "hardware-raw/evidence", isDirectory: true
+        ).resolvingSymlinksInPath().standardizedFileURL
+        let candidateParent = eventLog.deletingLastPathComponent()
+            .resolvingSymlinksInPath().standardizedFileURL
+        guard !eventLog.hasDirectoryPath, eventLog.lastPathComponent == "events.jsonl",
+              candidateParent == expectedParent
+        else { return .failure(.eventLogPathMismatch) }
         let duration = environment[durationEnvironmentKey].flatMap(TimeInterval.init) ?? defaultDuration
-        guard duration.isFinite, (1 ... maximumDuration).contains(duration) else {
-            return .failure(.durationInvalid)
-        }
+        guard duration.isFinite, (1 ... maximumDuration).contains(duration)
+        else { return .failure(.durationInvalid) }
         let caseID = environment[caseIDEnvironmentKey] ?? "capture"
         guard isSafeIdentifier(caseID) else { return .failure(.caseIDInvalid) }
         return .success(.init(runRoot: resolvedRunRoot, cameraUniqueID: rawCameraID,

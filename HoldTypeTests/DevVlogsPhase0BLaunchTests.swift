@@ -8,8 +8,7 @@ import Testing
 @MainActor
 struct DevVlogsPhase0BLaunchTests {
     @Test func gateDefaultsOffAndEveryHardwareIntentStillIsolates() {
-        #expect(!DevVlogsPhase0BConfiguration.shouldIsolate(environment: [:]))
-        #expect(DevVlogsPhase0BConfiguration.resolve(environment: [:]) == nil)
+        #expect(!DevVlogsPhase0BConfiguration.shouldIsolate(environment: [:])); #expect(DevVlogsPhase0BConfiguration.resolve(environment: [:]) == nil)
         for key in DevVlogsPhase0BConfiguration.hardwareIntentEnvironmentKeys {
             let partial = [key: key == DevVlogsPhase0BConfiguration.enabledEnvironmentKey ? "wrong" : "value"]
             #expect(DevVlogsPhase0BConfiguration.shouldIsolate(environment: partial))
@@ -17,62 +16,69 @@ struct DevVlogsPhase0BLaunchTests {
         }
     }
     @Test func everyPreAttemptGuardHasOneClosedDiagnosticAndNoOperatorSemanticChange() throws {
-        let temporaryRoot = URL(fileURLWithPath: "/tmp/phase0b-tests", isDirectory: true)
-        let valid = makeEnvironment(runRoot: "/tmp/phase0b-tests/run")
-        #expect(DevVlogsPhase0BConfiguration.resolveDiagnostically(
-            environment: valid, temporaryRoot: temporaryRoot
-        ) == .success(try #require(DevVlogsPhase0BConfiguration.resolve(
-            environment: valid, temporaryRoot: temporaryRoot
-        ))))
+        let fileManager = FileManager.default; let temporaryRoot = fileManager.temporaryDirectory
+        let runRoot = temporaryRoot.appendingPathComponent("dv-p0b-paths-\(UUID().uuidString)")
+        let evidence = runRoot.appendingPathComponent("hardware-raw/evidence", isDirectory: true)
+        try fileManager.createDirectory(at: evidence, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: runRoot) }
+        let valid = makeEnvironment(runRoot: runRoot.path)
+        #expect(DevVlogsPhase0BConfiguration.resolve(environment: valid) != nil)
+        _ = try DevVlogsPhase0BLaunch.makeHarness(environment: valid)
+        var resolvedAlias = valid; resolvedAlias[DevVlogsPhase0BConfiguration.eventLogEnvironmentKey] =
+            evidence.resolvingSymlinksInPath().appendingPathComponent("events.jsonl").path
+        #expect(DevVlogsPhase0BConfiguration.resolve(environment: resolvedAlias) != nil)
+        let parentAlias = runRoot.appendingPathComponent("event-parent-alias")
+        try fileManager.createSymbolicLink(at: parentAlias, withDestinationURL: evidence)
+        var symlinkAlias = valid; symlinkAlias[DevVlogsPhase0BConfiguration.eventLogEnvironmentKey] =
+            parentAlias.appendingPathComponent("events.jsonl").path
+        #expect(DevVlogsPhase0BConfiguration.resolve(environment: symlinkAlias) != nil)
+        let foreign = runRoot.appendingPathComponent("foreign", isDirectory: true)
+        try fileManager.createDirectory(at: foreign, withIntermediateDirectories: true)
+        let escape = runRoot.appendingPathComponent("escape"); try fileManager.createSymbolicLink(
+            at: escape, withDestinationURL: foreign)
+        let rejectedEventPaths = [foreign.appendingPathComponent("events.jsonl").path,
+            escape.appendingPathComponent("events.jsonl").path,
+            evidence.appendingPathComponent("wrong.jsonl").path,
+            evidence.appendingPathComponent("events.jsonl").path + "/", ""]
+        for eventPath in rejectedEventPaths {
+            var rejected = valid; rejected[DevVlogsPhase0BConfiguration.eventLogEnvironmentKey] = eventPath
+            #expect(DevVlogsPhase0BConfiguration.resolveDiagnostically(environment: rejected) ==
+                    .failure(.eventLogPathMismatch))
+            #expect(throws: DevVlogsPhase0BConfigurationFailureStage.self) { _ = try
+                DevVlogsPhase0BLaunch.makeHarness(environment: rejected) }
+            #expect(!fileManager.fileExists(atPath: eventPath))
+        }
         let cases: [(DevVlogsPhase0BConfigurationFailureStage, ([String: String]) -> [String: String])] = [
-            (.isolationNotEnabled, { var value = $0; value.removeValue(
-                forKey: DevVlogsPhase0BConfiguration.enabledEnvironmentKey); return value }),
-            (.automationNotEnabled, { var value = $0
-                value[KeychainInteractionPolicy.automationEnvironmentKey] = "true"; return value }),
-            (.keychainUINotSuppressed, { var value = $0
-                value[KeychainInteractionPolicy.authenticationUIEnvironmentKey] = "allow"; return value }),
-            (.runRootMissing, { var value = $0; value.removeValue(
-                forKey: DevVlogsPhase0BConfiguration.runRootEnvironmentKey); return value }),
-            (.eventLogMissing, { var value = $0; value.removeValue(
-                forKey: DevVlogsPhase0BConfiguration.eventLogEnvironmentKey); return value }),
-            (.cameraIDMissing, { var value = $0
-                value[DevVlogsPhase0BConfiguration.cameraUniqueIDEnvironmentKey] = "  "; return value }),
-            (.runRootOutsideTemporaryRoot, { _ in
-                self.makeEnvironment(runRoot: "/Users/example/archive") }),
-            (.eventLogPathMismatch, { var value = $0
-                value[DevVlogsPhase0BConfiguration.eventLogEnvironmentKey] = "/tmp/private"; return value }),
-            (.durationInvalid, { var value = $0
-                value[DevVlogsPhase0BConfiguration.durationEnvironmentKey] = "inf"; return value }),
-            (.caseIDInvalid, { var value = $0
-                value[DevVlogsPhase0BConfiguration.caseIDEnvironmentKey] = "private/path"; return value }),
+            (.isolationNotEnabled, { var value = $0; value.removeValue(forKey: DevVlogsPhase0BConfiguration.enabledEnvironmentKey); return value }),
+            (.automationNotEnabled, { var value = $0; value[KeychainInteractionPolicy.automationEnvironmentKey] = "true"; return value }),
+            (.keychainUINotSuppressed, { var value = $0; value[KeychainInteractionPolicy.authenticationUIEnvironmentKey] = "allow"; return value }),
+            (.runRootMissing, { var value = $0; value.removeValue(forKey: DevVlogsPhase0BConfiguration.runRootEnvironmentKey); return value }),
+            (.eventLogMissing, { var value = $0; value.removeValue(forKey: DevVlogsPhase0BConfiguration.eventLogEnvironmentKey); return value }),
+            (.cameraIDMissing, { var value = $0; value[DevVlogsPhase0BConfiguration.cameraUniqueIDEnvironmentKey] = "  "; return value }),
+            (.runRootOutsideTemporaryRoot, { _ in self.makeEnvironment(runRoot: "/not-temporary/archive") }),
+            (.durationInvalid, { var value = $0; value[DevVlogsPhase0BConfiguration.durationEnvironmentKey] = "inf"; return value }),
+            (.caseIDInvalid, { var value = $0; value[DevVlogsPhase0BConfiguration.caseIDEnvironmentKey] = "private/path"; return value }),
         ]
         for (stage, mutate) in cases {
             #expect(DevVlogsPhase0BConfiguration.resolveDiagnostically(
-                environment: mutate(valid), temporaryRoot: temporaryRoot
-            ) == .failure(stage))
+                environment: mutate(valid), temporaryRoot: temporaryRoot) == .failure(stage))
         }
-        #expect(Set(cases.map(\.0)).union([.runPathsUnavailable, .unknown]) == Set(DevVlogsPhase0BConfigurationFailureStage.allCases))
-        #expect(DevVlogsPhase0BConfigurationFailureStage(error: NSError(
-            domain: "private", code: 7
-        )) == .unknown)
+        #expect(Set(cases.map(\.0)).union([.eventLogPathMismatch, .runPathsUnavailable, .unknown]) ==
+                Set(DevVlogsPhase0BConfigurationFailureStage.allCases))
+        #expect(DevVlogsPhase0BConfigurationFailureStage(error: NSError(domain: "private", code: 7)) == .unknown)
         #expect(DevVlogsPhase0BOperatorSummary.line(for: .failed(.invalidConfiguration)) ==
                 "dev_vlogs_phase_0b result=failed category=invalid_configuration")
-        var transportEnvironment = valid
-        transportEnvironment[DevVlogsPhase0BConfigurationDiagnostic.descriptorEnvironmentKey] = "3"
+        var transportEnvironment = valid; transportEnvironment[DevVlogsPhase0BConfigurationDiagnostic.descriptorEnvironmentKey] = "3"
         var written = Data()
-        #expect(DevVlogsPhase0BConfigurationDiagnostic.record(
-            stage: .eventLogPathMismatch, environment: transportEnvironment,
-            write: { written.append($0) }
-        ))
-        #expect(String(decoding: written, as: UTF8.self) ==
-                DevVlogsPhase0BConfigurationDiagnostic.line(stage: .eventLogPathMismatch) + "\n")
-        #expect(!String(decoding: written, as: UTF8.self).contains("/tmp/private"))
+        #expect(DevVlogsPhase0BConfigurationDiagnostic.record(stage: .eventLogPathMismatch,
+            environment: transportEnvironment, write: { written.append($0) }))
+        #expect(String(decoding: written, as: UTF8.self) == DevVlogsPhase0BConfigurationDiagnostic.line(stage: .eventLogPathMismatch) + "\n")
+        #expect(!String(decoding: written, as: UTF8.self).contains(runRoot.path))
         #expect(!DevVlogsPhase0BConfigurationDiagnostic.record(
             stage: .unknown, environment: valid, write: { _ in Issue.record("unexpected write") }
         ))
         let blockedRoot = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "dv-p0b-configuration-\(UUID().uuidString)"
-        )
+            "dv-p0b-configuration-\(UUID().uuidString)")
         try Data("blocked".utf8).write(to: blockedRoot, options: .withoutOverwriting)
         defer { try? FileManager.default.removeItem(at: blockedRoot) }
         do {
@@ -91,14 +97,10 @@ struct DevVlogsPhase0BLaunchTests {
             Issue.record("Expected fake media to become ready")
             return
         }
-        #expect(fixture.audio.startCount == 1)
-        #expect(fixture.audio.stopCount == 1)
-        #expect(fixture.audio.cancelCount == 0)
-        #expect(fixture.audio.preparedURL == fixture.paths.audioURL)
-        #expect(fixture.camera.startCount == 1)
-        #expect(fixture.camera.stopCount == 1)
-        #expect(fixture.finalizer.callCount == 1)
-        #expect(fixture.probe.expectations == [.cameraOnly, .finalized])
+        #expect(fixture.audio.startCount == 1); #expect(fixture.audio.stopCount == 1)
+        #expect(fixture.audio.cancelCount == 0); #expect(fixture.audio.preparedURL == fixture.paths.audioURL)
+        #expect(fixture.camera.startCount == 1); #expect(fixture.camera.stopCount == 1)
+        #expect(fixture.finalizer.callCount == 1); #expect(fixture.probe.expectations == [.cameraOnly, .finalized])
         #expect(fixture.preservation.callCount == 1)
         #expect(fixture.events.events.map(\.result) == [.started, .ready])
         #expect(await fixture.harness.run() == .failed(.alreadyRun))
