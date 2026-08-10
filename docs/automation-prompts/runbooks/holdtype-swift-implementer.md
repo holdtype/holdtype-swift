@@ -88,7 +88,8 @@ Required reading before edits:
 - `docs/specs/index.md`
 - `docs/specs/brownfield-discovery.md` when source ownership is unclear
 - `docs/openwhispr_swiftui_codex_tz.md` when initial MVP behavior is relevant
-- `references/README.md` before using copied OpenWhispr source
+- `docs/openwhispr-reference-retirement.md` when a selected historical task
+  cites the removed local snapshot
 - `docs/specs/features/platform-testing-strategy.md` when a task changes
   verification strategy, UI runtime behavior, permissions, microphone, paste
   handoff, macOS UI, future-version iOS scope, shared SwiftUI surfaces, or QA
@@ -178,11 +179,12 @@ into preparatory status unless the selected task is being blocked specifically
 because it cannot produce product delta; in that case, create or refine exactly
 one smallest implementation task that will.
 
-Use OpenWhispr only as reference evidence. Do not port Electron, React, Node.js
-runtime code, local model downloaders, meeting features, notes, accounts, cloud
-sync, billing, telemetry, or updater behavior into the Swift app unless a
-selected spec task explicitly changes MVP scope. Translate useful reference
-behavior into specs or native Swift service boundaries before implementation.
+Do not restore or require the retired OpenWhispr snapshot. Historical path
+citations are provenance only; implement against active specs and reconcile
+ownership against current HoldType source and tests. Do not introduce Electron,
+React, Node.js runtime code, local model downloaders, meeting features, notes,
+accounts, cloud sync, billing, telemetry, or updater behavior unless an active
+spec explicitly changes scope.
 
 Do not access MongoDB directly. Do not run destructive database or
 object-storage operations. Do not edit sibling repositories unless the selected

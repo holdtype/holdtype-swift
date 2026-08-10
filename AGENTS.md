@@ -193,8 +193,9 @@ Baseline routing:
 7. Read `docs/openwhispr_swiftui_codex_tz.md` only when a behavior is still
    governed by the initial MVP brief and no current feature spec settles it.
 8. Read `docs/specs/backlog.md` only when grooming or selecting product areas.
-9. Read `references/README.md` only before using copied OpenWhispr source, then
-   open exact reference files rather than scanning `references/`.
+9. Treat `docs/openwhispr-reference-retirement.md` as the retirement record for
+   the removed local OpenWhispr snapshot. Current specs, source, and tests are
+   the only repository-local evidence inputs for present work.
 
 Before any iOS Simulator, iPhone Mirroring, or signed physical-device runtime
 QA, agents must read and follow `iOS Simulator, Mirroring, And Physical Device
@@ -458,12 +459,14 @@ Specs should be:
 Avoid deep implementation detail unless it is necessary to preserve the product
 contract.
 
-## OpenWhispr Reference Use
+## Retired OpenWhispr Reference
 
-The copied OpenWhispr source under `references/openwhispr-main/` is reference
-evidence only. Use it to understand behavior around hotkeys, recording,
-permissions, paste handoff, settings, and edge cases.
+The local copied OpenWhispr source was retired after its useful MVP behavior
+had been reconciled into HoldType specs and native implementation work. Do not
+restore or require a `references/` checkout for normal development, grooming,
+investigation, or verification.
 
-Do not port Electron, React, Node.js runtime, local model downloaders, meeting
-features, notes, accounts, cloud sync, billing, telemetry, or updater behavior
-into this Swift app unless a future spec explicitly changes the MVP scope.
+Historical backlog records may still cite paths from that removed snapshot.
+Those citations preserve audit provenance only; they are not executable reading
+instructions or current product authority. Use active specs selected through
+`docs/specs/index.md`, then current HoldType source and tests, for present work.

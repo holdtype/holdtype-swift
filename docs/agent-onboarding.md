@@ -13,7 +13,6 @@ Do not read these by default:
 - `backlog/done/` task bodies;
 - all automation runbooks;
 - `docs/openwhispr_swiftui_codex_tz.md`;
-- `references/openwhispr-main/`;
 - `DerivedData/` or generated build artifacts.
 
 Use `rg` and `rg --files` for discovery because they respect repository ignore
@@ -82,7 +81,7 @@ on older bootstrap notes that describe only a minimal template. Use
 `docs/specs/brownfield-discovery.md` for the current map, then verify exact file
 ownership with `rg --files`.
 
-Use copied OpenWhispr files only as behavior reference evidence. The Swift app
-must stay native and must not inherit Electron, React, Node.js, updater,
-accounts, billing, telemetry, or local model downloader behavior unless a
-future spec explicitly changes scope.
+The retired local OpenWhispr snapshot is not a development input. Historical
+citations are explained in `docs/openwhispr-reference-retirement.md`; current
+behavior comes from active specs and is verified against current HoldType source
+and tests.

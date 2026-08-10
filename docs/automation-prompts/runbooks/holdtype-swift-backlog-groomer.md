@@ -16,9 +16,9 @@ Configured automation cwd:
 ## Runtime Contract
 
 Run one bounded backlog grooming pass for the HoldType Swift repository.
-Translate the MVP brief, current Swift project state, existing specs, and the
-copied OpenWhispr reference source into small executable backlog tasks for the
-separate implementer automation. Do not implement Swift product code.
+Translate active specs, current Swift project and test state, and fresh selector
+state into small executable backlog tasks for the separate implementer
+automation. Do not implement Swift product code.
 The current product phase is the native macOS menu bar MVP. Groom macOS app
 behavior, tests, runtime QA, and tooling unblockers first. Do not create or
 refine iOS companion, simulator, or keyboard-extension tasks unless a direct
@@ -46,8 +46,8 @@ Required reading before edits:
 - `docs/specs/features/ui-functionality-coverage.md`
 - `docs/openwhispr_swiftui_codex_tz.md` only for behavior not settled by a
   current spec
-- `references/README.md`
-- only OpenWhispr reference files relevant to the behavior being groomed
+- `docs/openwhispr-reference-retirement.md` when a historical completed task
+  cites the removed local snapshot
 
 Inspect current Swift source shape with `rg` or `rg --files` before creating
 tasks.
@@ -109,8 +109,9 @@ Do not mark tasks done. Do not claim tasks. Do not change implementer-owned
 source files. Do not delete tasks. Do not duplicate tasks that already cover the
 behavior.
 
-When saying existing tasks cover reference behavior, verify the coverage against
-`docs/specs/features/ui-functionality-coverage.md` and the selector output.
+When saying existing tasks cover specified behavior, verify the coverage against
+the active feature spec, `docs/specs/features/ui-functionality-coverage.md`, and
+the selector output.
 A blocked or dependency-pending task is not enough by itself. Record the first
 unblock action or create/refine one small executable task instead of treating a
 blocked area as complete coverage.
@@ -125,15 +126,17 @@ decision.
 Keep each task narrow, with `allowed_paths`, dependencies, acceptance criteria,
 and verification commands.
 
-Update `docs/specs/features/ui-functionality-coverage.md` in the same run when
-new or refined tasks change the current state, next task, reference evidence, or
-verification plan for a visible surface or end-to-end product flow.
+Update `docs/specs/features/ui-functionality-coverage.md` in the same run only
+when new or refined work changes contract routing, ownership boundaries, or the
+verification plan for a visible surface or end-to-end product flow. Transient
+task state belongs in task headers and selector output, not the durable map.
 
-## Reference Translation
+## Evidence Boundary
 
-OpenWhispr is behavior evidence only. Translate reference scenarios into native
-Swift, SwiftUI, AppKit, AVFoundation, URLSession, Keychain, NSPasteboard,
-accessibility, or CGEvent tasks.
+The local OpenWhispr snapshot is retired and must not be restored or required.
+Historical completed-task citations preserve provenance only. Derive current
+work from active specs, current HoldType source and tests, and fresh selector
+state.
 
 Never add Electron, React, Node.js runtime, Tauri, Rust runtime, local model
 downloads, cloud sync, accounts, billing, updater, or telemetry work unless a
@@ -160,7 +163,8 @@ must be preserved, not treated as a reason to stop.
 ## Expected Output
 
 Final report must include created or updated task ids, parent/child grouping
-changes, reference files inspected, selector status and selected task path,
+changes, governing specs and source owners inspected, selector status and
+selected task path,
 verification results, local tooling recovery summary, tooling assumptions added
 to tasks when relevant, commit hash if created, actual cwd, execution
 environment, cleanup performed with terminated resources and any residual

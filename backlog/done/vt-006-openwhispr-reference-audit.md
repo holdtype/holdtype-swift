@@ -53,3 +53,5 @@ native Swift MVP without porting its Electron/React architecture.
   `references/openwhispr-main/resources/macos-*.swift`.
 - Completed audit note:
   `references/openwhispr-reference-behavior-audit.md`.
+- Current disposition and active-spec mapping:
+  `docs/openwhispr-reference-retirement.md`.

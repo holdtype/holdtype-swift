@@ -78,12 +78,12 @@ python3 scripts/backlog_next.py --compact-json
 
 Use full `--json` only when detailed queue diagnostics are needed.
 
-## Reference Material
+## Retired Reference Material
 
-`references/openwhispr-main/` is behavior evidence only. Do not scan it broadly
-or port Electron, React, Node.js, local model downloader, updater, account,
-billing, cloud sync, or telemetry behavior into this Swift app unless a future
-spec explicitly changes scope.
+The former local OpenWhispr snapshot has been removed. Current discovery uses
+active specs plus targeted HoldType source and test evidence. Historical path
+citations are explained in `docs/openwhispr-reference-retirement.md` and must
+not cause an agent to recreate the snapshot.
 
 ## Verification Baseline
 

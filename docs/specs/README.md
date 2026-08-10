@@ -157,7 +157,8 @@ docs/specs/
   behavior.
 - `SWIFT.md` defines Swift, SwiftUI, AppKit interop, and engineering rules.
 - `docs/specs/` defines product behavior.
-- `references/` stores imported reference material and audit notes.
+- `docs/openwhispr-reference-retirement.md` records retired external evidence;
+  it is historical context, not a product contract.
 - tests or QA artifacts define verification and evidence.
 
 These layers must stay separate.

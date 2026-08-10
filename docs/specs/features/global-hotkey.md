@@ -194,7 +194,5 @@ setting and does not live in the shortcut configuration.
 - Product brief: `docs/openwhispr_swiftui_codex_tz.md`
 - Existing specs: `microphone-text-input.md`, `menu-bar-app-shell.md`,
   `settings-and-secret-storage.md`, and `text-output-workflow.md`
-- OpenWhispr reference behavior: hotkey registration and key down/up handling
-  in `references/openwhispr-main/src/helpers/hotkeyManager.js`,
-  `references/openwhispr-main/main.js`, and
-  `references/openwhispr-main/src/stores/settingsStore.ts`
+- Historical reference provenance:
+  `docs/openwhispr-reference-retirement.md`

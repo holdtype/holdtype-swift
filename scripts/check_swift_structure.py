@@ -26,7 +26,6 @@ EXCLUDED_PREFIXES = (
     "DerivedData/",
     "build/",
     "dist/",
-    "references/",
 )
 EXCLUDED_COMPONENTS = frozenset({".build", ".swiftpm", "DerivedData", "Pods", "Carthage"})
 VIEW_PROTOCOLS = frozenset(

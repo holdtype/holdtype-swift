@@ -43,7 +43,7 @@ ownership with `rg --files`.
 | App Store distribution | `features/app-store-distribution.md` | macOS distribution channel decision, App Store viability, direct-download trust |
 | Landing page hosting | `features/landing-page-hosting.md` | DigitalOcean App Platform static site, custom domain, GitHub Pages appcast coexistence |
 | Landing page localization | `features/landing-page-localization.md` | Supported languages, locale routes, switching, detection, RTL, localized metadata |
-| UI functionality coverage | `features/ui-functionality-coverage.md` | Current UI/task coverage inventory, visible-surface task mapping |
+| UI functionality coverage | `features/ui-functionality-coverage.md` | Contract, ownership, and verification routing for visible product surfaces and flows |
 | Platform testing | `features/platform-testing-strategy.md` | Choosing build/test/runtime QA, MCP, Computer Use, or manual evidence |
 | Verification | `features/verification-strategy.md` | Verification baseline, test scope, evidence quality |
 | Backlog grooming | `features/backlog-grooming-automation.md` | Backlog task creation/refinement behavior |

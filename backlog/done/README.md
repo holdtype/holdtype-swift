@@ -7,3 +7,11 @@ Archived task files remain dependency records for `scripts/backlog_next.py` and
 `scripts/backlog_blocked_next.py`. Do not claim archived tasks as executable
 work. Use `scripts/backlog_archive_done.py` to move eligible completed tasks
 here.
+
+## Retired Reference Paths
+
+Some historical tasks cite files under `references/openwhispr-main/`. That
+ignored local research snapshot was retired after the audits completed. Keep
+those citations as provenance; do not treat them as live links or instructions
+to recreate the checkout. Current authority and the evidence migration map are
+in `docs/openwhispr-reference-retirement.md` and the active feature specs.

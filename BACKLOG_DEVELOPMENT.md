@@ -365,19 +365,14 @@ Blocked is not a terminal abandonment state. It is a queued state for
 blocker-resolution work. A blocked task without a resolution path is incomplete
 workflow state and should be repaired by the next blocker-resolution pass.
 
-## OpenWhispr Reference Rule
+## Retired Reference Evidence
 
-The copied OpenWhispr source under `references/openwhispr-main/` is reference
-material only. Use it to understand behavior around hotkeys, recording,
-permissions, paste handoff, settings, and edge cases.
+The copied OpenWhispr snapshot is retired and must not be restored or required
+by backlog tasks or automations. Historical completed tasks may retain old path
+citations as provenance, but new and active work derives behavior from current
+specs and reconciles it against current HoldType source and tests.
 
-Do not port Electron, React, Node.js runtime code, local model downloaders,
-meeting features, notes, account, cloud sync, billing, or telemetry behavior
-into the Swift app unless a future spec explicitly changes the MVP scope.
-
-When a task needs OpenWhispr evidence, cite the specific reference file and
-translate the behavior into a Swift product spec or native service boundary
-before implementation.
+See `docs/openwhispr-reference-retirement.md` for the evidence migration map.
 
 ## Verification Baseline
 
@@ -425,6 +420,7 @@ task-appropriate Xcode, simulator, or Computer Use path.
   behavior.
 - `SWIFT.md` defines Swift, SwiftUI, AppKit interop, and engineering rules.
 - `docs/specs/` defines product behavior.
-- `references/` stores imported reference material and audit notes.
+- `docs/openwhispr-reference-retirement.md` records the retired external
+  evidence boundary.
 - Implementation code follows the specs.
 - Tests, manual QA notes, and verification artifacts define evidence.

@@ -1,5 +1,10 @@
 # ТЗ для Codex-агента: macOS SwiftUI rewrite минимального OpenWhispr-like диктовочного приложения
 
+> Historical fallback brief. The bootstrap work and reference audit are
+> complete, the local OpenWhispr snapshot has been retired, and current active
+> specs selected through `docs/specs/index.md` take precedence. Do not restore
+> or require a `references/` checkout to follow this document.
+
 ## Цель
 
 Создать новый нативный macOS-проект на Swift / SwiftUI, вдохновлённый OpenWhispr, но без Electron, React, Node.js, подписок, аккаунтов, cloud sync, локальных LLM, meeting transcription, semantic notes и прочего лишнего функционала.
@@ -553,18 +558,12 @@ func hotkeyUp() {
 - Добавить понятные TODO только там, где реально следующий этап.
 - Не добавлять тяжёлые зависимости без необходимости.
 
-## First task for the agent
+## Historical first task
 
-1. Clone/read the OpenWhispr repository only as reference.
-2. Identify the minimal dictation flow in the original code.
-3. Create a new SwiftUI macOS project from scratch.
-4. Implement Stage 1 and Stage 2 first.
-5. Do not attempt to port all features.
-6. After Stage 2, report:
-   - created files
-   - build status
-   - what works
-   - what remains for Stage 3
+The original bootstrap task was completed. Its OpenWhispr audit conclusions
+were reconciled into current HoldType specs before the local snapshot was
+retired. This section is retained only to explain the brief's original staging;
+it is not an executable task or a request to recreate the reference checkout.
 
 ## Additional hard constraint
 

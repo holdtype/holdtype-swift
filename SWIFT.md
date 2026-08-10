@@ -323,25 +323,9 @@ Keychain access, and global-hotkey registration belong in focused services.
 - Keep product behavior in `docs/specs/`, agent workflow in `AGENTS.md` and
   `BACKLOG_DEVELOPMENT.md`, and Swift engineering rules in this file.
 
-## Reference Implementation Use
+## Retired Reference Boundary
 
-Use `references/openwhispr-main/` only as behavior evidence. It is an
-Electron/React/Node app with many non-MVP features, so its architecture is not
-the target architecture for this project.
-
-Useful concepts to inspect:
-
-- global hotkey behavior;
-- recording lifecycle;
-- paste into the active app;
-- settings names and defaults;
-- permission checks and error states;
-- recording/transcribing UI states.
-
-Ignore or explicitly reject:
-
-- Electron IPC and preload architecture;
-- React component structure;
-- local model downloaders and inference services;
-- notes, semantic search, meeting transcription, diarization, AI agents;
-- accounts, billing, cloud sync, telemetry, and updater behavior.
+The former local OpenWhispr snapshot is not a Swift engineering input. Native
+implementation decisions come from active HoldType specs plus current Apple and
+Swift authority. Historical source-path citations are provenance only and are
+documented in `docs/openwhispr-reference-retirement.md`.

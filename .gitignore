@@ -35,6 +35,3 @@ Config/HoldTypeDebugAPIKey.local
 *.p8
 *.pem
 *.key
-
-# Local reference checkouts
-/references/

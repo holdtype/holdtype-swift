@@ -2,51 +2,42 @@
 
 ## Goal
 
-Keep a durable map from the intended HoldType MVP surfaces and flows to current
-Swift implementation, OpenWhispr behavior evidence, backlog tasks, and
-verification.
+Keep a durable routing map from HoldType product surfaces and flows to their
+active contracts, current source owners, and verification expectations.
 
-This file prevents reference audits and grooming passes from treating blocked
-or disconnected tasks as finished product coverage.
+This map does not freeze implementation status or backlog state. Agents must
+inspect the current checkout and selector output before making those claims.
 
 ## Coverage Rules
 
-- A surface or flow is `implemented` only when the relevant task is `done` and
-  the Swift behavior exists in the current checkout.
-- A surface or flow is `blocked` when its next product delta depends on a
-  blocked task. The first unblock action must be named.
-- A surface or flow is `planned` when the task exists but is not
-  dependency-ready yet.
-- Reference behavior is not considered covered merely because an old task file
-  mentions it.
-- When OpenWhispr evidence is used, preserve native Swift/AppKit boundaries and
-  do not copy Electron, React, Node.js, account, billing, cloud sync,
-  telemetry, local model, meeting, or updater behavior.
+- Active specs define intended behavior.
+- Current HoldType source and tests establish implementation and ownership.
+- Current selector output and task headers establish backlog state.
+- A historical task, audit, or external source citation is not current product
+  authority or proof that behavior is implemented.
+- The retired OpenWhispr snapshot must not be recreated for coverage work. Its
+  historical role is recorded in `docs/openwhispr-reference-retirement.md`.
 
-## Current Map
+## Contract And Ownership Map
 
-Snapshot date: 2026-06-22.
-
-| Surface or flow | Current HoldType state | Reference evidence | Next backlog action | Verification |
-| --- | --- | --- | --- | --- |
-| Menu bar app shell | Visible menu bar app and Settings entry exist; Start/Stop is still a placeholder path in `HoldType/MenuBarView.swift`. `VT-150` closed the menu identity blocker, but `VT-010` still needs executable menu-surface evidence. | `references/openwhispr-main/src/helpers/tray.js`; `references/openwhispr-main/src/helpers/menuManager.js` | Run selector-ready `VT-158` to close out `VT-010`; then use controller slices to replace placeholder recording behavior. | macOS build plus bounded menu-bar runtime QA when visible menu behavior changes. |
-| Settings surface | Native Settings window exists with API key, transcription fields, behavior toggles, permission/privacy copy, and Accessibility status; API key and toggle closeouts remain blocked, and `VT-153` recorded that transcription-field runtime inspection is still blocked. | `references/openwhispr-main/src/components/SettingsPage.tsx`; `TranscriptionModelPicker.tsx`; `ApiKeyInput.tsx`; `MicrophoneSettings.tsx` | Retry `VT-151`, `VT-152`, and the `VT-025` runtime inspection path when macOS UI-reading capability is available; run `VT-026` after `VT-157` closes `VT-071`. | Unit/build evidence for settings models; Computer Use QA for changed Settings controls when available. |
-| Permission states | Microphone and Accessibility status handling exists in menu and Settings surfaces; `VT-031`, `VT-032`, `VT-033`, `VT-034`, and `VT-149` are complete. | `references/openwhispr-main/src/hooks/usePermissions.ts`; `references/openwhispr-main/src/components/ui/PermissionsSection.tsx` | Let the blocked-task resolver close `VT-030` after higher-priority blocked items, using `VT-149` as the completed product follow-up. | Fake-backed tests for permission states; bounded runtime QA only for visible permission UI changes. |
-| Recording lifecycle | Recorder protocol and fake coverage exist, but there is no AVFoundation recording adapter wired into the user flow. `VT-154` is blocked on local Xcode test execution before `VT-041` can close. | `references/openwhispr-main/src/hooks/useAudioRecording.js`; `references/openwhispr-main/src/helpers/audioManager.js` | Retry `VT-154` after local tooling recovery can reach focused unit-test execution, then run `VT-042`, `VT-043`, `VT-044`, and `VT-045`. | Fake-backed tests for lifecycle states; bounded platform QA only when actual microphone capture changes. |
-| OpenAI transcription | Request builder and URLSession client exist with fake-backed tests; controller integration is not present. `VT-155` and `VT-156` are blocked on local Xcode test execution. | `docs/openwhispr_swiftui_codex_tz.md`; current OpenAI transcription spec | Retry `VT-155` and `VT-156` after local tooling recovery can reach focused unit-test execution, then connect through controller success/failure tasks. | Fake URL loader tests, timeout tests, and no live OpenAI calls in automation. |
-| Text output and paste | Clipboard copy/restore and Accessibility-gated paste primitives exist; last-transcript menu integration waits on transcript normalization. | `references/openwhispr-main/src/helpers/clipboard.js`; `references/openwhispr-main/resources/macos-fast-paste.swift` | Close `VT-054` through its blocker path, then run `VT-064` before controller success-output wiring. | Fake clipboard/paste tests; bounded active-app paste QA only when paste adapter changes. |
-| Global hotkey | Shortcut model, activation-mode logic, protocol, and fake tests exist; real registration and controller handoff are not complete. | `references/openwhispr-main/src/helpers/hotkeyManager.js`; `references/openwhispr-main/src/hooks/useHotkeyRegistration.ts`; `references/openwhispr-main/resources/macos-globe-listener.swift` | Run selector-ready `VT-157` to close out `VT-071` after `VT-158`, then run `VT-072` and downstream controller wiring. | Fake event-stream tests first; runtime hotkey smoke only when real macOS registration changes. |
-| Floating indicator | NSPanel/SwiftUI indicator skeleton exists and follows current placeholder status; final state contract remains blocked as metadata only, with `VT-082` done as the product follow-up. | `references/openwhispr-main/src/App.jsx` dictation state and preview behavior | Let the blocked-task resolver close `VT-081` when it reaches the indicator lane, then connect indicator to controller states after `VT-121` through `VT-124`. | Model tests for presentation; runtime QA when panel visibility or placement changes. |
-| Dictation session controller | No central controller owns the full start, stop, transcribe, output, failure, and cancel flow yet. | `references/openwhispr-main/src/hooks/useAudioRecording.js`; `references/openwhispr-main/src/utils/permissions.ts` | Unblock recorder, transcription, and output seams, then run `VT-121` through `VT-124`. | Fake-backed controller tests; visible menu/runtime QA only once UI is wired to controller actions. |
-| Transcript history | Local-only, disabled-by-default contract exists; settings flag and entry model have landed but `VT-131` and `VT-132` remain blocked by Xcode verification state. No history list UI is in MVP scope. | `references/openwhispr-main/src/stores/transcriptionStore.ts`; `references/openwhispr-main/src/components/HistoryView.tsx` | Retry `VT-131` and `VT-132` verification when local Xcode test execution is healthy, then run `VT-133` through `VT-135` behind the opt-in flag. | Unit tests for storage and append/clear behavior; Settings QA for the opt-in flag and clear action. |
-| iOS companion and keyboard exploration | Deferred v2 scope. An exploratory iOS containing app/setup surface exists, but simulator and keyboard-extension work must not block or preempt the macOS menu bar MVP. | iOS keyboard feasibility spec and user-provided visual direction | Leave `ios` and `ios-keyboard` lanes deferred by the default selectors until a direct user request or v2-specific run opts into them. | No iOS evidence required for normal macOS MVP tasks; use XcodeBuildMCP / Build iOS Apps simulator evidence only for explicit v2 work. |
+| Surface or flow | Governing contract | Current ownership hint | Verification route |
+| --- | --- | --- | --- |
+| Menu bar app shell | `menu-bar-app-shell.md` | `HoldType/HoldTypeApp.swift`, `HoldType/MenuBarView.swift`, `HoldType/MenuBarPresentation.swift` | macOS build plus bounded menu-bar runtime QA when visible behavior changes |
+| Settings surface | `settings-and-secret-storage.md` | `HoldType/SettingsView.swift`, `HoldType/Settings/`, `HoldType/Models/AppSettings.swift` | focused settings/model tests; Computer Use for changed visible controls |
+| Permission states | `privacy-and-permissions.md` | `HoldType/Services/PermissionsService.swift`, `HoldType/Services/AppSetupController.swift`, Settings permission views | fake-backed permission tests; bounded runtime QA for visible permission flows |
+| Recording lifecycle | `microphone-text-input.md` and `recording-durability-and-interruption.md` | `HoldType/Services/AudioRecorderService.swift`, `HoldType/Services/DictationSessionController*.swift` | fake-backed lifecycle tests plus bounded microphone QA only when platform capture changes |
+| OpenAI transcription | `openai-transcription.md` | `HoldType/Services/OpenAI*Service.swift`, `HoldType/Services/OpenAITranscriptionRequestBuilder.swift` | fake URL loading, timeout, and response tests; no live OpenAI calls in automation |
+| Text output and paste | `text-output-workflow.md` | `HoldType/Services/TextInsertionService.swift` and dictation controller output owners | fake insertion tests; bounded active-app handoff QA when behavior changes |
+| Global hotkey | `global-hotkey.md` | hotkey services, settings models, and dictation controller handoff owners | fake event-stream tests; runtime shortcut smoke when registration changes |
+| Floating indicator | `floating-indicator.md` | `HoldType/FloatingIndicatorView.swift`, `HoldType/FloatingIndicatorPanelController.swift` | state-model tests and runtime focus/visibility QA when presentation changes |
+| Dictation session controller | microphone, transcription, output, and recovery specs selected through `docs/specs/index.md` | `HoldType/Services/DictationRuntime.swift`, `HoldType/Services/DictationSessionController*.swift` | focused controller tests plus runtime QA for affected user-visible flows |
+| Transcript history | `transcript-history.md` | transcript stores, recovery owners, and `HoldType/TranscriptHistoryView.swift` | persistence/controller tests; History UI QA when visible behavior changes |
+| Current iOS product | `ios-v1-release.md` plus the feature spec selected for the exact flow | `HoldTypeIOS/`, `HoldTypeKeyboard/`, shared packages, and iOS tests | use the platform lane and evidence required by the active iOS contract |
 
 ## Grooming Expectations
 
-When a grooming or reference-audit task touches one of these areas, it must
-update the row if it changes the implementation state, next task, blocker, or
-reference evidence.
-
-When the normal selector returns `no_ready`, the map should help the next agent
-identify whether the correct action is blocker resolution, task decomposition,
-or a new vertical product slice.
+Before creating or refining work for a row, the groomer must read its governing
+spec, inspect the named current ownership slice, and use fresh selector output.
+Update this file only when contract routing, ownership boundaries, or
+verification expectations change. Do not write transient task status or a
+dated implementation snapshot into this durable map.

@@ -42,6 +42,9 @@ are complete.
 - Non-MVP OpenWhispr areas remain out of scope: Electron/React architecture,
   local models, meetings, notes, accounts, billing, cloud sync, telemetry, and
   updater behavior.
+- The ignored local snapshot was later retired; current authority and the
+  historical evidence mapping are in
+  `docs/openwhispr-reference-retirement.md`.
 
 ## Verification
 
