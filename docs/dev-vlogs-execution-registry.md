@@ -251,8 +251,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8@8161d60` | read-only exact repair review | rejected | receipt below | Return exact three-path exclusive-rename R9; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R9` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R8 | controller, controller tests and W01 summary only | accepted_with_residual | `fec202a`; receipt below | Genuine exclusive rename and late-collision proof accepted; real observer result remains separate. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9@fec202a` | read-only exact repair review | accepted_with_residual | receipt below | Debug observer seam accepted; no runtime implied. |
-| `DV-P0B-CAPTURE-R07` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2; accepted Storage Observer Review-R9 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | running | — | Exactly one no-retry attempt; W07-R3 diagnostic handoff; no external-storage or observer runtime. |
-| `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
+| `DV-P0B-CAPTURE-R07` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2; accepted Storage Observer Review-R9 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | review / functional_fail | `603956c`; receipt below | One invalid_configuration terminal before attempt start; no handoff/media; review running. |
+| `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07@603956c` | read-only exact runtime evidence and W07-R3 provenance | running | — | Distinguish truthful evidence acceptance from functional failure and exact repair dependency. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -7845,5 +7845,43 @@ actual observer result remain still_unknown until separately authorized
 runtime.
 next_dependency: DV-P0B-CAPTURE-R07 is admitted as the next serialized runtime;
 storage-observer runtime remains separate and unauthorized by this acceptance.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R07`
+
+```text
+packet_id: DV-P0B-CAPTURE-R07
+status: failed
+functional_result: fail
+commit: 603956c02d3dba273db77b73f684d0459b926764
+parent: 67349ecb41d644d94ee8c358238f13b3a9ce3ca9
+
+outcome: Fresh bounded enumeration found exactly one connected eligible
+Continuity Camera and selected its identity ephemerally. Exactly one accepted
+10-second hardware invocation ran with no retry/fallback and terminated
+invalid_configuration before any app attempt-start event.
+
+evidence: Operator terminal count one, attempt-event count zero, Ready zero.
+Authorization, camera/audio capture, probes, passthrough, preservation and all
+quantitative media fields are not_reached/unavailable. W07 publisher returned
+publisher_validation_mismatch; validated snapshot count zero and consumer not
+invoked. No cause is attributed because the exact failed configuration check
+was not retained.
+
+cleanup: No media was created. Run-owned app/script/enumerator/helper/guard
+processes and exact empty raw/handoff roots are absent; unrelated pre-existing
+root was preserved. Protected counts are unchanged and no external/remote I/O
+occurred.
+
+scope_check: Exactly nine redacted text files under the R07 QA root; no source,
+test, script, spec, registry, project, plist, entitlement, TCC, product,
+provider, Keychain or external-storage change/action.
+deviations: Two preflight command-shape corrections occurred before runtime;
+publisher mismatch required exact empty-root post-classification cleanup. No
+extra enumeration or capture.
+residual: Debug-spike invalid_configuration plus absent validated W07 handoff;
+authorization/media/preservation facts unavailable. No retry.
+next_dependency: DV-P0B-CAPTURE-R07-REVIEW.
 runtime_or_visual_handoff: none
 ```
