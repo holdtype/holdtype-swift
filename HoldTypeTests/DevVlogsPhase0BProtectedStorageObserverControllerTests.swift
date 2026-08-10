@@ -191,9 +191,9 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
     @Test func summaryTruthfullyDisclosesTheRejectedLiveHomeDiagnostic() throws {
         let summary = try String(contentsOfFile: summaryPath, encoding: .utf8)
         let normalized = summary.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        #expect(normalized.contains("exposed the live user Home or default Xcode result-metadata location"))
-        #expect(normalized.contains("No protected content was inspected by the worker or reviewer"))
+        #expect(normalized.contains("exposed the live user Home or default Xcode result-metadata location") && normalized.contains("No protected content was inspected by the worker or reviewer"))
         #expect(normalized.contains("host metadata access was not proven absent"))
+        #expect(normalized.contains("ephemeral task-owned `/tmp` token") && normalized.contains("No protected or user path entered durable evidence"))
         #expect(!summary.contains("inert route failed closed"))
     }
     @Test func terminalEvidenceCleanupAndFailureOverridesAreBehavioral() throws {
@@ -203,9 +203,8 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             source \(shellQuote(scriptPath)); timeout_executable=\(shellQuote(timeout)); run_metadata_probe() { "$@" }
             deadline=$(( SECONDS + 60 )); fixture=$(/usr/bin/mktemp -d /private/tmp/holdtype-observer-terminal.XXXXXXXX)
             /bin/chmod 700 "$fixture"; stop_supervisor() { trace+=s }; cleanup_run_root() { trace+=r }; stop_guard() { trace+=g }
-            assert_failure_safe() {
-                local file content; for file in "$1"/**/*(.N); do content=$(/bin/cat "$file"); [[ "$content" != *'cleanup: complete'* && "$content" != *'"cleanup":"complete"'* && "$content" != *,complete* && "$content" != *pass_unchanged* && "$content" != *run_owned_canonical_recovery_write_correlated* && "$content" != *build_window_change_correlated* && "$content" != *owner_exposed_no_mutation* ]] || return 1; done
-            }
+            assert_failure_safe() { local file content; for file in "$1"/**/*(.N); do content=$(/bin/cat "$file"); [[ "$content" != *'cleanup: complete'* && "$content" != *'"cleanup":"complete"'* && "$content" != *,complete* && "$content" != *pass_unchanged* && "$content" != *run_owned_canonical_recovery_write_correlated* && "$content" != *build_window_change_correlated* && "$content" != *owner_exposed_no_mutation* ]] || return 1; done }
+            assert_complete_success() { local saved_class="$terminal_class" saved_phase="$terminal_phase" result=0; terminal_class=pass_unchanged; terminal_phase=hosted; validate_runtime_evidence "$1" || result=$?; terminal_class="$saved_class"; terminal_phase="$saved_phase"; return $result }
             for item in environment_conflict:baseline:uncertain:not_run:70 guard_discontinuity:guard:uncertain:not_run:70 build_failed:build:uncertain:not_run:70 \
                 build_window_change_correlated:build:changed:not_run:70 run_owned_canonical_recovery_write_correlated:hosted:unchanged:changed:70 still_unknown:hosted:unchanged:changed:70 \
                 evidence_conflict:hosted:unchanged:unchanged:70 observer_invalid:hosted:unchanged:unchanged:70 metadata_uncertain:build:uncertain:not_run:70 \
@@ -260,27 +259,28 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             reset_case; retained="$fixture/retained"; retained_status=0; finalize_controller "$retained" || retained_status=$?; unfunction observer_evidence_before_commit_test_hook; [[ $retained_status == 74 && -d "$retained" && -d "$retained.original" ]] && assert_failure_safe "$retained.original" || exit 84
             observer_evidence_before_commit_test_hook() { /bin/mv "$2/events" "$2/events.original"; /bin/mkdir -m 755 "$2/events" }
             reset_case; events="$fixture/events"; events_status=0; finalize_controller "$events" || events_status=$?; unfunction observer_evidence_before_commit_test_hook; [[ $events_status == 74 && -d "$success_staging_root/events" && -d "$success_staging_root/events.original" ]] && assert_failure_safe "$events" || exit 85
-            observer_evidence_commit_test_hook() { return 70 }
+            observer_evidence_commit_test_hook() { /bin/mkdir -m 755 "$1/.${2}.pending.${3##*.}"; /bin/mkdir -m 700 "$fixture/commit-collision-sibling" }
             reset_case; collision="$fixture/collision"; collision_status=0; finalize_controller "$collision" || collision_status=$?; unfunction observer_evidence_commit_test_hook
-            [[ $collision_status == 74 ]] && assert_failure_safe "$collision" && reset_case && validate_runtime_evidence "$success_staging_root" || exit 81
+            [[ $collision_status == 74 && -d "$collision" && -d "$fixture/.collision.pending.${success_staging_root##*.}" && -d "$fixture/commit-collision-sibling" ]] && assert_failure_safe "$collision" && assert_complete_success "$success_staging_root" || exit 81
             observer_evidence_final_postcondition_test_hook() { print unexpected >"$1/unexpected" }
             reset_case; schema="$fixture/schema"; schema_status=0; finalize_controller "$schema" || schema_status=$?; unfunction observer_evidence_final_postcondition_test_hook
             [[ $schema_status == 74 && -e "$success_staging_root/unexpected" ]] && assert_failure_safe "$schema" || exit 82
             export HTDV_OBSERVER_TEST_POST_SWAP=exit70; reset_case; interrupted="$fixture/interrupted"; interrupted_status=0
             finalize_controller "$interrupted" || interrupted_status=$?; unset HTDV_OBSERVER_TEST_POST_SWAP
-            [[ $interrupted_status == 74 && $evidence_commit_helper_status == 70 && "$evidence_commit_reconciliation_state" == committed && -d "$success_staging_root" ]] && validate_runtime_evidence "$interrupted" pending || exit 86
+            [[ $interrupted_status == 74 && $evidence_commit_helper_status == 70 && "$evidence_commit_reconciliation_state" == absent_authority && ! -e "$interrupted" && -d "$success_staging_root" ]] && assert_complete_success "$success_staging_root" || exit 86
             timeout_executable=\(shellQuote(timeout)); metadata_timeout_seconds=0.2; evidence_post_swap_reserve_seconds=3; run_metadata_probe() { run_timed_command "$metadata_timeout_seconds" 0 1 "$@"; }
             export HTDV_OBSERVER_TEST_POST_SWAP=sleep; deadline=$(( SECONDS + 5 )); reset_case; timed="$fixture/timed"; timed_status=0; finalize_controller "$timed" || timed_status=$?; unset HTDV_OBSERVER_TEST_POST_SWAP
-            run_metadata_probe() { "$@" }; metadata_timeout_seconds=15; evidence_post_swap_reserve_seconds=30; deadline=$(( SECONDS + 60 ))
-            [[ $timed_status == 74 && $evidence_commit_helper_status == 124 && "$evidence_commit_reconciliation_state" == committed && -d "$success_staging_root" ]] && validate_runtime_evidence "$timed" pending || exit 87
+            [[ $timed_status == 74 && $evidence_commit_helper_status == 124 && "$evidence_commit_reconciliation_state" == absent_authority && ! -e "$timed" && -d "$success_staging_root" ]] && assert_complete_success "$success_staging_root" || exit 87
+            export HTDV_OBSERVER_TEST_POST_SWAP=exit70 HTDV_OBSERVER_TEST_POST_SWAP_RECONCILE=sleep; deadline=$(( SECONDS + 3 )); reset_case; stalled="$fixture/stalled"; stalled_status=0; finalize_controller "$stalled" || stalled_status=$?; unset HTDV_OBSERVER_TEST_POST_SWAP HTDV_OBSERVER_TEST_POST_SWAP_RECONCILE
+            run_metadata_probe() { "$@" }; metadata_timeout_seconds=15; evidence_post_swap_reserve_seconds=30; deadline=$(( SECONDS + 60 )); [[ $stalled_status == 74 && $evidence_commit_helper_status == 70 && "$evidence_commit_reconciliation_state" == absent_authority && ! -e "$stalled" ]] && assert_complete_success "$success_staging_root" || exit 91
             /bin/mkdir -m 700 "$fixture/late-cleanup-sibling"; export HTDV_OBSERVER_TEST_CLEANUP_FAIL_AFTER=4
             reset_case; partial="$fixture/partial-cleanup"; partial_status=0; finalize_controller "$partial" || partial_status=$?; unset HTDV_OBSERVER_TEST_CLEANUP_FAIL_AFTER
-            [[ $partial_status == 74 && "$evidence_commit_cleanup_state" == retained_failure_safe && -d "$success_staging_root" && -d "$fixture/late-cleanup-sibling" ]] && validate_runtime_evidence "$partial" pending && assert_failure_safe "$partial" && assert_failure_safe "$success_staging_root" || exit 90
+            [[ $partial_status == 74 && "$evidence_commit_cleanup_state" == retained_failure_safe && -d "$success_staging_root" && -d "$evidence_failure_safe_quarantine_root" && -d "$fixture/late-cleanup-sibling" ]] && validate_runtime_evidence "$partial" pending && assert_complete_success "$success_staging_root" && assert_failure_safe "$partial" && assert_failure_safe "$evidence_failure_safe_quarantine_root" || exit 90
             cleanup_boundary_pending=true; observer_evidence_cleanup_boundary_test_hook() { [[ $cleanup_boundary_pending == false ]] || { cleanup_boundary_pending=false; /bin/mv "$1" "$1.original"; /bin/mkdir -m 755 "$1"; /bin/mkdir -m 700 "$fixture/cleanup-boundary-sibling"; } }; reset_case; cleanup_replaced="$fixture/cleanup-replaced"; cleanup_replaced_status=0; finalize_controller "$cleanup_replaced" || cleanup_replaced_status=$?; unfunction observer_evidence_cleanup_boundary_test_hook
-            [[ $cleanup_replaced_status == 74 && -d "$success_staging_root" && -d "$success_staging_root.original" && -d "$fixture/cleanup-boundary-sibling" && -z "$evidence_success_quarantine_root" ]] && assert_failure_safe "$cleanup_replaced" && assert_failure_safe "$success_staging_root.original" || exit 89
+            [[ $cleanup_replaced_status == 74 && -d "$success_staging_root" && -d "$evidence_failure_safe_quarantine_root" && -d "$evidence_failure_safe_quarantine_root.original" && -d "$fixture/cleanup-boundary-sibling" && -z "$evidence_recovery_staging_root" ]] && assert_failure_safe "$cleanup_replaced" && assert_failure_safe "$evidence_failure_safe_quarantine_root.original" || exit 89
             observer_evidence_cleanup_test_hook() { return 70 }
             reset_case; cleanup="$fixture/atomic-cleanup"; cleanup_status=0; finalize_controller "$cleanup" || cleanup_status=$?; unfunction observer_evidence_cleanup_test_hook
-            [[ $cleanup_status == 74 && "$evidence_commit_cleanup_state" == retained_failure_safe ]] && assert_failure_safe "$cleanup" && reset_case && validate_runtime_evidence "$success_staging_root" || exit 83
+            [[ $cleanup_status == 74 && "$evidence_commit_cleanup_state" == retained_failure_safe && -d "$evidence_failure_safe_quarantine_root" ]] && assert_failure_safe "$cleanup" && assert_failure_safe "$evidence_failure_safe_quarantine_root" && assert_complete_success "$success_staging_root" || exit 83
             cleanup_state=complete; evidence_write_state=complete; terminal_class=pass_unchanged; set +e; public_output=$(emit_controller_terminal 0 2>&1); public_status=$?; set -e
             [[ $public_status == 74 && -z "$public_output" ]] || exit 88
             print terminal_evidence=pass; /bin/rm -rf -- "$fixture"

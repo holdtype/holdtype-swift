@@ -11,6 +11,11 @@ but host metadata access was not proven absent. Final qualifying verification
 used only the controller-owned private Home, TMPDIR, explicit DerivedData, and
 result bundle.
 
+One failed R7 build-only diagnostic exposed an ephemeral task-owned `/tmp`
+token in internal tool output because redaction covered only its
+`/private/tmp` alias. No protected or user path entered durable evidence, and
+the exact task root was removed.
+
 ## Implemented boundary
 
 - A complete, duplicate-free `stderr-json-v1` observer configuration selects
@@ -49,22 +54,20 @@ result bundle.
   descriptor, and pinned from `fstat` before close. Success requires the exact
   eight regular mode-0600 closed-schema files with no extras. The durable path
   keeps the closed `evidence_write_failed`/`incomplete_retained` tree while a
-  separately identity-pinned success tree is built and validated. One
-  descriptor-relative atomic namespace swap is the commit point. Every helper
-  result is reconciled from the exact before/after identities, including an
-  interruption after the swap. The commit starts only with a bounded
-  post-swap reconciliation/recovery reserve; a helper timeout or nonzero result
-  cannot consume that reserve or become a successful terminal result.
-  Displaced-tree cleanup is one descriptor-
+  separately identity-pinned success tree is built and validated. The complete
+  pending tree moves to a tracked quarantine while the canonical name is
+  absent. Displaced-tree cleanup is one descriptor-
   relative identity-verifying helper operation under the private mode-0700
   run-root trust boundary; it does not traverse or rewrite a replacement. If
   that boundary detects replacement or fails after a partial cleanup, the
-  displaced tree is restored only after its complete pending schema and every
-  file identity validate. Otherwise a separately created and pinned
-  failure-safe tree becomes the authoritative durable tree.
-  The displaced success tree is quarantined and removed only through the same
-  descriptor-relative identity boundary; any remaining quarantine suppresses
-  public success. The original, replacement, and sibling remain untouched.
+  separately created and pinned failure-safe tree becomes authoritative at the
+  absent canonical name; the implicated partial quarantine remains auditable.
+  Only after cleanup has no residual does one same-controller, identity-bound,
+  no-clobber move publish the already complete success tree into the proven-absent
+  canonical name. There is no post-publication helper or reconciliation window.
+  A pre-publication helper timeout or nonzero result leaves pending or absent
+  authority, retains the complete staged tree, and suppresses public success.
+  Replacements and siblings remain untouched.
 - A single terminal state machine reaps the supervisor, resolves exact root
   cleanup while the guard remains proven, reaps the guard, then attempts the
   closed eight-file evidence write. Cleanup or
