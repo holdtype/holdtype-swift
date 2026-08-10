@@ -257,8 +257,10 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W08-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08@1387b64` | read-only exact repair/provenance review | rejected | receipt below | Return exact five-path R1; no runtime. |
 | `DV-P0B-CAPTURE-W08-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 review | Launch, Launch tests, spike script, handoff tests, W01 summary only | rejected | `d1f5f5f`; receipt below | Code repair passes; summary misstated 115 instead of reproduced 117 tests. |
 | `DV-P0B-CAPTURE-W08-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R1@d1f5f5f` | read-only exact repair review | rejected | receipt below | Summary-only R2 and narrow provenance rereview; no runtime. |
-| `DV-P0B-CAPTURE-W08-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 Review-R1 | W01 summary only | review | `b418c08`; receipt below | One-line 117/117 provenance correction; narrow review running. |
-| `DV-P0B-CAPTURE-W08-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R2@b418c08` | read-only summary/provenance review | running | — | No hardware retry until accepted. |
+| `DV-P0B-CAPTURE-W08-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 Review-R1 | W01 summary only | accepted_with_residual | `b418c08`; receipt below | Diagnostic repair accepted; R07 remains historical/unattributed. |
+| `DV-P0B-CAPTURE-W08-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R2@b418c08` | read-only summary/provenance review | accepted_with_residual | receipt below | One separately packetized hardware attempt is dependency-ready. |
+| `DV-P0B-CAPTURE-R08` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W08 Review-R2; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R08 QA root; exact internal temp media root only | running | — | Exactly one no-retry attempt with typed configuration diagnostic. |
+| `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08` terminal receipt | read-only exact runtime evidence/provenance | queued | — | No further runtime before review. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -477,8 +479,11 @@ other external root remain unauthorized.
   implied.
 - Capture W08-R1 `d1f5f5f` repairs the exact route, LF framing and identity
   retention findings, but Review-R1 rejected its summary count: the exact
-  14-suite run is 117/117, not 115/115. Summary-only R2 is running; no hardware
-  retry is implied.
+  14-suite run is 117/117, not 115/115. Summary-only R2 corrected that claim.
+- Capture W08-R2 `b418c08` and Review-R2 are accepted_with_residual. Closed
+  pre-attempt diagnosis is ready; one serialized explicit-device Continuity
+  R08 is admitted. No storage-observer runtime or retry beyond that packet is
+  implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8118,5 +8123,35 @@ scope_check: No source/test/script/product/runtime action.
 deviations: none
 residual: R07 remains historically unattributed; runtime separately gated.
 next_dependency: DV-P0B-CAPTURE-W08-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08-REVIEW-R2
+status: done
+verdict: accept_with_residual
+reviewed_commit: b418c0872ab6585b795289e46cac66228450d559
+parent: 7443e051ce53ca97810e74925af911ecfc8ede9b
+
+outcome: Summary-only repair is exact and truthful. W08 route, strict LF
+framing and identity-retention diagnostic repair is accepted_with_residual.
+
+evidence: Exactly one summary line changed from stale 115/115 to independently
+reproduced 117/117 in the same 14 suites. Hosted-storage exclusion is retained;
+no 115 contradiction or new runtime/media claim remains. Diff-check passes.
+
+frozen_provenance: Launch, LaunchTests, spike script, HandoffTests and EventLog
+blobs equal accepted d1f5f5f at reviewed commit and current checkout. Registry
+checkpoint consistently records the correction; historical 115 mentions are
+explicitly rejected context.
+
+scope_check: Read-only summary/provenance review; no source/test/script/build/
+runtime action.
+deviations: none
+residual: R07 remains historically unattributed; real Camera/TCC/media evidence
+is separately gated.
+next_dependency: One separately packetized R08 hardware attempt, then review.
 runtime_or_visual_handoff: none
 ```
