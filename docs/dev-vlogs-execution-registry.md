@@ -263,8 +263,8 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08@4581e31` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Three-path Launch normalization repair; no runtime. |
 | `DV-P0B-CAPTURE-W09` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R08-REVIEW` | Launch, Launch tests, W01 summary only | rejected | `20787c4`; receipt below | Parent normalization passes; canonical leaf symlink can escape. |
 | `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09@20787c4` | read-only exact repair/provenance review | rejected | receipt below | Return exact three-path leaf no-follow repair; no runtime. |
-| `DV-P0B-CAPTURE-W09-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W09 review | Launch, Launch tests, W01 summary only | running | — | Reject leaf symlink/non-regular target before harness/write. |
-| `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1` terminal receipt | read-only exact repair/provenance review | queued | — | No camera retry until accepted. |
+| `DV-P0B-CAPTURE-W09-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W09 review | Launch, Launch tests, W01 summary only | review | `7342f18`; receipt below | No-follow final-leaf repair complete; review running. |
+| `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1@7342f18` | read-only exact repair/provenance review | running | — | No camera retry until accepted. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -493,7 +493,8 @@ other external root remain unauthorized.
   preservation was reached. Review accepts the evidence and assigns the defect
   to Launch path normalization. Three-path W09 `20787c4` implemented symmetric
   parent canonicalization but review rejected its leaf-symlink escape. Exact
-  three-path R1 is running; no runtime is implied.
+  three-path R1 `7342f18` adds no-follow final-leaf validation and is in
+  independent review; no runtime is implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8323,5 +8324,39 @@ deviations: Initial focused command used scheme parallelism; authoritative
 counts are serial and xcresult-backed. Reviewer-owned fixtures were removed.
 residual: W09 is not hardware-dependency-ready.
 next_dependency: DV-P0B-CAPTURE-W09-R1, then independent Review-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W09-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W09-R1
+status: done
+commit: 7342f18a1ea8b03d98bd855900115b61e7e444cd
+parent: c3298f0ed36e68c3914b565f909e5d8fd5fd8614
+
+outcome: Added no-follow final-leaf validation. An absent or regular
+events.jsonl leaf passes; symlink and non-regular leaves fail before harness
+construction or writing. Foreign and same-parent targets remain unchanged.
+
+specified_expectation: Preserve accepted symmetric parent canonicalization and
+valid aliases while rejecting a pre-existing leaf symlink/non-regular object as
+event_log_path_mismatch, with zero harness/attempt/Ready and no target write.
+
+checks: Structure and diff pass with both changed Swift files exactly 500
+lines; Launch 12/12; Launch plus frozen handoff 21/21; current serial selection
+115/115; auth-LS 9/9; signed Debug build-only/codesign; unsigned Release and
+settings/artifact isolation; frozen script regressions; fourteen protected
+hashes; redaction, mode, process, root and residue audits all pass.
+
+scope_check: Exactly Launch, LaunchTests and W01 summary changed. Script,
+handoff, EventLog and all protected adjacent owners remain unchanged. No app,
+camera, microphone, TCC, permission, hardware, external-storage or product
+runtime.
+deviations: Initial focused run exposed an obsolete run-path fixture; it was
+corrected to preserve run_paths_unavailable and authoritative reruns passed.
+Historical W08 117/117 remains separate; current W09 selection is 115/115.
+residual: R08 remains historical pre-attempt failure; no hardware retry.
+next_dependency: DV-P0B-CAPTURE-W09-REVIEW-R1.
 runtime_or_visual_handoff: none
 ```
