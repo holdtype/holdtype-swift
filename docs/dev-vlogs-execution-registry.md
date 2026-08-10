@@ -267,8 +267,8 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1@7342f18` | read-only exact repair/provenance review | accepted_with_residual | receipt below | One separately admitted hardware attempt is dependency-ready. |
 | `DV-P0B-CAPTURE-R09` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W09 Review-R1; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R09 QA root; exact internal temp media root only | accepted_evidence / functional_fail | `8c5ea02`; receipt below | Probes/passthrough pass; strict preservation reading_failed. |
 | `DV-P0B-CAPTURE-R09-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R09@8c5ea02` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Closed operation/side diagnostic repair before any retry. |
-| `DV-P0B-CAPTURE-W10` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R09-REVIEW` | Debug preservation/event/launch/script/test owners and W01 summary only | running | — | Split reading_failed by closed operation and asset side; no runtime. |
-| `DV-P0B-CAPTURE-W10-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W10` terminal receipt | read-only exact repair/provenance review | queued | — | No hardware retry until accepted. |
+| `DV-P0B-CAPTURE-W10` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R09-REVIEW` | Debug preservation/event/launch/script/test owners and W01 summary only | review | `b539487`; receipt below | Six closed operation/side mappings implemented; review running. |
+| `DV-P0B-CAPTURE-W10-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W10@b539487` | read-only exact repair/provenance review | running | — | No hardware retry until accepted. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -502,7 +502,8 @@ other external root remain unauthorized.
   attempt completed: probes and passthrough passed, strict preservation failed
   at reading_failed, and Ready remained zero. Review accepts the evidence and
   functional fail but cannot classify the low-level reader operation or asset
-  side. Debug-only W10 diagnostic refinement is running; no runtime is implied.
+  side. Debug-only W10 `b539487` implements six closed operation/side mappings
+  and is in independent review; no runtime is implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8493,5 +8494,40 @@ do not alter the single enumeration/invocation/attempt counts.
 residual: Strict preservation and quantitative closure remain failed.
 next_dependency: Debug-only closed reader operation and asset-side diagnostic
 repair, independent review, and no runtime before acceptance.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W10`
+
+```text
+packet_id: DV-P0B-CAPTURE-W10
+status: done
+commit: b539487cc1c35e66b07ce64dfc7b7557c9187223
+parent: 09b587f660ff2e36e802735dc08ab38e610f6cfb
+
+outcome: Added closed Debug-only strict-preservation reader detail while
+preserving public video_preservation_failed/reading_failed and comparator/
+finalizer behavior. Exactly six local mappings are camera_source/finalized
+cross sample_data_copy/sample_size_timing_metadata/reader_terminal_status.
+
+schema: EventLog/operator and W07 retained JSONL carry the detail exactly once.
+reading_failed requires it; every other preservation dimension forbids it.
+Missing, extra, unknown, duplicate and private forms fail closed.
+
+checks: Structure passes with all changed Swift wholly Debug and at most 500
+lines; focused 29/29; current ordinary exact 14-suite selection 115/115;
+hosted protected-storage excluded; zsh syntax/CLI; signed Debug build-only and
+strict codesign; bounded unsigned Release; settings/plist/entitlement/artifact
+isolation; diff, mode, redaction, path, process and root audits all pass.
+
+protected_proof: Fourteen frozen media/auth/app/project/plist/entitlement/
+storage-wrapper blobs match parent. W09 Launch lines 1-110 are hash-identical.
+scope_check: Exactly nine authorized paths; no runtime, camera, microphone,
+TCC, permission, provider, Keychain, external or storage action.
+deviations: Structure caught LaunchTests at 501 after a final assertion; one
+test-only line was compacted and final structure reran green.
+residual: R09 remains historical/unclassified until a separately authorized
+runtime after review. Strict preservation and quantitative closure remain open.
+next_dependency: DV-P0B-CAPTURE-W10-REVIEW.
 runtime_or_visual_handoff: none
 ```
