@@ -245,8 +245,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R5@0058993` | read-only exact repair review | rejected | receipt below | Return syscall-boundary and terminal-truth R6; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R6` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R5 | controller, controller tests and W01 summary only | rejected | `cbbd9e0`; receipt below | Exclusive writes pass; post-swap reserve and partial-cleanup restoration remain unsafe. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R6@cbbd9e0` | read-only exact repair review | rejected | receipt below | Return exact three-path R7; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R7` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R6 | controller, controller tests and W01 summary only | review | `fc177df`; receipt below | Reserved post-swap recovery and complete partial-cleanup recovery implemented; independent review running. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R7@fc177df` | read-only exact repair review | running | — | Review must remain private-hosted and no-runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R7` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R6 | controller, controller tests and W01 summary only | rejected | `fc177df`; receipt below | Exported hooks and partial cleanup pass; post-swap recovery can still miss the reserve. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R7@fc177df` | read-only exact repair review | rejected | receipt below | Return exact three-path R8 invariant repair; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R8` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R7 | controller, controller tests and W01 summary only | running | — | Keep failure-safe authority until cleanup; publish success only by one final exact move. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8` terminal artifact | read-only exact repair review | queued | — | Review must remain private-hosted and no-runtime. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7639,5 +7641,46 @@ alias only. No protected/user path or durable evidence was involved; the exact
 task root was removed.
 residual: Independent review only; no runtime authority.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7
+status: rejected
+reviewed_commit: fc177df1e1a3e72caf65bcd8b703a176ec79f3df
+parent: 177ca03d77556160d119eedc7d2ace96d0128b2a
+
+accepted_evidence: Exact three paths/current blobs/modes and seven frozen W01
+blobs pass. Exported exit-70/timeout hooks reach Python. Stable success,
+ordinary committed timeout recovery and fail-after-four partial-cleanup fresh
+failure-safe recovery pass. Static, unsigned build/Release, isolation,
+redaction, protected hashes and residue checks pass.
+
+blocking_findings:
+1. The reserve covers only the initial swap helper. A committed exit-70 swap
+followed by delay in the first bounded reconciliation exhausted the remaining
+deadline. Status was 74 and reconciliation not_run, but authoritative evidence
+remained pass_unchanged/cleanup complete while displaced pending evidence
+remained as a residual. Direct returns precede restoration.
+2. The W01 summary omits the packet-required task-owned /tmp alias-redaction
+diagnostic disclosure.
+
+smallest_repair: Remove all direct post-swap failure returns before safe-state
+recovery. Make terminal publication independent of reconciliation timing by
+retaining failure-safe authority until exact old-tree cleanup succeeds, then
+publishing the complete success tree with one identity-bound move into an
+absent authoritative name. Add a committed exit-70 plus first-reconciliation
+stall fixture proving pending/absent authority, retained auditable residual,
+status 74 and no public success. Add the exact bounded diagnostic disclosure.
+
+scope_check: Read-only exact review; no edits, observer --execute, protected
+inspection, external volume or app/product runtime.
+deviations: One private-HOME signed review build could not see a certificate;
+unsigned compile and Release evidence passed; no live Keychain fallback.
+residual: Non-run-owned writers remain still_unknown; runtime unauthorized.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R8, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8.
 runtime_or_visual_handoff: none
 ```
