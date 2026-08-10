@@ -68,6 +68,19 @@ is authorized outside those newly created scratch directories. Physical
 unplug, mount, eject, remount, traversal of existing user content, and any
 other external root remain unauthorized.
 
+On 2026-08-10 the user rejected the accumulated execution economics: extensive
+Debug, test, evidence, and review work had produced no Release-reachable Dev
+Vlogs capability. The user requires a balanced outcome-first policy: product
+functionality is the primary progress measure; quality work remains
+proportional to demonstrated risk; noncritical uncertainty is carried as a
+truthful residual instead of creating an unbounded repair chain. No new Phase
+0B diagnostic, observer, tooling, permission, storage, preview, or hardware
+runtime packet is authorized without a separate user-approved cost/benefit
+decision. The next bounded coordination checkpoint is Phase 0C reconciliation,
+followed immediately by a Release-path Phase 1 vertical slice. Existing
+dictation, user data, privacy, security, permission, storage, and released-
+behavior protections are not weakened by this economic decision.
+
 ## Contract Epoch
 
 | Epoch | Authority | Status | Notes |
@@ -267,9 +280,9 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1@7342f18` | read-only exact repair/provenance review | accepted_with_residual | receipt below | One separately admitted hardware attempt is dependency-ready. |
 | `DV-P0B-CAPTURE-R09` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W09 Review-R1; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R09 QA root; exact internal temp media root only | accepted_evidence / functional_fail | `8c5ea02`; receipt below | Probes/passthrough pass; strict preservation reading_failed. |
 | `DV-P0B-CAPTURE-R09-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R09@8c5ea02` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Closed operation/side diagnostic repair before any retry. |
-| `DV-P0B-CAPTURE-W10` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R09-REVIEW` | Debug preservation/event/launch/script/test owners and W01 summary only | review | `b539487`; receipt below | Six closed operation/side mappings implemented; review running. |
-| `DV-P0B-CAPTURE-W10-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W10@b539487` | read-only exact repair/provenance review | running | — | No hardware retry until accepted. |
-| `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
+| `DV-P0B-CAPTURE-W10` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R09-REVIEW` | Debug preservation/event/launch/script/test owners and W01 summary only | support_complete_with_residual | `b539487`; receipt below | Six closed mappings implemented and self-verified; no further Debug work or runtime without explicit user approval. |
+| `DV-P0B-CAPTURE-W10-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W10@b539487` | read-only exact repair/provenance review | stopped_environment_nonblocking | no verdict; reviewer usage limit | Supporting review did not complete. It is retained as a residual and does not block the Release UI/setup vertical slice. |
+| `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | user economic disposition plus current terminal Phase 0B evidence/residuals | named specs and acceptance map | queued | — | One bounded reconciliation checkpoint; activate only the capability slices supported by current evidence and preserve explicit capture/storage/measurement residuals. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
 | `DV-P2-CAPTURE` | unassigned | current Active epoch | accepted Phase 1 | assigned capture paths | queued | — | One-clip slice without dictation regression. |
@@ -279,13 +292,28 @@ other external root remain unauthorized.
 
 ## Current Coordination State
 
-- User-requested pause is active as of 2026-08-09. No worker, review,
-  implementation, capture, storage, permission or UI runtime may resume until
-  the user explicitly resumes the persistent goal after Codex restart.
-- Pause checkpoint: E07 R1 completed canonical-controller/source/target and
-  protected-blob confirmation but had not yet emitted its exact registry
-  contract. Storage observer R1 is durably recorded at `8fe5645`; its review
-  completed the mandatory gate and exact diff, but no verdict was issued.
+- The 2026-08-10 outcome-first reset supersedes the old support-only dispatch
+  chain. No new Phase 0B Debug, tooling, observer, permission, preview, storage,
+  or hardware-runtime packet may start without explicit user cost approval.
+- User capability currently available in Release: none. Debug feasibility,
+  tests, evidence, and closed packets must not be reported as partial product
+  delivery.
+- `DV-P0B-CAPTURE-W10@b539487` is supporting work complete with a truthful
+  unreviewed residual after its reviewer hit a usage limit before verdict. It
+  is not a dependency for the Release UI/setup slice and receives no automatic
+  replacement reviewer or repair chain.
+- The next admitted sequence is exactly one bounded `DV-P0C-CONTRACT` packet,
+  one proportional contract review, then a `shipping_product` Phase 1 vertical
+  slice. The first product slice must add the Release-path `Dev Vlogs…` entry,
+  separate SwiftUI window, and truthful Off/Setup state. It may not be replaced
+  by more models, evidence, tooling, or Debug harness work.
+- Capture strict-preservation `reading_failed`, quantitative measurements,
+  live-preview proof, and storage protected-domain attribution remain explicit
+  residuals. They may gate the specific shipping capability that depends on
+  them, but they do not justify delaying unrelated Release UI/setup work.
+- The 2026-08-09 pause is historical. The user explicitly resumed after Codex
+  restart and on 2026-08-10 replaced the support-heavy execution strategy with
+  the outcome-first policy above.
 - Accepted E01 evidence supports bounded Debug-only capture and test-only
   storage spikes without a shipping dependency.
 - Repaired capture packet `ff70155` is accepted_with_residual after independent
@@ -8530,4 +8558,34 @@ residual: R09 remains historical/unclassified until a separately authorized
 runtime after review. Strict preservation and quantitative closure remain open.
 next_dependency: DV-P0B-CAPTURE-W10-REVIEW.
 runtime_or_visual_handoff: none
+```
+
+### `DV-ECONOMIC-RESET-2026-08-10`
+
+```text
+packet_id: DV-ECONOMIC-RESET-2026-08-10
+status: accepted_user_decision
+work_classification: coordination
+shipping_capability_delivered: none; this receipt must not be counted as
+product delivery.
+outcome: The user rejected the Phase 0B support-to-product ratio and adopted an
+outcome-first, risk-proportional execution policy. Debug, tests, evidence,
+models, registries and review are supporting work; Release-path functionality
+is the primary progress measure.
+economic_limits: Ordinary milestones target 50-70% shipping implementation,
+20-35% verification and 10-20% discovery/tooling/coordination. More than two
+consecutive support-only packets or more than one repair/re-review cycle stops
+for delivery-and-cost reassessment and normally explicit user approval.
+current_goal_disposition: No new Phase 0B diagnostic/tooling/runtime work is
+authorized without a separate user-approved cost/benefit decision. W10 remains
+supporting work with an uncompleted review residual after reviewer usage limit;
+it does not block Release UI/setup.
+next_visible_milestone: One bounded Phase 0C contract reconciliation and
+proportional review, then the Release-path Dev Vlogs menu entry, separate
+SwiftUI window and truthful Off/Setup state.
+protected_behavior: Dictation, user data, privacy, security, permission,
+storage and released behavior remain protected. Residuals may gate only the
+specific capability that depends on them.
+scope_check: Coordination policy only; no product source, build, test, app,
+camera, microphone, TCC, storage or runtime action.
 ```
