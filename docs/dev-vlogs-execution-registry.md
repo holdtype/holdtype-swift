@@ -259,8 +259,8 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W08-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R1@d1f5f5f` | read-only exact repair review | rejected | receipt below | Summary-only R2 and narrow provenance rereview; no runtime. |
 | `DV-P0B-CAPTURE-W08-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 Review-R1 | W01 summary only | accepted_with_residual | `b418c08`; receipt below | Diagnostic repair accepted; R07 remains historical/unattributed. |
 | `DV-P0B-CAPTURE-W08-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R2@b418c08` | read-only summary/provenance review | accepted_with_residual | receipt below | One separately packetized hardware attempt is dependency-ready. |
-| `DV-P0B-CAPTURE-R08` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W08 Review-R2; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R08 QA root; exact internal temp media root only | running | — | Exactly one no-retry attempt with typed configuration diagnostic. |
-| `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08` terminal receipt | read-only exact runtime evidence/provenance | queued | — | No further runtime before review. |
+| `DV-P0B-CAPTURE-R08` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W08 Review-R2; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R08 QA root; exact internal temp media root only | review / functional_fail | `4581e31`; receipt below | Typed event_log_path_mismatch before attempt; review running. |
+| `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08@4581e31` | read-only exact runtime evidence/provenance | running | — | Validate evidence and identify exact source/script repair; no runtime. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -484,6 +484,9 @@ other external root remain unauthorized.
   pre-attempt diagnosis is ready; one serialized explicit-device Continuity
   R08 is admitted. No storage-observer runtime or retry beyond that packet is
   implied.
+- Capture R08 `4581e31` executed exactly once and failed before attempt start
+  with the validated stage event_log_path_mismatch. No authorization, media or
+  preservation was reached; independent evidence/source review is running.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8153,5 +8156,42 @@ deviations: none
 residual: R07 remains historically unattributed; real Camera/TCC/media evidence
 is separately gated.
 next_dependency: One separately packetized R08 hardware attempt, then review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R08`
+
+```text
+packet_id: DV-P0B-CAPTURE-R08
+status: failed
+functional_result: fail
+commit: 4581e31da66a323dd9b0d35d4025f6717a060823
+parent: f3ae739ec8ab42cf6ee7925dbba79e3467818305
+
+outcome: One fresh enumeration found exactly one connected/non-suspended/
+not-in-use eligible Continuity Camera. Exactly one explicit 10-second hardware
+invocation ran with no retry/fallback and terminated invalid_configuration
+before attempt start.
+
+diagnostic: W08 published one validated configuration diagnostic; the one-shot
+consumer consumed it once with configuration_stage=event_log_path_mismatch.
+Attempt events and Ready are zero. Authorization, capture, audio, probes,
+passthrough, preservation and metrics were not reached; no deeper cause is
+attributed.
+
+cleanup: Raw root, consumed diagnostic/handoff, enumerator/orchestration root
+and all run-owned processes/guard are absent. One unrelated pre-existing root
+was preserved. Protected counts are unchanged; no external/remote I/O.
+
+scope_check: Exactly nine redacted text evidence files under the R08 QA root;
+no source/test/script/spec/registry/project/plist/entitlement/TCC/product/
+storage change.
+deviations: Packet referenced a nonexistent underscored script spelling; actual
+accepted spelling was used. First enumerator command referenced a missing
+timeout path and exited before launch; one sole enumeration then ran. No extra
+hardware attempt.
+residual: Debug-spike pre-attempt event_log_path_mismatch; authorization/media/
+preservation/metrics unavailable. No retry.
+next_dependency: DV-P0B-CAPTURE-R08-REVIEW.
 runtime_or_visual_handoff: none
 ```
