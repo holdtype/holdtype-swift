@@ -265,8 +265,10 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09@20787c4` | read-only exact repair/provenance review | rejected | receipt below | Return exact three-path leaf no-follow repair; no runtime. |
 | `DV-P0B-CAPTURE-W09-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W09 review | Launch, Launch tests, W01 summary only | accepted_with_residual | `7342f18`; receipt below | No-follow final-leaf repair accepted; Debug trust residual remains. |
 | `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1@7342f18` | read-only exact repair/provenance review | accepted_with_residual | receipt below | One separately admitted hardware attempt is dependency-ready. |
-| `DV-P0B-CAPTURE-R09` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W09 Review-R1; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R09 QA root; exact internal temp media root only | review / functional_fail | `8c5ea02`; receipt below | Probes/passthrough pass; strict preservation reading_failed; review running. |
-| `DV-P0B-CAPTURE-R09-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R09@8c5ea02` | read-only exact runtime evidence/provenance | running | — | No subsequent runtime before review. |
+| `DV-P0B-CAPTURE-R09` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W09 Review-R1; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R09 QA root; exact internal temp media root only | accepted_evidence / functional_fail | `8c5ea02`; receipt below | Probes/passthrough pass; strict preservation reading_failed. |
+| `DV-P0B-CAPTURE-R09-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R09@8c5ea02` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Closed operation/side diagnostic repair before any retry. |
+| `DV-P0B-CAPTURE-W10` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R09-REVIEW` | Debug preservation/event/launch/script/test owners and W01 summary only | running | — | Split reading_failed by closed operation and asset side; no runtime. |
+| `DV-P0B-CAPTURE-W10-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W10` terminal receipt | read-only exact repair/provenance review | queued | — | No hardware retry until accepted. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -498,8 +500,9 @@ other external root remain unauthorized.
   three-path R1 `7342f18` adds no-follow final-leaf validation and is accepted
   with the existing Debug trust residual. One serialized no-retry R09 hardware
   attempt completed: probes and passthrough passed, strict preservation failed
-  at reading_failed, and Ready remained zero. Independent review is running;
-  no further runtime is implied.
+  at reading_failed, and Ready remained zero. Review accepts the evidence and
+  functional fail but cannot classify the low-level reader operation or asset
+  side. Debug-only W10 diagnostic refinement is running; no runtime is implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8447,5 +8450,48 @@ not cause re-enumeration. No retry, fallback or second invocation.
 residual: Debug-spike strict preservation reading_failed; no lower-level cause
 or unavailable quantitative value is inferred.
 next_dependency: DV-P0B-CAPTURE-R09-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R09-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R09-REVIEW
+status: done
+verdict: accept_with_residual
+evidence_result: accept
+functional_result: fail
+reviewed_commit: 8c5ea025e56ef2982c802f48295d84127abe51e9
+parent: d3a5b2dd60da7ad0a16cb8d49bf139c98397a0c8
+
+outcome: Exact nine-file evidence supports one explicit Continuity attempt,
+authorized capture, playable camera 1V/0A, passthrough, playable final 1V/1A,
+then strict stored_sample_exact_v1 reading_failed with zero Ready and no retry.
+
+dimension_classification: reading_failed is a legitimate closed typed
+dimension emitted by the stored-sample comparator. It combines sample-data
+copying, sample-size/timing extraction and non-completed reader status,
+potentially on either camera or finalized media. Retained evidence cannot
+identify the operation or side; comparator defect, finalizer artifact defect
+and AVFoundation/platform behavior remain unclassified.
+
+measurements: Retained finite cadence/timestamp/rate values are evidence_only.
+Sample/file bytes, exact durations, latency, resources, sync and drift are
+null/unavailable; no threshold or marker claim is made.
+
+checks: Exact commit/parent/nine paths/current blobs; duplicate-key structured
+parsing; CSV shape/order/cardinality and cross-counts; media semantics;
+redaction/no-media; cleanup/protected-count consistency all pass.
+
+cleanup: Publication/consumption exactly once; raw media, handoff and run-owned
+processes/roots absent; one unrelated root preserved; protected counts remain
+54/0/0/53/0.
+scope_check: Read-only evidence review; no source, runtime, TCC, external or
+protected-owner change/action.
+deviations: Pre-runtime spelling, post-enumeration zsh and plist-linter issues
+do not alter the single enumeration/invocation/attempt counts.
+residual: Strict preservation and quantitative closure remain failed.
+next_dependency: Debug-only closed reader operation and asset-side diagnostic
+repair, independent review, and no runtime before acceptance.
 runtime_or_visual_handoff: none
 ```
