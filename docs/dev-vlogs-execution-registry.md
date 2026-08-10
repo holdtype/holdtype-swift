@@ -253,8 +253,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9@fec202a` | read-only exact repair review | accepted_with_residual | receipt below | Debug observer seam accepted; no runtime implied. |
 | `DV-P0B-CAPTURE-R07` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2; accepted Storage Observer Review-R9 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | accepted_evidence / functional_fail | `603956c`; receipt below | One invalid_configuration terminal before attempt start; no authorization/handoff/media. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07@603956c` | read-only exact runtime evidence and W07-R3 provenance | accepted_with_residual | receipt below | Evidence accepted; typed pre-attempt configuration diagnosis is the exact repair dependency. |
-| `DV-P0B-CAPTURE-W08` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R07-REVIEW` | exact Debug launch/event diagnostic, launch and handoff tests, spike script, W01 summary only if claim changes | running | — | Closed redacted configuration-stage diagnostic; no runtime. |
-| `DV-P0B-CAPTURE-W08-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08` terminal receipt | read-only exact repair/provenance review | queued | — | No camera retry until accepted. |
+| `DV-P0B-CAPTURE-W08` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R07-REVIEW` | exact Debug launch/event diagnostic, launch and handoff tests, spike script, W01 summary only if claim changes | review | `1387b64`; receipt below | Twelve closed pre-attempt stages over fixed-FD transport; independent review running. |
+| `DV-P0B-CAPTURE-W08-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08@1387b64` | read-only exact repair/provenance review | running | — | No camera retry until accepted. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -467,6 +467,9 @@ other external root remain unauthorized.
   invalid_configuration before attempt start; authorization, capture, media,
   preservation and measurements remain unavailable. No retry is authorized
   until the typed pre-attempt configuration diagnostic repair W08 is accepted.
+- Capture W08 `1387b64` adds twelve closed redacted configuration stages over a
+  fixed descriptor owned by the script handoff authority. It is in independent
+  review; no hardware retry is implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -7931,5 +7934,45 @@ residual: Functional capture remains failed; exact configuration stage,
 authorization, media, preservation and measurements remain unavailable.
 next_dependency: DV-P0B-CAPTURE-W08, then independent W08 review. No runtime
 retry is authorized.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08
+status: done
+commit: 1387b641dd3fc60e309eb7619dabe678ff63d672
+parent: d93262a97091ae0f4a7b97725fad03c924b7e8d0
+
+outcome: Added a Debug-only closed redacted pre-attempt configuration
+diagnostic while preserving the public invalid_configuration terminal, zero
+attempt events and zero Ready.
+
+closed_dimensions: isolation_not_enabled, automation_not_enabled,
+keychain_ui_not_suppressed, run_root_missing, event_log_missing,
+camera_id_missing, run_root_outside_temporary_root, event_log_path_mismatch,
+duration_invalid, case_id_invalid, run_paths_unavailable, unknown.
+
+transport: The script pre-opens fixed FD 3 inside its pinned handoff authority.
+The target emits only a closed line. The script descriptor-relatively publishes
+a strict mode-0400 configuration.json; the existing identity/digest consumer
+validates and consumes it once. Rejected configuration paths are not used.
+
+checks: Structure; focused 21/21; Launch 12/12; ordinary serial Phase0B
+117/117; signed Debug build-only/codesign; unsigned Release and settings/symbol
+isolation; script CLI/syntax; eight protected hashes; diff/redaction/scope/
+process/root audits all pass.
+
+scope_check: Exact six paths; no camera, microphone, TCC, app runtime,
+permission mode, product/media/storage/project/plist/entitlement/Release/iOS or
+external-storage action.
+deviations: A broad 118-test invocation included one protected hosted-storage
+case without its required private runner environment; the 117 ordinary suites
+passed and no protected owner was edited. One zsh reserved-variable fixture
+was repaired and its exact residual removed.
+residual: R07 remains historically unattributed. This repair requires
+independent review before any separately authorized retry.
+next_dependency: DV-P0B-CAPTURE-W08-REVIEW.
 runtime_or_visual_handoff: none
 ```
