@@ -255,8 +255,8 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07@603956c` | read-only exact runtime evidence and W07-R3 provenance | accepted_with_residual | receipt below | Evidence accepted; typed pre-attempt configuration diagnosis is the exact repair dependency. |
 | `DV-P0B-CAPTURE-W08` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R07-REVIEW` | exact Debug launch/event diagnostic, launch and handoff tests, spike script, W01 summary only if claim changes | rejected | `1387b64`; receipt below | Mapping mostly closes, but route/framing/replacement cleanup fail review. |
 | `DV-P0B-CAPTURE-W08-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08@1387b64` | read-only exact repair/provenance review | rejected | receipt below | Return exact five-path R1; no runtime. |
-| `DV-P0B-CAPTURE-W08-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 review | Launch, Launch tests, spike script, handoff tests, W01 summary only | running | — | Repair actual route, exact LF framing and identity-mismatch retention. |
-| `DV-P0B-CAPTURE-W08-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R1` terminal receipt | read-only exact repair review | queued | — | No camera retry until accepted. |
+| `DV-P0B-CAPTURE-W08-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 review | Launch, Launch tests, spike script, handoff tests, W01 summary only | review | `d1f5f5f`; receipt below | Route/framing/identity retention repaired; independent Review-R1 running. |
+| `DV-P0B-CAPTURE-W08-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R1@d1f5f5f` | read-only exact repair review | running | — | No camera retry until accepted. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -472,6 +472,9 @@ other external root remain unauthorized.
 - Capture W08 `1387b64` was rejected: the real router bypasses one declared
   stage, FD3 framing is not exact, and identity-mismatched diagnostic evidence
   can be pathname-deleted. Five-path R1 is running; no hardware retry is
+  implied.
+- Capture W08-R1 `d1f5f5f` repairs the exact route, LF framing and identity
+  retention findings and is in independent review. No hardware retry is
   implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
@@ -8014,5 +8017,42 @@ deviations: Hosted-storage case was excluded because its dedicated private
 runner was unavailable.
 residual: Runtime remains unauthorized; hardware evidence remains future work.
 next_dependency: DV-P0B-CAPTURE-W08-R1, then independent Review-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08-R1
+status: done
+commit: d1f5f5fea79afff4907c84c489039a875ad450a9
+parent: 300dd6ef325a334dc10978915e4b84b8386e1673
+
+outcome: Actual routing now leaves truly absent hardware intent on normal
+HoldType while partial/wrong canonical hardware intent selects isolated
+isolation_not_enabled diagnostics. FD3 requires exactly one ASCII LF record
+plus EOF. Captured raw dev/inode/uid/full-mode/type/nlink identity gates every
+publication/deletion; mismatch retains implicated private evidence.
+
+proof: Route factory counters prove normal 1/harness 0 for no hardware intent
+and normal 0 for invalid hardware intent with zero attempt/Ready. Production
+framing rejects missing/extra LF, CRLF, multiple records, NUL, non-ASCII,
+trailing/partial/private/unknown forms. Mode/hardlink/inode/sibling mutation
+returns identity_mismatch, publishes nothing, emits no success and preserves
+the implicated object.
+
+checks: Structure; focused Launch/handoff 21/21; serial 14-suite Phase0B
+115/115; auth-LS 9/9; script CLI/syntax; signed Debug build-only/codesign;
+unsigned Release/settings/artifact isolation; fourteen protected hashes;
+diff/redaction/scope/process/root audits all pass.
+
+scope_check: Exact five paths; EventLog and all protected owners unchanged; no
+app/camera/mic/TCC/permission/hardware/external/protected runtime.
+deviations: An early parallel aggregate collided in a protected permission
+timeout fake; required serial reruns passed. Prior 117 count was stale and was
+corrected to exact 115/115. One reserved zsh local name was repaired before
+final verification.
+residual: R07 remains historically unattributed; no retry before Review-R1.
+next_dependency: DV-P0B-CAPTURE-W08-REVIEW-R1.
 runtime_or_visual_handoff: none
 ```
