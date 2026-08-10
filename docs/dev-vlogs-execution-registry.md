@@ -251,8 +251,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8@8161d60` | read-only exact repair review | rejected | receipt below | Return exact three-path exclusive-rename R9; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R9` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R8 | controller, controller tests and W01 summary only | accepted_with_residual | `fec202a`; receipt below | Genuine exclusive rename and late-collision proof accepted; real observer result remains separate. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9@fec202a` | read-only exact repair review | accepted_with_residual | receipt below | Debug observer seam accepted; no runtime implied. |
-| `DV-P0B-CAPTURE-R07` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2; accepted Storage Observer Review-R9 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | review / functional_fail | `603956c`; receipt below | One invalid_configuration terminal before attempt start; no handoff/media; review running. |
-| `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07@603956c` | read-only exact runtime evidence and W07-R3 provenance | running | — | Distinguish truthful evidence acceptance from functional failure and exact repair dependency. |
+| `DV-P0B-CAPTURE-R07` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2; accepted Storage Observer Review-R9 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | accepted_evidence / functional_fail | `603956c`; receipt below | One invalid_configuration terminal before attempt start; no authorization/handoff/media. |
+| `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07@603956c` | read-only exact runtime evidence and W07-R3 provenance | accepted_with_residual | receipt below | Evidence accepted; typed pre-attempt configuration diagnosis is the exact repair dependency. |
+| `DV-P0B-CAPTURE-W08` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R07-REVIEW` | exact Debug launch/event diagnostic, launch and handoff tests, spike script, W01 summary only if claim changes | running | — | Closed redacted configuration-stage diagnostic; no runtime. |
+| `DV-P0B-CAPTURE-W08-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08` terminal receipt | read-only exact repair/provenance review | queued | — | No camera retry until accepted. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -460,6 +462,11 @@ other external root remain unauthorized.
   evidence integrity; actual non-run-owned writer classification remains a
   separately authorized runtime residual. The one already queued serialized
   `DV-P0B-CAPTURE-R07` is now admitted; no storage-observer runtime is implied.
+- Capture R07 `603956c` evidence is independently accepted while its functional
+  result remains fail. One explicit Continuity invocation terminated
+  invalid_configuration before attempt start; authorization, capture, media,
+  preservation and measurements remain unavailable. No retry is authorized
+  until the typed pre-attempt configuration diagnostic repair W08 is accepted.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -7883,5 +7890,46 @@ extra enumeration or capture.
 residual: Debug-spike invalid_configuration plus absent validated W07 handoff;
 authorization/media/preservation facts unavailable. No retry.
 next_dependency: DV-P0B-CAPTURE-R07-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R07-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R07-REVIEW
+status: done
+verdict: accept_with_residual
+evidence_result: accepted
+functional_result: fail
+reviewed_commit: 603956c02d3dba273db77b73f684d0459b926764
+parent: 67349ecb41d644d94ee8c358238f13b3a9ce3ca9
+
+outcome: Exact nine-file evidence truthfully proves one explicit eligible
+Continuity invocation, one invalid_configuration operator terminal before app
+attempt start, zero Ready/media/retry, and no validated W07 handoff. It proves
+no authorization, capture, probe, passthrough, preservation or measurement.
+
+checks: Exact commit/parent/path/mode/current-blob equality; diff/MIME/text;
+JSON/JSONL/CSV schema, ordering and cross-counts; redaction/private material;
+no-media; cleanup/protected-count consistency all pass.
+
+diagnostic_blocker: DevVlogsPhase0BConfiguration.resolve and makeHarness
+collapse every pre-attempt guard into invalid_configuration. The exact failed
+guard is unavailable and no device, TCC, signing, resolver or filesystem cause
+may be attributed.
+
+smallest_repair: The existing Debug capture/handoff owner must add a closed,
+redacted configuration-stage diagnostic across Launch/EventLog, focused launch
+and handoff tests, and the spike script; W01 summary changes only if its claim
+changes. Preserve zero-attempt semantics, never write through an unvalidated
+path, and keep ordinary two-event handoff behavior unchanged.
+
+scope_check: Read-only; no repository, runtime, TCC, hardware, external-storage
+or process mutation.
+deviations: none
+residual: Functional capture remains failed; exact configuration stage,
+authorization, media, preservation and measurements remain unavailable.
+next_dependency: DV-P0B-CAPTURE-W08, then independent W08 review. No runtime
+retry is authorized.
 runtime_or_visual_handoff: none
 ```
