@@ -261,8 +261,8 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W08-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R2@b418c08` | read-only summary/provenance review | accepted_with_residual | receipt below | One separately packetized hardware attempt is dependency-ready. |
 | `DV-P0B-CAPTURE-R08` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W08 Review-R2; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R08 QA root; exact internal temp media root only | accepted_evidence / functional_fail | `4581e31`; receipt below | Typed event_log_path_mismatch accepted; Launch normalization repair required. |
 | `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08@4581e31` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Three-path Launch normalization repair; no runtime. |
-| `DV-P0B-CAPTURE-W09` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R08-REVIEW` | Launch, Launch tests, W01 summary only | running | — | Symmetric parent canonicalization and exact events.jsonl leaf. |
-| `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09` terminal receipt | read-only exact repair/provenance review | queued | — | No camera retry until accepted. |
+| `DV-P0B-CAPTURE-W09` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R08-REVIEW` | Launch, Launch tests, W01 summary only | review | `20787c4`; receipt below | Symmetric parent canonicalization implemented; independent review running. |
+| `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09@20787c4` | read-only exact repair/provenance review | running | — | Reconcile 115/117 QA provenance; no camera retry. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -489,7 +489,8 @@ other external root remain unauthorized.
 - Capture R08 `4581e31` executed exactly once and failed before attempt start
   with the validated stage event_log_path_mismatch. No authorization, media or
   preservation was reached. Review accepts the evidence and assigns the defect
-  to Launch path normalization; three-path W09 is running.
+  to Launch path normalization. Three-path W09 `20787c4` implemented symmetric
+  parent canonicalization and is in independent review; no runtime is implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8236,5 +8237,44 @@ deviations: none
 residual: Functional capture remains failed; authorization/media/preservation/
 metrics unavailable. No runtime authorized.
 next_dependency: DV-P0B-CAPTURE-W09, then independent W09 review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W09`
+
+```text
+packet_id: DV-P0B-CAPTURE-W09
+status: done
+commit: 20787c42ccbee210cb77a884a9d2fda2a3c6c3b3
+parent: b3b91019697af13f3fa66ca69cae6c790cab7930
+
+outcome: Launch now requires exact events.jsonl leaf and compares a
+symmetrically symlink-resolved and standardized candidate parent with the fixed
+resolved <run_root>/hardware-raw/evidence parent. Canonical paths, equivalent
+filesystem aliases and a parent-symlink alias to that exact parent pass;
+foreign, symlink-escaping, wrong-leaf, directory-shaped and malformed
+candidates fail event_log_path_mismatch before harness construction or writes.
+
+specified_expectation: The validated resolved run root owns the sole event-log
+parent; aliases of that same parent pass, while foreign, escaping and malformed
+paths fail before attempt or Ready. Public invalid_configuration, valid routing
+and zero-attempt semantics remain unchanged.
+
+checks: Structure passes with both changed Swift files exactly 500 lines;
+Launch 12/12; Launch plus frozen handoff 21/21; current exact serial 14-suite
+selection 115/115 with hosted protected-storage excluded; auth-LS 9/9; signed
+Debug build-only/codesign; unsigned Release and settings/artifact isolation;
+script CLI/syntax regressions; fourteen protected hashes; diff, redaction,
+path, mode, process and temporary-root audits all pass.
+
+scope_check: Exactly Launch, LaunchTests and W01 summary changed. Script,
+handoff, EventLog, camera/media/auth/product/project/plist/entitlement owners
+remain byte-identical. No app, camera, microphone, TCC, permission, hardware or
+external-storage runtime occurred.
+deviations: Current Xcode result reports 115/115 for the same named 14-suite
+selection. Historical W08 Review-R1 independently reproduced 117/117 and its
+accepted provenance remains unchanged; review must reconcile the difference.
+residual: R08 remains truthful historical pre-attempt failure. No retry.
+next_dependency: DV-P0B-CAPTURE-W09-REVIEW.
 runtime_or_visual_handoff: none
 ```
