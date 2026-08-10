@@ -1,0 +1,8 @@
+case_id,artifact_class,path_class,byte_count,checksum,probe_result,recovery_classification,retained,cleanup_status
+continuity-10s,dictation_audio,run-owned internal temporary,0,,not_created,not_applicable,no,absent
+continuity-10s,camera_only_video,run-owned internal temporary,0,,not_created,not_applicable,no,absent
+continuity-10s,finalized_clip,run-owned internal temporary,0,,not_created,not_applicable,no,absent
+continuity-10s,raw_event_stream,run-owned internal temporary,0,,not_created,configuration_failure_before_event_path_acceptance,no,absent
+continuity-10s,configuration_diagnostic_snapshot,run-owned internal temporary,,,validated_and_consumed,event_log_path_mismatch,no,consumed_once_and_absent
+continuity-10s,normalized_event_evidence,repository QA evidence,,,normalized,retained,yes,not_applicable
+continuity-10s,normalized_media_probe,repository QA evidence,,,normalized,retained,yes,not_applicable
