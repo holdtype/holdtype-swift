@@ -1,0 +1,70 @@
+{
+  "case_id": "continuity-10s",
+  "evidence_basis": "validated W07-R3 failure handoff with retained passed-stage probe metrics",
+  "camera_only": {
+    "probe_result": "pass",
+    "asset_created": true,
+    "asset_playable": true,
+    "video_track_count": 1,
+    "audio_track_count": 0,
+    "dimensions": [1920, 1080],
+    "display_dimensions": [1920, 1080],
+    "nominal_fps": 29.997304916381836,
+    "average_fps": 29.99731156169966,
+    "video_codec": "avc1",
+    "format_description": "avc1:1920x1080:descriptions_1",
+    "preferred_transform_class": "identity",
+    "sample_count": null,
+    "encoded_bytes": null,
+    "duration_seconds": null,
+    "timestamp_bounds": {
+      "start_seconds": 0,
+      "end_seconds": 10.63429
+    },
+    "estimated_data_rate_bps": 25000.517578125
+  },
+  "finalized": {
+    "probe_result": "pass",
+    "asset_created": true,
+    "asset_playable": true,
+    "video_track_count": 1,
+    "audio_track_count": 1,
+    "passthrough_only": true,
+    "dimensions": [1920, 1080],
+    "display_dimensions": [1920, 1080],
+    "nominal_fps": 29.99730110168457,
+    "average_fps": 23.762311335441897,
+    "video_codec": "avc1",
+    "audio_codec": "aac ",
+    "format_description": "avc1:1920x1080:descriptions_1",
+    "preferred_transform_class": "identity",
+    "video_sample_count": null,
+    "video_encoded_bytes": null,
+    "audio_bytes": null,
+    "final_bytes": null,
+    "duration_seconds": null,
+    "video_timestamp_bounds": {
+      "start_seconds": 0,
+      "end_seconds": 13.45796
+    },
+    "audio_timestamp_bounds": {
+      "start_seconds": 0,
+      "end_seconds": 9.912018843537416
+    },
+    "video_estimated_data_rate_bps": 25145.826171875,
+    "audio_estimated_data_rate_bps": 62374.546875
+  },
+  "preservation": {
+    "method": "stored_sample_exact_v1",
+    "result": "fail",
+    "category": "video_preservation_failed",
+    "failure_dimension": "reading_failed",
+    "source_sample_count": null,
+    "final_sample_count": null,
+    "source_encoded_bytes": null,
+    "final_encoded_bytes": null
+  },
+  "ready_clip_count": 0,
+  "raw_metrics_recovered": true,
+  "quantitative_disposition": "evidence_only_partial"
+}
