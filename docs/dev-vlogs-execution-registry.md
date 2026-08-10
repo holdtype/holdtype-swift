@@ -259,8 +259,10 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W08-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R1@d1f5f5f` | read-only exact repair review | rejected | receipt below | Summary-only R2 and narrow provenance rereview; no runtime. |
 | `DV-P0B-CAPTURE-W08-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 Review-R1 | W01 summary only | accepted_with_residual | `b418c08`; receipt below | Diagnostic repair accepted; R07 remains historical/unattributed. |
 | `DV-P0B-CAPTURE-W08-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R2@b418c08` | read-only summary/provenance review | accepted_with_residual | receipt below | One separately packetized hardware attempt is dependency-ready. |
-| `DV-P0B-CAPTURE-R08` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W08 Review-R2; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R08 QA root; exact internal temp media root only | review / functional_fail | `4581e31`; receipt below | Typed event_log_path_mismatch before attempt; review running. |
-| `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08@4581e31` | read-only exact runtime evidence/provenance | running | — | Validate evidence and identify exact source/script repair; no runtime. |
+| `DV-P0B-CAPTURE-R08` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W08 Review-R2; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R08 QA root; exact internal temp media root only | accepted_evidence / functional_fail | `4581e31`; receipt below | Typed event_log_path_mismatch accepted; Launch normalization repair required. |
+| `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08@4581e31` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Three-path Launch normalization repair; no runtime. |
+| `DV-P0B-CAPTURE-W09` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R08-REVIEW` | Launch, Launch tests, W01 summary only | running | — | Symmetric parent canonicalization and exact events.jsonl leaf. |
+| `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09` terminal receipt | read-only exact repair/provenance review | queued | — | No camera retry until accepted. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -486,7 +488,8 @@ other external root remain unauthorized.
   implied.
 - Capture R08 `4581e31` executed exactly once and failed before attempt start
   with the validated stage event_log_path_mismatch. No authorization, media or
-  preservation was reached; independent evidence/source review is running.
+  preservation was reached. Review accepts the evidence and assigns the defect
+  to Launch path normalization; three-path W09 is running.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8193,5 +8196,45 @@ hardware attempt.
 residual: Debug-spike pre-attempt event_log_path_mismatch; authorization/media/
 preservation/metrics unavailable. No retry.
 next_dependency: DV-P0B-CAPTURE-R08-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R08-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R08-REVIEW
+status: done
+verdict: accept_with_residual
+evidence_result: accept
+functional_result: fail
+reviewed_commit: 4581e31da66a323dd9b0d35d4025f6717a060823
+parent: f3ae739ec8ab42cf6ee7925dbba79e3467818305
+
+outcome: Exact nine-file evidence truthfully proves one eligible Continuity
+enumeration, one invocation and one pre-attempt invalid_configuration terminal
+with validated/consumed event_log_path_mismatch. Attempt/Ready/media/retry are
+zero; authorization and media/preservation/measurements are not reached.
+
+source_diagnosis: Launch resolves symlinks for the run root but only standardizes
+the supplied event URL before comparing it to the fixed
+hardware-raw/evidence/events.jsonl descendant. The script derives that suffix
+from the same resolved run root and does not rewrite it. The supported defect
+class is Launch-owned asymmetric path normalization; the concrete runtime alias
+was intentionally not retained and remains unknown.
+
+smallest_repair: In Launch and LaunchTests, resolve the candidate parent
+symmetrically, require equality with the fixed validated hardware-raw/evidence
+parent and exact events.jsonl leaf. Cover equivalent aliases, foreign or
+symlink-escape parents, wrong leaves, zero-attempt diagnostics and valid config.
+W01 summary changes only for the revised Debug claim. Freeze script/handoff/
+EventLog/W07 cleanup and trust-boundary owners.
+
+checks: Commit/parent/nine paths/current blobs; structured evidence; redaction;
+no-media; cleanup/protected counts all pass.
+scope_check: Read-only evidence and minimum source review; no runtime/edit.
+deviations: none
+residual: Functional capture remains failed; authorization/media/preservation/
+metrics unavailable. No runtime authorized.
+next_dependency: DV-P0B-CAPTURE-W09, then independent W09 review.
 runtime_or_visual_handoff: none
 ```
