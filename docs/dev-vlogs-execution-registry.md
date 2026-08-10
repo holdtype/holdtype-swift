@@ -249,8 +249,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R7@fc177df` | read-only exact repair review | rejected | receipt below | Return exact three-path R8 invariant repair; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R8` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R7 | controller, controller tests and W01 summary only | rejected | `8161d60`; receipt below | Publication ordering passes; final zf_mv primitive is not exclusive. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8@8161d60` | read-only exact repair review | rejected | receipt below | Return exact three-path exclusive-rename R9; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R9` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R8 | controller, controller tests and W01 summary only | running | — | Replace final move with genuine atomic exclusive rename and cover late collision. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9` terminal artifact | read-only exact repair review | queued | — | Review must remain private-hosted and no-runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R9` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R8 | controller, controller tests and W01 summary only | review | `fec202a`; receipt below | Genuine exclusive rename and late-collision proof implemented; independent review running. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9@fec202a` | read-only exact repair review | running | — | Review must remain private-hosted and no-runtime. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7763,5 +7763,40 @@ private root was removed. No user/protected path or durable artifact.
 residual: Non-run-owned writers remain still_unknown; runtime unauthorized.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R9, then independent
 DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R9`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R9
+status: implementation_complete_pending_independent_review
+commit: fec202a10ea44487828a214fc9ee8cc384867f2f
+parent: e321bde9825de186d2eac21893adf564df961229
+
+outcome: Final zf_mv publication is replaced by descriptor-relative,
+identity-validated renameatx_np RENAME_EXCL. Late collisions cannot overwrite
+or nest staged evidence. Failure returns 74 without public success; stable
+publication has no later fallible operation.
+
+collision_proof: Direct primitive collision returns 73 while source,
+destination and sibling survive without nesting. Production late-collision
+returns 74 with no public output; complete staged success, collision and sibling
+remain and canonical is explicitly classified.
+
+checks: Final production-configured private .xctestrun 30/30; signed Debug and
+strict codesign; unsigned Release and observer/storage-host/test artifact
+absence; zsh/CLI, strict C, Swift parse/structure at 500 lines, twelve frozen
+blobs, diff, redaction, path, process and root audits.
+
+scope_check: Exact three paths/modes; no observer --execute, external volume,
+live HOME/protected inspection, Camera/TCC/Keychain/provider/media/product
+runtime or fourth path.
+deviations: One initial focused run exposed only test-fixture variable lifetime
+and was repaired before qualifying evidence. Exact failed-attempt task roots
+were identity/no-follow cleaned; unrelated review-owned root remains untouched.
+The summary records the excluded R8 wrong-prefix rerun.
+residual: Independent Review-R9 only; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9.
 runtime_or_visual_handoff: none
 ```
