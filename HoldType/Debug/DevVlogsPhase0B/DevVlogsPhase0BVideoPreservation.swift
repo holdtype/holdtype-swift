@@ -23,7 +23,7 @@ struct DevVlogsPhase0BVideoTrackPreservationEvidence: Equatable {
 enum DevVlogsPhase0BVideoPreservationError: Error, Equatable {
     case expectedOneVideoTrack
     case readerUnavailable
-    case readingFailed
+    case readingFailed(DevVlogsPhase0BVideoPreservationReaderFailureDetail)
     case sampleCountMismatch
     case sampleBoundaryMismatch
     case encodedPayloadMismatch
@@ -35,6 +35,22 @@ enum DevVlogsPhase0BVideoPreservationError: Error, Equatable {
     case transformMismatch
     case cancelled
     case timedOut
+}
+
+enum DevVlogsPhase0BVideoPreservationAssetSide: String, Codable, Equatable, CaseIterable {
+    case cameraSource = "camera_source"
+    case finalized
+}
+
+enum DevVlogsPhase0BVideoPreservationReaderOperation: String, Codable, Equatable, CaseIterable {
+    case sampleDataCopy = "sample_data_copy"
+    case sampleSizeTimingMetadata = "sample_size_timing_metadata"
+    case readerTerminalStatus = "reader_terminal_status"
+}
+
+struct DevVlogsPhase0BVideoPreservationReaderFailureDetail: Codable, Equatable {
+    let assetSide: DevVlogsPhase0BVideoPreservationAssetSide
+    let operation: DevVlogsPhase0BVideoPreservationReaderOperation
 }
 
 struct DevVlogsPhase0BVideoPreservationRequest {
@@ -209,8 +225,8 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
             let finalizedSample = finalizedOutput.copyNextSampleBuffer()
             switch (cameraSample, finalizedSample) {
             case (nil, nil):
-                try Self.validateReader(cameraReader)
-                try Self.validateReader(finalizedReader)
+                try Self.validateReader(cameraReader, side: .cameraSource)
+                try Self.validateReader(finalizedReader, side: .finalized)
                 return DevVlogsPhase0BVideoPreservationResult(
                     sampleCount: sampleCount,
                     encodedByteCount: encodedBytes,
@@ -235,7 +251,8 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
         let finalizedSize = CMSampleBufferGetTotalSampleSize(finalized)
         guard cameraSize == finalizedSize,
               CMSampleBufferGetNumSamples(camera) == CMSampleBufferGetNumSamples(finalized),
-              try sampleSizes(camera) == sampleSizes(finalized) else {
+              try sampleSizes(camera, side: .cameraSource) ==
+              sampleSizes(finalized, side: .finalized) else {
             throw DevVlogsPhase0BVideoPreservationError.sampleBoundaryMismatch
         }
         switch (CMSampleBufferGetFormatDescription(camera),
@@ -248,8 +265,8 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
         default:
             throw DevVlogsPhase0BVideoPreservationError.formatDescriptionMismatch
         }
-        let sourceTiming = try sampleTiming(camera)
-        let outputTiming = try sampleTiming(finalized)
+        let sourceTiming = try sampleTiming(camera, side: .cameraSource)
+        let outputTiming = try sampleTiming(finalized, side: .finalized)
         guard !sourceTiming.isEmpty, sourceTiming.count == outputTiming.count else {
             throw DevVlogsPhase0BVideoPreservationError.sampleBoundaryMismatch
         }
@@ -270,7 +287,8 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
                 mismatch: .decodeTimestampMismatch
             )
         }
-        guard try sampleData(camera) == sampleData(finalized) else {
+        guard try sampleData(camera, side: .cameraSource) ==
+              sampleData(finalized, side: .finalized) else {
             throw DevVlogsPhase0BVideoPreservationError.encodedPayloadMismatch
         }
         return cameraSize
@@ -304,7 +322,10 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
         }
     }
 
-    private static func sampleData(_ sample: CMSampleBuffer) throws -> Data {
+    private static func sampleData(
+        _ sample: CMSampleBuffer,
+        side: DevVlogsPhase0BVideoPreservationAssetSide
+    ) throws -> Data {
         guard let buffer = CMSampleBufferGetDataBuffer(sample) else {
             throw DevVlogsPhase0BVideoPreservationError.sampleBoundaryMismatch
         }
@@ -323,12 +344,15 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
             )
         }
         guard status == kCMBlockBufferNoErr else {
-            throw DevVlogsPhase0BVideoPreservationError.readingFailed
+            throw readerFailure(side: side, operation: .sampleDataCopy)
         }
         return data
     }
 
-    private static func sampleSizes(_ sample: CMSampleBuffer) throws -> [Int] {
+    private static func sampleSizes(
+        _ sample: CMSampleBuffer,
+        side: DevVlogsPhase0BVideoPreservationAssetSide
+    ) throws -> [Int] {
         var count = 0
         guard CMSampleBufferGetSampleSizeArray(
             sample,
@@ -336,7 +360,7 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
             arrayToFill: nil,
             entriesNeededOut: &count
         ) == noErr else {
-            throw DevVlogsPhase0BVideoPreservationError.readingFailed
+            throw readerFailure(side: side, operation: .sampleSizeTimingMetadata)
         }
         var sizes = [Int](repeating: 0, count: count)
         guard CMSampleBufferGetSampleSizeArray(
@@ -345,12 +369,15 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
             arrayToFill: &sizes,
             entriesNeededOut: &count
         ) == noErr else {
-            throw DevVlogsPhase0BVideoPreservationError.readingFailed
+            throw readerFailure(side: side, operation: .sampleSizeTimingMetadata)
         }
         return sizes
     }
 
-    private static func sampleTiming(_ sample: CMSampleBuffer) throws -> [CMSampleTimingInfo] {
+    private static func sampleTiming(
+        _ sample: CMSampleBuffer,
+        side: DevVlogsPhase0BVideoPreservationAssetSide
+    ) throws -> [CMSampleTimingInfo] {
         var count = 0
         guard CMSampleBufferGetSampleTimingInfoArray(
             sample,
@@ -358,7 +385,7 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
             arrayToFill: nil,
             entriesNeededOut: &count
         ) == noErr else {
-            throw DevVlogsPhase0BVideoPreservationError.readingFailed
+            throw readerFailure(side: side, operation: .sampleSizeTimingMetadata)
         }
         let empty = CMSampleTimingInfo(
             duration: .invalid,
@@ -372,17 +399,27 @@ nonisolated final class DevVlogsPhase0BAppleStoredVideoComparator:
             arrayToFill: &timing,
             entriesNeededOut: &count
         ) == noErr else {
-            throw DevVlogsPhase0BVideoPreservationError.readingFailed
+            throw readerFailure(side: side, operation: .sampleSizeTimingMetadata)
         }
         return timing
     }
 
-    private static func validateReader(_ reader: AVAssetReader) throws {
+    private static func validateReader(
+        _ reader: AVAssetReader,
+        side: DevVlogsPhase0BVideoPreservationAssetSide
+    ) throws {
         switch reader.status {
         case .completed: return
         case .cancelled: throw DevVlogsPhase0BVideoPreservationError.cancelled
-        default: throw DevVlogsPhase0BVideoPreservationError.readingFailed
+        default: throw readerFailure(side: side, operation: .readerTerminalStatus)
         }
+    }
+
+    static func readerFailure(
+        side: DevVlogsPhase0BVideoPreservationAssetSide,
+        operation: DevVlogsPhase0BVideoPreservationReaderOperation
+    ) -> DevVlogsPhase0BVideoPreservationError {
+        .readingFailed(.init(assetSide: side, operation: operation))
     }
 
     private static func displayDimensions(_ size: CGSize, _ transform: CGAffineTransform) -> CGSize {

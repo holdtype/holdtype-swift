@@ -10,12 +10,14 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         for scenario in [
             "valid", "valid_ready", "valid_cancelled",
             "valid_preservation_cancelled", "valid_preservation_timed_out",
+            "valid_reader_camera_source_sample_data_copy", "valid_reader_camera_source_sample_size_timing_metadata",
+            "valid_reader_camera_source_reader_terminal_status", "valid_reader_finalized_sample_data_copy",
+            "valid_reader_finalized_sample_size_timing_metadata", "valid_reader_finalized_reader_terminal_status",
         ] {
             let result = try runScenario(scenario)
             defer { remove(result.outerRoot) }
             #expect(result.status == 0)
-            #expect(result.output.contains("hardware_evidence_handoff=validated"))
-            #expect(result.output.contains("cleanup=trusted_debug_consumer_once"))
+            #expect(result.output.contains("hardware_evidence_handoff=validated")); #expect(result.output.contains("cleanup=trusted_debug_consumer_once"))
 
             let authority = try authority(in: result.output)
             let retainedRoot = result.outerRoot.appendingPathComponent(
@@ -38,10 +40,8 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
     }
     @Test func everyProtectedOrdinaryFailureFormPublishesAndConsumes() throws {
         let categories = [
-            "audio_start", "camera_permission_required", "camera_permission_denied",
-            "camera_selection_disconnected", "camera_start_device_unavailable", "camera_selection_busy",
-            "camera_configuration_video_input", "camera_configuration_movie_output",
-            "camera_configuration_sample_output", "camera_start_timed_out", "camera_first_frame_unavailable",
+            "audio_start", "camera_permission_required", "camera_permission_denied", "camera_selection_disconnected", "camera_start_device_unavailable", "camera_selection_busy",
+            "camera_configuration_video_input", "camera_configuration_movie_output", "camera_configuration_sample_output", "camera_start_timed_out", "camera_first_frame_unavailable",
             "camera_recording_failed", "camera_interruption_disconnected", "camera_session_runtime_failure",
             "camera_session_not_capturing", "camera_unknown", "capture_stop", "camera_probe",
             "passthrough_incompatible", "passthrough_export_failed", "finalization", "final_probe",
@@ -79,6 +79,7 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             "wrong_case", "wrong_ids", "invalid_run_id", "invalid_attempt_id", "wrong_order", "missing_start",
             "missing_terminal", "duplicate_terminal", "ready_plus_failure", "unexpected_event",
             "arbitrary_category", "impossible_failure_category", "arbitrary_dimension",
+            "missing_reader_detail", "reader_on_other_dimension", "unknown_reader_side", "unknown_reader_operation", "reader_extra_key", "duplicate_reader_nested",
             "wrong_result_dimension", "arbitrary_device", "identifier_too_long", "private_data",
             "private_subtype", "nonfinite_metric", "out_of_range_metric", "unexpected_metric", "wrong_unit",
             "wrong_disposition", "wrong_metric_value", "duplicate_metric", "missing_required_metric",

@@ -240,13 +240,11 @@ final class DevVlogsPhase0BHarness {
             )
         } catch {
             let dimension = DevVlogsPhase0BVideoPreservationFailureDimension(error: error)
-            let result: DevVlogsPhase0BResult = switch dimension {
-            case .cancelled: .cancelled
-            case .timedOut: .timedOut
-            default: .failed
-            }
+            let readerDetail = DevVlogsPhase0BVideoPreservationReaderFailureDetail(error: error)
+            let result: DevVlogsPhase0BResult = dimension == .cancelled ? .cancelled :
+                (dimension == .timedOut ? .timedOut : .failed)
             return fail(
-                .videoPreservationFailed(dimension),
+                .videoPreservationFailed(dimension, readerDetail),
                 attemptID: attemptID,
                 result: result,
                 cameraProbe: cameraProbe,
@@ -291,9 +289,10 @@ final class DevVlogsPhase0BHarness {
         finalProbe: DevVlogsPhase0BMediaProbeResult? = nil
     ) -> DevVlogsPhase0BHarnessOutcome {
         let dimension: DevVlogsPhase0BVideoPreservationFailureDimension?
-        if case .videoPreservationFailed(let value) = failure { dimension = value } else {
-            dimension = nil
-        }
+        let readerDetail: DevVlogsPhase0BVideoPreservationReaderFailureDetail?
+        if case .videoPreservationFailed(let value, let detail) = failure {
+            dimension = value; readerDetail = detail
+        } else { dimension = nil; readerDetail = nil }
         let stageEvidence = cameraProbe.flatMap { camera in finalProbe.map { final in
             DevVlogsPhase0BFailureStageEvidence(
                 cameraProbePassed: true, passthroughCompleted: true, finalProbePassed: true,
@@ -314,10 +313,9 @@ final class DevVlogsPhase0BHarness {
             category: failure.category,
             metrics: metrics,
             preservationFailureDimension: dimension,
+            preservationReaderFailureDetail: readerDetail,
             failureStageEvidence: stageEvidence
-        ) else {
-            return .failed(.eventLog)
-        }
+        ) else { return .failed(.eventLog) }
         return .failed(failure)
     }
     private func record(
@@ -330,6 +328,7 @@ final class DevVlogsPhase0BHarness {
         metrics: [DevVlogsPhase0BMetric] = [],
         videoEvidence: DevVlogsPhase0BVideoEvidence? = nil,
         preservationFailureDimension: DevVlogsPhase0BVideoPreservationFailureDimension? = nil,
+        preservationReaderFailureDetail: DevVlogsPhase0BVideoPreservationReaderFailureDetail? = nil,
         failureStageEvidence: DevVlogsPhase0BFailureStageEvidence? = nil
     ) -> Bool {
         let event = DevVlogsPhase0BEvent(
@@ -345,6 +344,7 @@ final class DevVlogsPhase0BHarness {
             metrics: metrics,
             videoEvidence: videoEvidence,
             preservationFailureDimension: preservationFailureDimension,
+            preservationReaderFailureDetail: preservationReaderFailureDetail,
             failureStageEvidence: failureStageEvidence
         )
         do { try eventLog.record(event); return true } catch { return false }

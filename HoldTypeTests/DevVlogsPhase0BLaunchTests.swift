@@ -147,11 +147,12 @@ struct DevVlogsPhase0BLaunchTests {
         }
     }
     @Test func passthroughAndPreservationFailuresNeverBecomeReady() async {
+        let readingDetail = DevVlogsPhase0BVideoPreservationReaderFailureDetail(assetSide: .finalized, operation: .readerTerminalStatus)
         let cases: [(HarnessFixture, DevVlogsPhase0BHarnessFailure)] = [
             (makeFixture(finalizerFailure: .passthroughIncompatible), .passthroughIncompatible),
             (makeFixture(finalizerFailure: .passthroughExportFailed), .passthroughExportFailed),
-            (makeFixture(preservationFailure: .encodedPayloadMismatch),
-             .videoPreservationFailed(.encodedPayloadMismatch)),
+            (makeFixture(preservationFailure: .readingFailed(readingDetail)),
+             .videoPreservationFailed(.readingFailed, readingDetail)),
         ]
         for (fixture, expected) in cases {
             let outcome = await fixture.harness.run()
@@ -160,20 +161,19 @@ struct DevVlogsPhase0BLaunchTests {
             #expect(fixture.events.events.filter { $0.result == .ready }.isEmpty)
             #expect(fixture.events.events.filter { $0.action == "attempt_terminal" }.count == 1)
         }
-        #expect(cases[0].0.probe.expectations == [.cameraOnly])
-        #expect(cases[1].0.probe.expectations == [.cameraOnly])
-        #expect(cases[2].0.probe.expectations == [.cameraOnly, .finalized])
-        #expect(cases[2].0.preservation.callCount == 1)
+        #expect(cases[0].0.probe.expectations == [.cameraOnly]); #expect(cases[1].0.probe.expectations == [.cameraOnly])
+        #expect(cases[2].0.probe.expectations == [.cameraOnly, .finalized]); #expect(cases[2].0.preservation.callCount == 1)
         let terminal = cases[2].0.events.events.last
-        #expect(terminal?.preservationFailureDimension == .encodedPayloadMismatch)
+        #expect(terminal?.preservationFailureDimension == .readingFailed); #expect(terminal?.preservationReaderFailureDetail == readingDetail)
+        #expect(DevVlogsPhase0BOperatorSummary.line(for: .failed(
+            .videoPreservationFailed(.readingFailed, readingDetail)
+        )).contains("preservation_asset=finalized preservation_operation=reader_terminal_status"))
         #expect(terminal?.failureStageEvidence?.cameraProbePassed == true)
-        #expect(terminal?.failureStageEvidence?.passthroughCompleted == true)
-        #expect(terminal?.failureStageEvidence?.finalProbePassed == true)
-        #expect(terminal?.failureStageEvidence?.cameraMediaSubtype == "avc1")
-        #expect(terminal?.failureStageEvidence?.finalizedAudioMediaSubtype == "aac ")
+        #expect(terminal?.failureStageEvidence?.passthroughCompleted == true); #expect(terminal?.failureStageEvidence?.finalProbePassed == true)
+        #expect(terminal?.failureStageEvidence?.cameraMediaSubtype == "avc1"); #expect(terminal?.failureStageEvidence?.finalizedAudioMediaSubtype == "aac ")
         #expect(terminal?.metrics.contains { $0.name == "camera_width" } == true)
         #expect(DevVlogsPhase0BOperatorSummary.line(for: .failed(
-            .videoPreservationFailed(.timedOut))).contains("result=timed_out"))
+            .videoPreservationFailed(.timedOut, nil))).contains("result=timed_out"))
         #expect(await cases[2].0.harness.run() == .failed(.alreadyRun))
         #expect(cases[2].0.events.events.filter { $0.action == "attempt_terminal" }.count == 1)
     }

@@ -135,7 +135,18 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   the already-proven camera probe, passthrough completion, final probe,
   realized closed codec/format evidence, and numeric probe metrics; timeout and
   cancellation remain distinct, and no preservation failure can emit Ready or
-  retry. For this Phase 0B Debug evidence lane only, the accepted trust boundary
+  retry. The Debug comparator diagnostic additionally splits a locally
+  generated `reading_failed` into exactly six
+  reader details: camera source or finalized asset, crossed with sample-data
+  copy, combined sample-size/timing-metadata extraction, or reader terminal
+  status. The public category and outer `reading_failed` dimension remain
+  unchanged. The detail is required only for that typed dimension; every other
+  preservation dimension omits it. The EventLog writer and retained-handoff
+  validator reject missing, cross-dimension, duplicate, extra, unknown, or
+  private-valued reader details. The compact operator terminal reports only the
+  two closed labels. This is fake-verified diagnostic evidence for a future
+  attempt and does not retroactively classify R09.
+  For this Phase 0B Debug evidence lane only, the accepted trust boundary
   treats one random run-owned mode-0700 temp root as trusted against undetected
   same-UID namespace replacement; this is not a same-UID adversary-resistance
   claim and does not weaken product storage or deletion rules. Cleanup ownership
@@ -175,7 +186,7 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 21/21 launch and production-handoff tests cover every configuration guard, no-follow regular/absent/symlink/non-regular leaf handling, unchanged foreign and same-parent targets, foreign fallback, exact operator terminal, descriptor-disabled behavior, valid alternate publication/consumption, malformed/duplicate/extra/private forms, and unchanged ordinary handoff behavior. The current W09 14-suite serial selection passed 115/115: PreviewLaunch 5 plus PreviewSession 8 replace the historical W08 selection's ProtectedStorageObserverController 11 plus ProtectedStorageObserver 4, while the other twelve suites are identical. The historical W08 selection remains independently reproduced at 117/117. The separate protected-storage hosted test still requires its accepted private runner environment and is not claimed by either ordinary invocation. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, preservation dimensions, authorization, and redaction remain covered. |
+| Focused macOS fake tests | Pass; 29/29 logical preservation, EventLog, Launch, and production-handoff tests cover all six reader side/operation pairs, exact one-terminal propagation and operator labels, detail omission on other dimensions, writer rejection of invalid combinations, publish/consume-once for every valid pair, and fail-closed missing/extra/unknown/duplicate/cross-dimension/private schemas. Existing configuration guards, W09 leaf safety, ordinary W07 handoff, one-audio-owner, probes/passthrough, Ready gating, cancellation/timeout, lifecycle, authorization, and redaction remain covered. The current 14-suite serial selection remains 115/115: PreviewLaunch 5 plus PreviewSession 8 replace the historical W08 selection's ProtectedStorageObserverController 11 plus ProtectedStorageObserver 4, while the other twelve suites are identical. The historical W08 selection remains independently reproduced at 117/117. The separate protected-storage hosted test still requires its accepted private runner environment and is not claimed by either ordinary invocation. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |

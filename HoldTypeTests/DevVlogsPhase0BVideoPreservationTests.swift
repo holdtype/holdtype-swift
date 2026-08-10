@@ -10,7 +10,9 @@ struct DevVlogsPhase0BVideoPreservationTests {
         let mappings: [(DevVlogsPhase0BVideoPreservationError,
                         DevVlogsPhase0BVideoPreservationFailureDimension)] = [
             (.expectedOneVideoTrack, .expectedOneVideoTrack),
-            (.readerUnavailable, .readerUnavailable), (.readingFailed, .readingFailed),
+            (.readerUnavailable, .readerUnavailable),
+            (.readingFailed(.init(assetSide: .cameraSource, operation: .sampleDataCopy)),
+             .readingFailed),
             (.sampleCountMismatch, .sampleCountMismatch),
             (.sampleBoundaryMismatch, .sampleBoundaryMismatch),
             (.encodedPayloadMismatch, .encodedPayloadMismatch),
@@ -29,6 +31,18 @@ struct DevVlogsPhase0BVideoPreservationTests {
         let values = DevVlogsPhase0BVideoPreservationFailureDimension.allCases.map(\.rawValue)
         #expect(Set(values).count == values.count)
         #expect(values.allSatisfy { !$0.contains("/") && !$0.contains("private") })
+        for side in DevVlogsPhase0BVideoPreservationAssetSide.allCases {
+            for operation in DevVlogsPhase0BVideoPreservationReaderOperation.allCases {
+                let detail = DevVlogsPhase0BVideoPreservationReaderFailureDetail(
+                    assetSide: side, operation: operation
+                )
+                let error = DevVlogsPhase0BAppleStoredVideoComparator.readerFailure(
+                    side: side, operation: operation
+                )
+                #expect(DevVlogsPhase0BVideoPreservationFailureDimension(error: error) == .readingFailed)
+                #expect(DevVlogsPhase0BVideoPreservationReaderFailureDetail(error: error) == detail)
+            }
+        }
     }
 
     @Test func identicalStoredSamplesWithOneConstantInsertionOffsetPass() throws {
@@ -200,7 +214,9 @@ struct DevVlogsPhase0BVideoPreservationTests {
             )
         }
         guard status == kCMBlockBufferNoErr else {
-            throw DevVlogsPhase0BVideoPreservationError.readingFailed
+            throw DevVlogsPhase0BVideoPreservationError.readingFailed(
+                .init(assetSide: .cameraSource, operation: .sampleDataCopy)
+            )
         }
         var timing = CMSampleTimingInfo(
             duration: time(duration),
@@ -221,7 +237,9 @@ struct DevVlogsPhase0BVideoPreservationTests {
             sampleBufferOut: &sample
         )
         guard status == noErr, let sample else {
-            throw DevVlogsPhase0BVideoPreservationError.readingFailed
+            throw DevVlogsPhase0BVideoPreservationError.readingFailed(
+                .init(assetSide: .cameraSource, operation: .sampleSizeTimingMetadata)
+            )
         }
         return sample
     }

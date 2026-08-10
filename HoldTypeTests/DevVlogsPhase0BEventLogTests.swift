@@ -27,7 +27,10 @@ struct DevVlogsPhase0BEventLogTests {
                 metrics: [
                     .init(name: "video_duration", value: 10, unit: "s", disposition: "evidence_only"),
                 ],
-                preservationFailureDimension: .encodedPayloadMismatch,
+                preservationFailureDimension: .readingFailed,
+                preservationReaderFailureDetail: .init(
+                    assetSide: .cameraSource, operation: .sampleDataCopy
+                ),
                 failureStageEvidence: .init(
                     cameraProbePassed: true, passthroughCompleted: true,
                     finalProbePassed: true, cameraMediaSubtype: "hvc1",
@@ -42,7 +45,8 @@ struct DevVlogsPhase0BEventLogTests {
         #expect(payload.hasSuffix("\n"))
         #expect(payload.contains("video_preservation_failed"))
         #expect(payload.contains("hvc1"))
-        #expect(payload.contains("encoded_payload_mismatch"))
+        #expect(payload.contains("reading_failed"))
+        #expect(payload.contains("camera_source")); #expect(payload.contains("sample_data_copy"))
         #expect(payload.contains("passthroughCompleted"))
         #expect(!payload.contains("digest"))
         #expect(!payload.contains(directory.path))
@@ -53,8 +57,29 @@ struct DevVlogsPhase0BEventLogTests {
         #expect(Set(object.keys) == [
             "runID", "caseID", "attemptID", "monotonicMilliseconds", "action", "result",
             "category", "metrics", "preservation_failure_dimension",
-            "failure_stage_evidence",
+            "preservation_reader_failure_detail", "failure_stage_evidence",
         ])
+        let other = try JSONEncoder().encode(DevVlogsPhase0BEvent(
+            runID: "run", caseID: "case", attemptID: "attempt", monotonicMilliseconds: 2,
+            action: "attempt_terminal", result: .failed, category: .videoPreservationFailed,
+            preservationFailureDimension: .encodedPayloadMismatch
+        ))
+        #expect(!String(decoding: other, as: UTF8.self).contains("preservation_reader_failure_detail"))
+        for invalid in [
+            DevVlogsPhase0BEvent(runID: "run", caseID: "case", attemptID: "attempt",
+                monotonicMilliseconds: 3, action: "attempt_terminal", result: .failed,
+                category: .videoPreservationFailed, preservationFailureDimension: .readingFailed),
+            DevVlogsPhase0BEvent(runID: "run", caseID: "case", attemptID: "attempt",
+                monotonicMilliseconds: 4, action: "attempt_terminal", result: .failed,
+                category: .videoPreservationFailed,
+                preservationFailureDimension: .encodedPayloadMismatch,
+                preservationReaderFailureDetail: .init(assetSide: .finalized,
+                    operation: .sampleDataCopy)),
+        ] {
+            #expect(throws: DevVlogsPhase0BEventLogError.invalidPreservationReaderDetail) {
+                try log.record(invalid)
+            }
+        }
     }
 
     @Test func acknowledgmentCategoriesAndStageRemainClosedAndRedacted() throws {

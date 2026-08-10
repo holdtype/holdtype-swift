@@ -147,6 +147,14 @@ enum DevVlogsPhase0BVideoPreservationFailureDimension: String, Codable, Equatabl
     }
 }
 
+extension DevVlogsPhase0BVideoPreservationReaderFailureDetail {
+    init?(error: Error) {
+        guard case .readingFailed(let detail) = error as? DevVlogsPhase0BVideoPreservationError
+        else { return nil }
+        self = detail
+    }
+}
+
 enum DevVlogsPhase0BCameraAuthorizationStage: String, Codable, Equatable, CaseIterable {
     case routeStarted = "route_started"
     case regularPolicySet = "regular_policy_set"
@@ -167,7 +175,10 @@ enum DevVlogsPhase0BHarnessFailure: Error, Equatable {
     case cameraStart(DevVlogsPhase0BFailureCategory)
     case captureStop, cameraProbe, passthroughIncompatible, passthroughExportFailed
     case finalization, finalProbe, eventLog, alreadyRun
-    case videoPreservationFailed(DevVlogsPhase0BVideoPreservationFailureDimension)
+    case videoPreservationFailed(
+        DevVlogsPhase0BVideoPreservationFailureDimension,
+        DevVlogsPhase0BVideoPreservationReaderFailureDetail?
+    )
 
     var category: DevVlogsPhase0BFailureCategory {
         switch self {
@@ -193,14 +204,18 @@ enum DevVlogsPhase0BOperatorSummary {
         case .ready:
             return "dev_vlogs_phase_0b result=ready"
         case .failed(let failure):
-            if case .videoPreservationFailed(let dimension) = failure {
+            if case .videoPreservationFailed(let dimension, let detail) = failure {
                 let result = switch dimension {
                 case .cancelled: "cancelled"
                 case .timedOut: "timed_out"
                 default: "failed"
                 }
+                let reader = detail.map {
+                    " preservation_asset=\($0.assetSide.rawValue)" +
+                        " preservation_operation=\($0.operation.rawValue)"
+                } ?? ""
                 return "dev_vlogs_phase_0b result=\(result) category=\(failure.category.rawValue) " +
-                    "preservation_error=\(dimension.rawValue) " +
+                    "preservation_error=\(dimension.rawValue)\(reader) " +
                     "stages=camera_probe,passthrough,final_probe"
             } else {
                 return "dev_vlogs_phase_0b result=failed category=\(failure.category.rawValue)"
@@ -350,6 +365,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
     let metrics: [DevVlogsPhase0BMetric]
     let videoEvidence: DevVlogsPhase0BVideoEvidence?
     let preservationFailureDimension: DevVlogsPhase0BVideoPreservationFailureDimension?
+    let preservationReaderFailureDetail: DevVlogsPhase0BVideoPreservationReaderFailureDetail?
     let failureStageEvidence: DevVlogsPhase0BFailureStageEvidence?
 
     private enum CodingKeys: String, CodingKey {
@@ -357,6 +373,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         case furthestStage = "furthest_stage"
         case deviceClass, redactedDeviceLabel, metrics, videoEvidence
         case preservationFailureDimension = "preservation_failure_dimension"
+        case preservationReaderFailureDetail = "preservation_reader_failure_detail"
         case failureStageEvidence = "failure_stage_evidence"
     }
 
@@ -374,6 +391,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         metrics: [DevVlogsPhase0BMetric] = [],
         videoEvidence: DevVlogsPhase0BVideoEvidence? = nil,
         preservationFailureDimension: DevVlogsPhase0BVideoPreservationFailureDimension? = nil,
+        preservationReaderFailureDetail: DevVlogsPhase0BVideoPreservationReaderFailureDetail? = nil,
         failureStageEvidence: DevVlogsPhase0BFailureStageEvidence? = nil
     ) {
         self.runID = runID
@@ -389,6 +407,7 @@ struct DevVlogsPhase0BEvent: Codable, Equatable {
         self.metrics = metrics
         self.videoEvidence = videoEvidence
         self.preservationFailureDimension = preservationFailureDimension
+        self.preservationReaderFailureDetail = preservationReaderFailureDetail
         self.failureStageEvidence = failureStageEvidence
     }
 }
@@ -408,6 +427,10 @@ struct DevVlogsPhase0BJSONLEventLog: DevVlogsPhase0BEventLogging {
     }
 
     func record(_ event: DevVlogsPhase0BEvent) throws {
+        let hasReaderDetail = event.preservationReaderFailureDetail != nil
+        guard (event.preservationFailureDimension == .readingFailed) == hasReaderDetail else {
+            throw DevVlogsPhase0BEventLogError.invalidPreservationReaderDetail
+        }
         var data = try encoder.encode(event)
         data.append(0x0A)
 
@@ -427,6 +450,7 @@ struct DevVlogsPhase0BJSONLEventLog: DevVlogsPhase0BEventLogging {
 
 enum DevVlogsPhase0BEventLogError: Error, Equatable {
     case couldNotCreateLog
+    case invalidPreservationReaderDetail
 }
 
 struct DevVlogsPhase0BInMemoryEventLog: DevVlogsPhase0BEventLogging {

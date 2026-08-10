@@ -142,6 +142,7 @@ STAGE_KEYS = {
     "cameraProbePassed", "passthroughCompleted", "finalProbePassed", "cameraMediaSubtype",
     "finalizedMediaSubtype", "finalizedAudioMediaSubtype", "cameraFormat", "finalizedFormat",
 }
+READER_FAILURE_KEYS = {"assetSide", "operation"}
 VIDEO_KEYS = {
     "cameraMediaSubtype", "finalizedMediaSubtype", "finalizedAudioMediaSubtype", "cameraFormat",
     "finalizedFormat", "preservationMethod", "preservedSampleCount", "preservedEncodedByteCount",
@@ -161,6 +162,10 @@ PRESERVATION_DIMENSIONS = {
     "sample_boundary_mismatch", "encoded_payload_mismatch", "sample_duration_mismatch",
     "presentation_timestamp_mismatch", "decode_timestamp_mismatch", "format_description_mismatch",
     "dimensions_mismatch", "transform_mismatch", "cancelled", "timed_out", "unknown",
+}
+PRESERVATION_ASSET_SIDES = {"camera_source", "finalized"}
+PRESERVATION_READER_OPERATIONS = {
+    "sample_data_copy", "sample_size_timing_metadata", "reader_terminal_status",
 }
 CASE_IDENTIFIER = re.compile(r"[A-Za-z0-9_-]{1,64}")
 UUID_IDENTIFIER = re.compile(
@@ -343,6 +348,12 @@ def validate_stage(value):
     safe_string(value["cameraFormat"], FORMAT)
     safe_string(value["finalizedFormat"], FORMAT)
 
+def validate_reader_failure(value):
+    exact_keys(value, READER_FAILURE_KEYS)
+    if (value["assetSide"] not in PRESERVATION_ASSET_SIDES
+            or value["operation"] not in PRESERVATION_READER_OPERATIONS):
+        fail()
+
 def validate_video(value, metrics):
     exact_keys(value, VIDEO_KEYS)
     safe_string(value["cameraMediaSubtype"], SUBTYPE)
@@ -394,11 +405,15 @@ def validate_events(payload, expected_case):
         validate_video(terminal["videoEvidence"], metrics)
         return result, "none", "none"
     if terminal.get("category") == "video_preservation_failed":
-        exact_keys(terminal, BASE_KEYS | {
-            "category", "preservation_failure_dimension", "failure_stage_evidence"})
         dimension = terminal["preservation_failure_dimension"]
         if dimension not in PRESERVATION_DIMENSIONS:
             fail()
+        keys = BASE_KEYS | {
+            "category", "preservation_failure_dimension", "failure_stage_evidence"}
+        if dimension == "reading_failed":
+            keys.add("preservation_reader_failure_detail")
+            validate_reader_failure(terminal.get("preservation_reader_failure_detail"))
+        exact_keys(terminal, keys)
         expected_result = "cancelled" if dimension == "cancelled" else (
             "timed_out" if dimension == "timed_out" else "failed")
         if result != expected_result:
@@ -1186,6 +1201,17 @@ terminal.update({
     "preservation_failure_dimension": "encoded_payload_mismatch",
     "failure_stage_evidence": stage, "metrics": metrics,
 })
+reader_scenario = scenario.removeprefix("valid_reader_")
+reader_pairs = {
+    f"{side}_{operation}": {"assetSide": side, "operation": operation}
+    for side in ("camera_source", "finalized")
+    for operation in (
+        "sample_data_copy", "sample_size_timing_metadata", "reader_terminal_status"
+    )
+}
+if reader_scenario in reader_pairs:
+    terminal["preservation_failure_dimension"] = "reading_failed"
+    terminal["preservation_reader_failure_detail"] = reader_pairs[reader_scenario]
 ready_metrics = metrics + [
     {"name": "camera_video_duration", "value": 10, "unit": "s",
      "disposition": "evidence_only"},
@@ -1279,6 +1305,32 @@ elif scenario == "impossible_failure_category":
     events[1] = terminal
 elif scenario == "arbitrary_dimension":
     terminal["preservation_failure_dimension"] = "secret_sample_mismatch"
+elif scenario == "missing_reader_detail":
+    terminal["preservation_failure_dimension"] = "reading_failed"
+elif scenario == "reader_on_other_dimension":
+    terminal["preservation_reader_failure_detail"] = reader_pairs[
+        "camera_source_sample_data_copy"
+    ]
+elif scenario == "unknown_reader_side":
+    terminal["preservation_failure_dimension"] = "reading_failed"
+    terminal["preservation_reader_failure_detail"] = {
+        "assetSide": "private-camera", "operation": "sample_data_copy"
+    }
+elif scenario == "unknown_reader_operation":
+    terminal["preservation_failure_dimension"] = "reading_failed"
+    terminal["preservation_reader_failure_detail"] = {
+        "assetSide": "camera_source", "operation": "raw_sample_bytes"
+    }
+elif scenario == "reader_extra_key":
+    terminal["preservation_failure_dimension"] = "reading_failed"
+    terminal["preservation_reader_failure_detail"] = {
+        "assetSide": "camera_source", "operation": "sample_data_copy", "path": "/private"
+    }
+elif scenario == "duplicate_reader_nested":
+    terminal["preservation_failure_dimension"] = "reading_failed"
+    terminal["preservation_reader_failure_detail"] = reader_pairs[
+        "camera_source_sample_data_copy"
+    ]
 elif scenario == "wrong_result_dimension":
     terminal["preservation_failure_dimension"] = "timed_out"
 elif scenario == "arbitrary_device":
@@ -1385,6 +1437,9 @@ else:
     elif scenario == "duplicate_nested":
         lines[1] = lines[1].replace('"cameraProbePassed":true',
                                     '"cameraProbePassed":true,"cameraProbePassed":true', 1)
+    elif scenario == "duplicate_reader_nested":
+        lines[1] = lines[1].replace('"assetSide":"camera_source"',
+                                    '"assetSide":"camera_source","assetSide":"finalized"', 1)
     with open(path, "w", encoding="utf-8") as output:
         output.write("\n".join(lines) + "\n")
 os.chmod(path, 0o600)
