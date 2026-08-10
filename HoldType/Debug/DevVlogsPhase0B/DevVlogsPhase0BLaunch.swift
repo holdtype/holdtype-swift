@@ -1,5 +1,6 @@
 #if DEBUG
 import AppKit
+import Darwin
 import Foundation
 import HoldTypeDomain
 struct DevVlogsPhase0BConfiguration: Equatable {
@@ -43,21 +44,20 @@ struct DevVlogsPhase0BConfiguration: Equatable {
             in: .whitespacesAndNewlines
         ), !rawCameraID.isEmpty else { return .failure(.cameraIDMissing) }
         let runRoot = URL(fileURLWithPath: rawRoot, isDirectory: true).standardizedFileURL
-        let safeRoot = temporaryRoot.standardizedFileURL.resolvingSymlinksInPath()
-        let resolvedRunRoot = runRoot.resolvingSymlinksInPath()
+        let safeRoot = temporaryRoot.standardizedFileURL.resolvingSymlinksInPath(), resolvedRunRoot = runRoot.resolvingSymlinksInPath()
         guard resolvedRunRoot.path.hasPrefix(safeRoot.path + "/") else { return .failure(.runRootOutsideTemporaryRoot) }
         let eventLog = URL(fileURLWithPath: rawEventLog)
-        let expectedParent = resolvedRunRoot.appendingPathComponent(
-            "hardware-raw/evidence", isDirectory: true
-        ).resolvingSymlinksInPath().standardizedFileURL
+        let expectedParent = resolvedRunRoot.appendingPathComponent("hardware-raw/evidence", isDirectory: true)
+            .resolvingSymlinksInPath().standardizedFileURL
         let candidateParent = eventLog.deletingLastPathComponent()
             .resolvingSymlinksInPath().standardizedFileURL
         guard !eventLog.hasDirectoryPath, eventLog.lastPathComponent == "events.jsonl",
               candidateParent == expectedParent
         else { return .failure(.eventLogPathMismatch) }
+        var leafStatus = stat(); let leafResult = rawEventLog.withCString { lstat($0, &leafStatus) }
+        guard leafResult == 0 ? leafStatus.st_mode & S_IFMT == S_IFREG : errno == ENOENT else { return .failure(.eventLogPathMismatch) }
         let duration = environment[durationEnvironmentKey].flatMap(TimeInterval.init) ?? defaultDuration
-        guard duration.isFinite, (1 ... maximumDuration).contains(duration)
-        else { return .failure(.durationInvalid) }
+        guard duration.isFinite, (1 ... maximumDuration).contains(duration) else { return .failure(.durationInvalid) }
         let caseID = environment[caseIDEnvironmentKey] ?? "capture"
         guard isSafeIdentifier(caseID) else { return .failure(.caseIDInvalid) }
         return .success(.init(runRoot: resolvedRunRoot, cameraUniqueID: rawCameraID,

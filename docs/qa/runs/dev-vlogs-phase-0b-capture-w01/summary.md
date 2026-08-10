@@ -106,6 +106,10 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   leaf and its parent is resolved symmetrically against the validated
   `<run root>/hardware-raw/evidence` parent, so equivalent filesystem aliases
   pass while foreign or symlink-escaping parents fail before harness creation.
+  The final leaf is inspected without following it: an absent leaf (created by
+  the existing logger) or a regular leaf is accepted, while same-parent and
+  foreign symlinks or non-regular objects fail before harness construction or
+  writing and leave their targets unchanged.
   Before a hardware launch the script opens one
   fixed descriptor in the already-pinned handoff authority; the Debug target
   may emit only one ASCII closed line terminated by exactly one LF and EOF to
@@ -171,7 +175,7 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 21/21 W08 launch and production-handoff tests cover every configuration guard, foreign fallback, exact operator terminal, descriptor-disabled behavior, valid alternate publication/consumption, malformed/duplicate/extra/private forms, and unchanged ordinary handoff behavior. The unchanged serial ordinary Phase 0B selection was independently reproduced at 117/117 in 14 suites. The separate protected-storage hosted test still requires its accepted private runner environment and is not claimed by this ordinary invocation. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, preservation dimensions, authorization, and redaction remain covered. |
+| Focused macOS fake tests | Pass; 21/21 launch and production-handoff tests cover every configuration guard, no-follow regular/absent/symlink/non-regular leaf handling, unchanged foreign and same-parent targets, foreign fallback, exact operator terminal, descriptor-disabled behavior, valid alternate publication/consumption, malformed/duplicate/extra/private forms, and unchanged ordinary handoff behavior. The current W09 14-suite serial selection passed 115/115: PreviewLaunch 5 plus PreviewSession 8 replace the historical W08 selection's ProtectedStorageObserverController 11 plus ProtectedStorageObserver 4, while the other twelve suites are identical. The historical W08 selection remains independently reproduced at 117/117. The separate protected-storage hosted test still requires its accepted private runner environment and is not claimed by either ordinary invocation. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, preservation dimensions, authorization, and redaction remain covered. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |

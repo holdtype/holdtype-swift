@@ -21,17 +21,31 @@ struct DevVlogsPhase0BLaunchTests {
         let evidence = runRoot.appendingPathComponent("hardware-raw/evidence", isDirectory: true)
         try fileManager.createDirectory(at: evidence, withIntermediateDirectories: true)
         defer { try? fileManager.removeItem(at: runRoot) }
-        let valid = makeEnvironment(runRoot: runRoot.path)
-        #expect(DevVlogsPhase0BConfiguration.resolve(environment: valid) != nil)
+        let valid = makeEnvironment(runRoot: runRoot.path), eventLog = evidence.appendingPathComponent("events.jsonl")
+        try Data().write(to: eventLog, options: .withoutOverwriting); #expect(DevVlogsPhase0BConfiguration.resolve(environment: valid) != nil)
         _ = try DevVlogsPhase0BLaunch.makeHarness(environment: valid)
         var resolvedAlias = valid; resolvedAlias[DevVlogsPhase0BConfiguration.eventLogEnvironmentKey] =
             evidence.resolvingSymlinksInPath().appendingPathComponent("events.jsonl").path
         #expect(DevVlogsPhase0BConfiguration.resolve(environment: resolvedAlias) != nil)
-        let parentAlias = runRoot.appendingPathComponent("event-parent-alias")
-        try fileManager.createSymbolicLink(at: parentAlias, withDestinationURL: evidence)
+        let parentAlias = runRoot.appendingPathComponent("event-parent-alias"); try fileManager.createSymbolicLink(at: parentAlias, withDestinationURL: evidence)
         var symlinkAlias = valid; symlinkAlias[DevVlogsPhase0BConfiguration.eventLogEnvironmentKey] =
             parentAlias.appendingPathComponent("events.jsonl").path
         #expect(DevVlogsPhase0BConfiguration.resolve(environment: symlinkAlias) != nil)
+        func expectRejectedLeaf() {
+            #expect(DevVlogsPhase0BConfiguration.resolveDiagnostically(environment: valid) == .failure(.eventLogPathMismatch))
+            #expect(throws: DevVlogsPhase0BConfigurationFailureStage.self) { _ = try DevVlogsPhase0BLaunch.makeHarness(environment: valid) }
+        }
+        let foreignSentinel = runRoot.appendingPathComponent("foreign-sentinel"), sentinelBytes = Data("sentinel".utf8)
+        try sentinelBytes.write(to: foreignSentinel, options: .withoutOverwriting); try fileManager.removeItem(at: eventLog)
+        try fileManager.createSymbolicLink(at: eventLog, withDestinationURL: foreignSentinel)
+        let foreignLink = try fileManager.destinationOfSymbolicLink(atPath: eventLog.path); expectRejectedLeaf(); #expect(try Data(contentsOf: foreignSentinel) == sentinelBytes); #expect(try fileManager.destinationOfSymbolicLink(atPath: eventLog.path) == foreignLink)
+        try fileManager.removeItem(at: eventLog); let sameParentTarget = evidence.appendingPathComponent("same-parent-target")
+        try sentinelBytes.write(to: sameParentTarget, options: .withoutOverwriting)
+        try fileManager.createSymbolicLink(at: eventLog, withDestinationURL: sameParentTarget)
+        let sameParentLink = try fileManager.destinationOfSymbolicLink(atPath: eventLog.path); expectRejectedLeaf(); #expect(try Data(contentsOf: sameParentTarget) == sentinelBytes); #expect(try fileManager.destinationOfSymbolicLink(atPath: eventLog.path) == sameParentLink)
+        try fileManager.removeItem(at: eventLog); try fileManager.createDirectory(at: eventLog, withIntermediateDirectories: false)
+        expectRejectedLeaf(); #expect(try eventLog.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true)
+        try fileManager.removeItem(at: eventLog); #expect(DevVlogsPhase0BConfiguration.resolve(environment: valid) != nil)
         let foreign = runRoot.appendingPathComponent("foreign", isDirectory: true)
         try fileManager.createDirectory(at: foreign, withIntermediateDirectories: true)
         let escape = runRoot.appendingPathComponent("escape"); try fileManager.createSymbolicLink(
@@ -77,26 +91,16 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(!DevVlogsPhase0BConfigurationDiagnostic.record(
             stage: .unknown, environment: valid, write: { _ in Issue.record("unexpected write") }
         ))
-        let blockedRoot = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "dv-p0b-configuration-\(UUID().uuidString)")
-        try Data("blocked".utf8).write(to: blockedRoot, options: .withoutOverwriting)
-        defer { try? FileManager.default.removeItem(at: blockedRoot) }
-        do {
-            _ = try DevVlogsPhase0BLaunch.makeHarness(
-                environment: makeEnvironment(runRoot: blockedRoot.path)
-            )
-            Issue.record("Expected run path preparation to fail")
-        } catch {
-            #expect(DevVlogsPhase0BConfigurationFailureStage(error: error) == .runPathsUnavailable)
-        }
+        let blockedRoot = FileManager.default.temporaryDirectory.appendingPathComponent("dv-p0b-configuration-\(UUID().uuidString)")
+        try fileManager.createDirectory(at: blockedRoot.appendingPathComponent("hardware-raw/evidence"), withIntermediateDirectories: true); try fileManager.setAttributes([.posixPermissions: 0o500], ofItemAtPath: blockedRoot.path)
+        defer { try? fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: blockedRoot.path); try? fileManager.removeItem(at: blockedRoot) }
+        do { _ = try DevVlogsPhase0BLaunch.makeHarness(environment: makeEnvironment(runRoot: blockedRoot.path)); Issue.record("Expected run path preparation to fail") }
+        catch { #expect(DevVlogsPhase0BConfigurationFailureStage(error: error) == .runPathsUnavailable) }
     }
     @Test func successfulFakeRunUsesOneAudioOwnerAndFinalizesExactlyOnce() async throws {
         let fixture = makeFixture()
         let outcome = await fixture.harness.run()
-        guard case .ready = outcome else {
-            Issue.record("Expected fake media to become ready")
-            return
-        }
+        guard case .ready = outcome else { Issue.record("Expected fake media to become ready"); return }
         #expect(fixture.audio.startCount == 1); #expect(fixture.audio.stopCount == 1)
         #expect(fixture.audio.cancelCount == 0); #expect(fixture.audio.preparedURL == fixture.paths.audioURL)
         #expect(fixture.camera.startCount == 1); #expect(fixture.camera.stopCount == 1)
@@ -109,9 +113,7 @@ struct DevVlogsPhase0BLaunchTests {
     }
     @Test func cameraFailureCancelsOnlyRunOwnedAudioAndSkipsMux() async {
         let fixture = makeFixture(cameraFailure: .preferredDeviceBusy)
-        #expect(
-            await fixture.harness.run() == .failed(.cameraStart(.cameraSelectionBusy))
-        )
+        #expect(await fixture.harness.run() == .failed(.cameraStart(.cameraSelectionBusy)))
         #expect(fixture.audio.startCount == 1)
         #expect(fixture.audio.stopCount == 0)
         #expect(fixture.audio.cancelCount == 1)
@@ -201,7 +203,6 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(naturalRequests == 0)
         pending?()
         #expect(naturalRequests == 1)
-
         let coordinator = DevVlogsPhase0BTerminationCoordinator(timeout: .seconds(35))
         var racedRequest: (@MainActor () -> Void)?
         let racedScheduler = DevVlogsPhase0BNaturalTerminationScheduler { racedRequest = $0 }
@@ -212,7 +213,6 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(coordinator.begin(cancelActive: {}, cleanup: {}, completion: { _ in }) == .terminateNow)
         racedRequest?()
         #expect(naturalRequests == 1)
-
         let repositoryRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
         let source = try String(
