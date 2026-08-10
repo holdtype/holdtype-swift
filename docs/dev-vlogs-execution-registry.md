@@ -263,8 +263,10 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08@4581e31` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Three-path Launch normalization repair; no runtime. |
 | `DV-P0B-CAPTURE-W09` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R08-REVIEW` | Launch, Launch tests, W01 summary only | rejected | `20787c4`; receipt below | Parent normalization passes; canonical leaf symlink can escape. |
 | `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09@20787c4` | read-only exact repair/provenance review | rejected | receipt below | Return exact three-path leaf no-follow repair; no runtime. |
-| `DV-P0B-CAPTURE-W09-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W09 review | Launch, Launch tests, W01 summary only | review | `7342f18`; receipt below | No-follow final-leaf repair complete; review running. |
-| `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1@7342f18` | read-only exact repair/provenance review | running | — | No camera retry until accepted. |
+| `DV-P0B-CAPTURE-W09-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W09 review | Launch, Launch tests, W01 summary only | accepted_with_residual | `7342f18`; receipt below | No-follow final-leaf repair accepted; Debug trust residual remains. |
+| `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1@7342f18` | read-only exact repair/provenance review | accepted_with_residual | receipt below | One separately admitted hardware attempt is dependency-ready. |
+| `DV-P0B-CAPTURE-R09` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W09 Review-R1; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R09 QA root; exact internal temp media root only | running | — | Exactly one attempt, no retry/fallback; review required. |
+| `DV-P0B-CAPTURE-R09-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R09` terminal receipt | read-only exact runtime evidence/provenance | queued | — | No subsequent runtime before review. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -493,8 +495,9 @@ other external root remain unauthorized.
   preservation was reached. Review accepts the evidence and assigns the defect
   to Launch path normalization. Three-path W09 `20787c4` implemented symmetric
   parent canonicalization but review rejected its leaf-symlink escape. Exact
-  three-path R1 `7342f18` adds no-follow final-leaf validation and is in
-  independent review; no runtime is implied.
+  three-path R1 `7342f18` adds no-follow final-leaf validation and is accepted
+  with the existing Debug trust residual. One serialized no-retry R09 hardware
+  attempt is admitted; no further runtime is implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8358,5 +8361,45 @@ corrected to preserve run_paths_unavailable and authoritative reruns passed.
 Historical W08 117/117 remains separate; current W09 selection is 115/115.
 residual: R08 remains historical pre-attempt failure; no hardware retry.
 next_dependency: DV-P0B-CAPTURE-W09-REVIEW-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W09-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W09-REVIEW-R1
+status: done
+verdict: accept_with_residual
+reviewed_commit: 7342f18a1ea8b03d98bd855900115b61e7e444cd
+parent: c3298f0ed36e68c3914b565f909e5d8fd5fd8614
+
+outcome: Final-leaf escape is closed. Darwin lstat inspects the submitted leaf
+without following it; only regular or ENOENT passes. Symlink and non-regular
+leaves fail before harness, EventLog, attempt, Ready, open, create or write.
+
+behavioral_proof: Production-path tests cover absent/regular leaves, canonical
+and parent aliases, parent escape, wrong leaf, malformed path, directory leaf,
+and outside-evidence plus same-parent symlink targets. Rejected targets and link
+identity remain unchanged. The corrected fixture still reaches
+run_paths_unavailable independently.
+
+qa_reconciliation: Current W09 selection passes 115/115 using PreviewLaunch 5
+plus PreviewSession 8. Historical W08 passes 117/117 using protected observer
+suites 11 plus 4. Other twelve suites and substituted suite blobs are unchanged;
+both results are truthful for different exact selections.
+
+checks: Exact commit/parent/three paths/current blobs; structure at 500 lines;
+focused 21/21; current serial 115/115 including auth-LS 9/9; script and signed
+Debug build-only/codesign; bounded unsigned Release/settings/artifact isolation;
+fourteen protected hashes; diff, redaction, process, root and worktree audits
+all pass.
+
+scope_check: Read-only review; no app, camera, microphone, TCC, permission,
+hardware, media, external-storage, UI or product runtime.
+deviations: none material; authoritative test counts are serial.
+residual: Real Continuity/TCC/media/preservation/quantitative evidence remains.
+The accepted private Debug boundary does not promise resistance to a malicious
+same-UID post-validation namespace race.
+next_dependency: One separately coordinator-authorized R09 hardware attempt.
 runtime_or_visual_handoff: none
 ```
