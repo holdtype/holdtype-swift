@@ -247,8 +247,8 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R6@cbbd9e0` | read-only exact repair review | rejected | receipt below | Return exact three-path R7; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R7` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R6 | controller, controller tests and W01 summary only | rejected | `fc177df`; receipt below | Exported hooks and partial cleanup pass; post-swap recovery can still miss the reserve. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R7@fc177df` | read-only exact repair review | rejected | receipt below | Return exact three-path R8 invariant repair; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R8` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R7 | controller, controller tests and W01 summary only | running | — | Keep failure-safe authority until cleanup; publish success only by one final exact move. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8` terminal artifact | read-only exact repair review | queued | — | Review must remain private-hosted and no-runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R8` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R7 | controller, controller tests and W01 summary only | review | `8161d60`; receipt below | Failure-safe authority remains until cleanup; one final exact move publishes success; review running. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8@8161d60` | read-only exact repair review | running | — | Review must remain private-hosted and no-runtime. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7682,5 +7682,42 @@ unsigned compile and Release evidence passed; no live Keychain fallback.
 residual: Non-run-owned writers remain still_unknown; runtime unauthorized.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R8, then independent
 DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R8`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R8
+status: implementation_complete_pending_independent_review
+commit: 8161d605a3b4139ad279a36604010d944d64caf5
+parent: 738d9612c1868640af797c71f6c0aa6d843f9480
+
+outcome: Complete pinned failure-safe evidence remains authoritative while
+success is built and validated separately. Old pending authority is
+quarantined and identity-safely cleaned while canonical is absent; success is
+published only by one same-controller, identity-validated no-clobber move of
+the complete staged tree into the proven-absent canonical name. No external
+helper or reconciliation remains after publication.
+
+adversarial_proof: Quarantine collision and sibling survival; real exit-70,
+timeout and exit-70 plus first-reconciliation stall; fail-after-four partial
+cleanup with fresh pending authority; cleanup replacement; and public
+false-success all return failure without authoritative cleanup-complete
+success. Stable success yields exactly eight closed-schema files.
+
+checks: Final production-configured private .xctestrun 30/30; signed Debug and
+strict codesign; unsigned Release and observer-string isolation; zsh, strict C,
+Swift parse/structure at 500 lines, diff, CLI, twelve frozen blobs, redaction,
+process, temp and root audits. Exact three paths and modes only.
+
+scope_check: No observer --execute, external volume, live HOME/protected
+inspection, Camera/TCC/Keychain/provider/media/product runtime or fourth path.
+deviations: One excluded exact-topology group used a wrong private-root prefix
+and failed route naming; the canonical rerun passed. Intermediate fixture and
+parent-nlink issues were repaired before qualifying runs. The summary records
+the required prior task-owned /tmp alias diagnostic without overclaim.
+residual: Independent Review-R8 only; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8.
 runtime_or_visual_handoff: none
 ```
