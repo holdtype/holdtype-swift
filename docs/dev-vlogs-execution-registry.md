@@ -249,9 +249,9 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R7@fc177df` | read-only exact repair review | rejected | receipt below | Return exact three-path R8 invariant repair; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R8` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R7 | controller, controller tests and W01 summary only | rejected | `8161d60`; receipt below | Publication ordering passes; final zf_mv primitive is not exclusive. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8@8161d60` | read-only exact repair review | rejected | receipt below | Return exact three-path exclusive-rename R9; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R9` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R8 | controller, controller tests and W01 summary only | review | `fec202a`; receipt below | Genuine exclusive rename and late-collision proof implemented; independent review running. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9@fec202a` | read-only exact repair review | running | — | Review must remain private-hosted and no-runtime. |
-| `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R9` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R8 | controller, controller tests and W01 summary only | accepted_with_residual | `fec202a`; receipt below | Genuine exclusive rename and late-collision proof accepted; real observer result remains separate. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9@fec202a` | read-only exact repair review | accepted_with_residual | receipt below | Debug observer seam accepted; no runtime implied. |
+| `DV-P0B-CAPTURE-R07` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2; accepted Storage Observer Review-R9 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | running | — | Exactly one no-retry attempt; W07-R3 diagnostic handoff; no external-storage or observer runtime. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
@@ -455,6 +455,11 @@ other external root remain unauthorized.
   observer design, a separate finite packet, and explicit authority.
 - Product implementation is gated until `DV-P0C-REVIEW` accepts
   `DV-ACTIVE-1`.
+- Storage Observer R9 `fec202a` is accepted_with_residual after independent
+  Review-R9. The Debug seam now closes exclusive publication and terminal
+  evidence integrity; actual non-run-owned writer classification remains a
+  separately authorized runtime residual. The one already queued serialized
+  `DV-P0B-CAPTURE-R07` is now admitted; no storage-observer runtime is implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -7798,5 +7803,47 @@ were identity/no-follow cleaned; unrelated review-owned root remains untouched.
 The summary records the excluded R8 wrong-prefix rerun.
 residual: Independent Review-R9 only; no runtime authority.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9
+status: accepted_with_residual
+reviewed_commit: fec202a10ea44487828a214fc9ee8cc384867f2f
+parent: e321bde9825de186d2eac21893adf564df961229
+
+outcome: The final publication defect is closed. Canonical evidence publishes
+through an effective descriptor-relative renameatx_np RENAME_EXCL boundary;
+late collision fails without overwrite, nesting, deletion or success
+overclaim.
+
+accepted_evidence: Exact three paths/current blobs/modes and twelve frozen
+blobs pass. Direct primitive collision returns 73 with source, destination and
+sibling intact and no nesting; absent destination moves the exact source.
+Production late collision returns 74/no output, retains complete staging,
+collision and sibling, and records absent_authority_collision_retained. Stable
+publication yields exact eight-file closed success with no residual. Nonzero
+and timeout reconciliation remain bounded; confirmed publication has only
+in-memory state assignments afterward. Summary contains both required
+verification deviations.
+
+checks: Static native API/deadline/identity trace, direct and production
+fixtures, zsh/CLI, strict C, Swift parse/structure, diff, twelve frozen hashes,
+Release/string isolation, redaction, process, root and worktree audits pass.
+No hosted Xcode route or runtime was launched by review.
+
+scope_check: Exact read-only review; no edit, observer --execute, external
+volume, live HOME/protected access, Camera/TCC/Keychain/provider/media/product
+runtime.
+deviations: One blocked-before-execution fixture and one task-owned Python
+bytecode residue were handled inside the private review root; final residue
+zero.
+residual: No implementation residual. Arbitrary non-run-owned writers and an
+actual observer result remain still_unknown until separately authorized
+runtime.
+next_dependency: DV-P0B-CAPTURE-R07 is admitted as the next serialized runtime;
+storage-observer runtime remains separate and unauthorized by this acceptance.
 runtime_or_visual_handoff: none
 ```
