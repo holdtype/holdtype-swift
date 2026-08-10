@@ -247,8 +247,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R6@cbbd9e0` | read-only exact repair review | rejected | receipt below | Return exact three-path R7; no runtime. |
 | `DV-P0B-STORAGE-OBSERVER-W01-R7` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R6 | controller, controller tests and W01 summary only | rejected | `fc177df`; receipt below | Exported hooks and partial cleanup pass; post-swap recovery can still miss the reserve. |
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R7@fc177df` | read-only exact repair review | rejected | receipt below | Return exact three-path R8 invariant repair; no runtime. |
-| `DV-P0B-STORAGE-OBSERVER-W01-R8` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R7 | controller, controller tests and W01 summary only | review | `8161d60`; receipt below | Failure-safe authority remains until cleanup; one final exact move publishes success; review running. |
-| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8@8161d60` | read-only exact repair review | running | — | Review must remain private-hosted and no-runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R8` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R7 | controller, controller tests and W01 summary only | rejected | `8161d60`; receipt below | Publication ordering passes; final zf_mv primitive is not exclusive. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8@8161d60` | read-only exact repair review | rejected | receipt below | Return exact three-path exclusive-rename R9; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R9` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R8 | controller, controller tests and W01 summary only | running | — | Replace final move with genuine atomic exclusive rename and cover late collision. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9` terminal artifact | read-only exact repair review | queued | — | Review must remain private-hosted and no-runtime. |
 | `DV-P0B-CAPTURE-R07` | unassigned finite runtime owner | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | queued | — | Dependency-ready; wait for current Storage Observer repair/review and serialized runtime admission. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07` terminal receipt | read-only exact runtime evidence and W07-R3 provenance | queued | — | Functional media result must remain distinct from diagnostic/handoff success. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
@@ -7719,5 +7721,47 @@ parent-nlink issues were repaired before qualifying runs. The summary records
 the required prior task-owned /tmp alias diagnostic without overclaim.
 residual: Independent Review-R8 only; no runtime authority.
 next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8
+status: rejected
+reviewed_commit: 8161d605a3b4139ad279a36604010d944d64caf5
+parent: 738d9612c1868640af797c71f6c0aa6d843f9480
+
+accepted_evidence: Exact three paths/current blobs/modes and twelve frozen
+blobs pass. Failure-safe authority ordering, prepublication exit/timeout/stall,
+partial cleanup recovery, descriptor writes, pins, parser/classifier, bounds,
+stable publication, public gating, static/Release/redaction and residue checks
+pass. No fallible scripted work occurs after the final move returns.
+
+blocking_findings:
+1. Final publication uses zf_mv -i, which is not exclusive for a destination
+directory. A late destination collision returns zero and nests the source
+inside the replacement; caller can mark published/cleanup complete.
+2. Tests do not invoke the final-move collision hook. The hook fails without
+public output but leaves an empty non-pending canonical directory plus staged
+success and sibling, so required authority truth is unproven.
+3. W01 summary records the R7 /tmp diagnostic but omits the packet-required R8
+excluded wrong-private-root-prefix rerun.
+
+smallest_repair: Replace zf_mv with genuine identity-bound atomic exclusive
+rename such as renameatx_np RENAME_EXCL, retaining the same-controller and
+no-post-publication-fallibility invariant. Add a production seam immediately
+before the primitive and prove a late canonical directory collision cannot
+nest, delete, clear staging or emit success; retain collision and sibling.
+Add the exact excluded wrong-prefix summary disclosure. Preserve exact three
+paths and all accepted R2-R7 behavior.
+
+scope_check: Read-only review; no edits, hosted test, observer --execute,
+protected access, external volume or product runtime.
+deviations: One task-owned fixture initially used zsh reserved status; its
+private root was removed. No user/protected path or durable artifact.
+residual: Non-run-owned writers remain still_unknown; runtime unauthorized.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R9, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9.
 runtime_or_visual_handoff: none
 ```
