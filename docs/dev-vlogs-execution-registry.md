@@ -253,8 +253,10 @@ other external root remain unauthorized.
 | `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9@fec202a` | read-only exact repair review | accepted_with_residual | receipt below | Debug observer seam accepted; no runtime implied. |
 | `DV-P0B-CAPTURE-R07` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2; accepted Storage Observer Review-R9 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | accepted_evidence / functional_fail | `603956c`; receipt below | One invalid_configuration terminal before attempt start; no authorization/handoff/media. |
 | `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07@603956c` | read-only exact runtime evidence and W07-R3 provenance | accepted_with_residual | receipt below | Evidence accepted; typed pre-attempt configuration diagnosis is the exact repair dependency. |
-| `DV-P0B-CAPTURE-W08` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R07-REVIEW` | exact Debug launch/event diagnostic, launch and handoff tests, spike script, W01 summary only if claim changes | review | `1387b64`; receipt below | Twelve closed pre-attempt stages over fixed-FD transport; independent review running. |
-| `DV-P0B-CAPTURE-W08-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08@1387b64` | read-only exact repair/provenance review | running | — | No camera retry until accepted. |
+| `DV-P0B-CAPTURE-W08` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R07-REVIEW` | exact Debug launch/event diagnostic, launch and handoff tests, spike script, W01 summary only if claim changes | rejected | `1387b64`; receipt below | Mapping mostly closes, but route/framing/replacement cleanup fail review. |
+| `DV-P0B-CAPTURE-W08-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08@1387b64` | read-only exact repair/provenance review | rejected | receipt below | Return exact five-path R1; no runtime. |
+| `DV-P0B-CAPTURE-W08-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 review | Launch, Launch tests, spike script, handoff tests, W01 summary only | running | — | Repair actual route, exact LF framing and identity-mismatch retention. |
+| `DV-P0B-CAPTURE-W08-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R1` terminal receipt | read-only exact repair review | queued | — | No camera retry until accepted. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -467,9 +469,10 @@ other external root remain unauthorized.
   invalid_configuration before attempt start; authorization, capture, media,
   preservation and measurements remain unavailable. No retry is authorized
   until the typed pre-attempt configuration diagnostic repair W08 is accepted.
-- Capture W08 `1387b64` adds twelve closed redacted configuration stages over a
-  fixed descriptor owned by the script handoff authority. It is in independent
-  review; no hardware retry is implied.
+- Capture W08 `1387b64` was rejected: the real router bypasses one declared
+  stage, FD3 framing is not exact, and identity-mismatched diagnostic evidence
+  can be pathname-deleted. Five-path R1 is running; no hardware retry is
+  implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -7974,5 +7977,42 @@ was repaired and its exact residual removed.
 residual: R07 remains historically unattributed. This repair requires
 independent review before any separately authorized retry.
 next_dependency: DV-P0B-CAPTURE-W08-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08-REVIEW
+status: done
+verdict: reject
+reviewed_commit: 1387b641dd3fc60e309eb7619dabe678ff63d672
+parent: d93262a97091ae0f4a7b97725fad03c924b7e8d0
+
+accepted_evidence: Exact six paths/modes/current blobs pass. Eleven closed
+stages plus typed run_paths_unavailable and foreign unknown are internally
+mapped; public terminal stays invalid_configuration. FD3 is hardware-only and
+inside the pinned handoff authority. Focused 21/21, ordinary Phase0B 117/117,
+signed Debug, Release isolation, protected hashes and redaction pass.
+
+blocking_findings:
+1. isolation_not_enabled is unreachable through the actual app route because
+missing/wrong isolation selects normal HoldTypeApp before diagnostic resolve.
+2. Shell command substitution strips trailing newlines, so missing, one and
+multiple LF terminators are indistinguishable and malformed FD3 framing passes.
+3. After raw diagnostic identity mismatch, EXIT discard checks only pathname
+type and can delete a replacement without the captured identity proof.
+
+smallest_repair: In Launch/LaunchTests and the spike/handoff tests, repair the
+actual router without changing normal ungated behavior, enforce exactly one
+complete LF-terminated record, retain identity-mismatched evidence, and add
+production-route adversarial coverage. Update W01 summary only as required.
+
+scope_check: Read-only exact review; no edits, app/camera/mic/TCC/permission/
+hardware/external/protected runtime.
+deviations: Hosted-storage case was excluded because its dedicated private
+runner was unavailable.
+residual: Runtime remains unauthorized; hardware evidence remains future work.
+next_dependency: DV-P0B-CAPTURE-W08-R1, then independent Review-R1.
 runtime_or_visual_handoff: none
 ```
