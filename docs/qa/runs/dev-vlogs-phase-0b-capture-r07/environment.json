@@ -1,0 +1,70 @@
+{
+  "packet_id": "DV-P0B-CAPTURE-R07",
+  "case_id": "continuity-10s",
+  "contract": "DV-DRAFT-4@2f3266a",
+  "runtime_authority": "67349ec",
+  "accepted_native_source_owner": "f7ff6bf",
+  "accepted_lifecycle_owner": "f141be6",
+  "accepted_handoff_owner": "a90f888",
+  "accepted_fake_e07_owner": "719e995",
+  "operating_system": {
+    "family": "macOS",
+    "version": "26.6"
+  },
+  "machine_class": "Apple silicon Mac",
+  "architecture": "arm64",
+  "power_state": "AC power",
+  "thermal_state": "no warning reported",
+  "filesystem_class": "APFS",
+  "destination_class": "internal run-owned temporary storage",
+  "useful_capacity_bytes_observed": 90892767232,
+  "build_identity": {
+    "configuration": "Debug",
+    "bundle_identity_class": "same signed HoldType application identity",
+    "signing_class": "Apple Development",
+    "camera_purpose_present": true,
+    "continuity_declaration_present": true,
+    "camera_entitlement_present": true,
+    "audio_input_entitlement_present": true
+  },
+  "authorization": {
+    "result": "unknown_not_reached",
+    "request_access_invoked": false,
+    "permission_mode_invoked": false,
+    "prompt_observed": false,
+    "tcc_action_performed": false
+  },
+  "enumeration": {
+    "camera_class": "Continuity Camera",
+    "connection_class": "wireless Continuity Camera",
+    "continuity_device_count": 1,
+    "eligible_device_count": 1,
+    "explicit_identity_selected": true,
+    "private_identity_retained": false
+  },
+  "idle_guard": {
+    "started_before_runtime": true,
+    "identity_verified": true,
+    "continuous": true,
+    "kept_through_evidence_validation": true,
+    "stopped": true,
+    "exit_verified": true
+  },
+  "protected_baseline": {
+    "application_support_file_count_before": 54,
+    "application_support_file_count_after": 54,
+    "recording_cache_file_count_before": 0,
+    "recording_cache_file_count_after": 0,
+    "active_recordings_file_count_before": 0,
+    "active_recordings_file_count_after": 0,
+    "transcription_recovery_file_count_before": 53,
+    "transcription_recovery_file_count_after": 53,
+    "default_dev_vlogs_file_count_before": 0,
+    "default_dev_vlogs_file_count_after": 0,
+    "preexisting_holdtype_process_count_before": 0,
+    "holdtype_process_count_after": 0
+  },
+  "private_device_identity_retained": false,
+  "private_process_identity_retained": false,
+  "full_path_retained": false
+}

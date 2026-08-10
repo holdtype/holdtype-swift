@@ -1,0 +1,2 @@
+case_id,camera_class,connection_class,enumeration_result,explicit_selection,no_fallback,authorization_result,hardware_invocation_count,attempt_event_count,capture_started,microphone_owner_count,camera_audio_input_count,camera_probe,final_probe,passthrough,preservation,handoff_publication,handoff_consumption,ready_clip_count,functional_result,residual_class,cleanup
+continuity-10s,Continuity Camera,wireless Continuity Camera,available,pass,pass,not_reached,1,0,no,0,0,not_reached,not_reached,not_reached,not_reached,fail,not_run,0,fail,debug-spike defect,pass
