@@ -261,8 +261,10 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W08-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R2@b418c08` | read-only summary/provenance review | accepted_with_residual | receipt below | One separately packetized hardware attempt is dependency-ready. |
 | `DV-P0B-CAPTURE-R08` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W08 Review-R2; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R08 QA root; exact internal temp media root only | accepted_evidence / functional_fail | `4581e31`; receipt below | Typed event_log_path_mismatch accepted; Launch normalization repair required. |
 | `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08@4581e31` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Three-path Launch normalization repair; no runtime. |
-| `DV-P0B-CAPTURE-W09` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R08-REVIEW` | Launch, Launch tests, W01 summary only | review | `20787c4`; receipt below | Symmetric parent canonicalization implemented; independent review running. |
-| `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09@20787c4` | read-only exact repair/provenance review | running | — | Reconcile 115/117 QA provenance; no camera retry. |
+| `DV-P0B-CAPTURE-W09` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R08-REVIEW` | Launch, Launch tests, W01 summary only | rejected | `20787c4`; receipt below | Parent normalization passes; canonical leaf symlink can escape. |
+| `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09@20787c4` | read-only exact repair/provenance review | rejected | receipt below | Return exact three-path leaf no-follow repair; no runtime. |
+| `DV-P0B-CAPTURE-W09-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W09 review | Launch, Launch tests, W01 summary only | running | — | Reject leaf symlink/non-regular target before harness/write. |
+| `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1` terminal receipt | read-only exact repair/provenance review | queued | — | No camera retry until accepted. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -490,7 +492,8 @@ other external root remain unauthorized.
   with the validated stage event_log_path_mismatch. No authorization, media or
   preservation was reached. Review accepts the evidence and assigns the defect
   to Launch path normalization. Three-path W09 `20787c4` implemented symmetric
-  parent canonicalization and is in independent review; no runtime is implied.
+  parent canonicalization but review rejected its leaf-symlink escape. Exact
+  three-path R1 is running; no runtime is implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8271,10 +8274,54 @@ scope_check: Exactly Launch, LaunchTests and W01 summary changed. Script,
 handoff, EventLog, camera/media/auth/product/project/plist/entitlement owners
 remain byte-identical. No app, camera, microphone, TCC, permission, hardware or
 external-storage runtime occurred.
-deviations: Current Xcode result reports 115/115 for the same named 14-suite
-selection. Historical W08 Review-R1 independently reproduced 117/117 and its
-accepted provenance remains unchanged; review must reconcile the difference.
+deviations: Current Xcode result reports 115/115 for a different 14-suite
+selection: PreviewLaunch 5 plus PreviewSession 8 replace the historical
+ProtectedStorageObserverController 11 plus ProtectedStorageObserver 4. The
+other twelve suites are identical, so 115 = 117 - 15 + 13. Historical W08
+Review-R1 independently reproduced 117/117 and remains truthful.
 residual: R08 remains truthful historical pre-attempt failure. No retry.
 next_dependency: DV-P0B-CAPTURE-W09-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W09-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-W09-REVIEW
+status: done
+verdict: reject
+reviewed_commit: 20787c42ccbee210cb77a884a9d2fda2a3c6c3b3
+parent: b3b91019697af13f3fa66ca69cae6c790cab7930
+
+accepted_evidence: Exact three paths/modes/current blobs pass. Parent
+canonicalization correctly accepts equivalent aliases and rejects foreign or
+symlink-escaping parents. Focused, serial current and historical suites,
+Debug/Release isolation, protected hashes, redaction and cleanup pass.
+
+blocking_finding: Launch validates the candidate parent and exact leaf spelling
+but does not no-follow validate the canonical leaf object. A canonical
+events.jsonl symlink to a foreign regular file passes; the unchanged EventLog
+FileHandle follows it. A reviewer-owned probe returned guard=true and then
+changed the foreign sentinel. Existing tests omit this leaf-symlink case.
+
+qa_reconciliation: Current W09 selection passes 115/115 and substitutes
+PreviewLaunch 5 plus PreviewSession 8 for historical W08
+ProtectedStorageObserverController 11 plus ProtectedStorageObserver 4. The
+other twelve suites and all four test-file blobs are unchanged. Historical
+W08 117/117 and current W09 115/115 are both truthful for different exact
+selections; registry wording was corrected.
+
+smallest_repair: In Launch, LaunchTests and W01 summary, reject a pre-existing
+canonical leaf symlink or non-regular leaf before harness construction, keep
+valid same-parent aliases, and prove the foreign target stays unchanged with
+zero harness/attempt/Ready. Freeze script/handoff/EventLog and every adjacent
+owner.
+
+scope_check: Read-only review; no app, camera, microphone, TCC, permission,
+hardware, media, external-storage or hosted-storage runtime.
+deviations: Initial focused command used scheme parallelism; authoritative
+counts are serial and xcresult-backed. Reviewer-owned fixtures were removed.
+residual: W09 is not hardware-dependency-ready.
+next_dependency: DV-P0B-CAPTURE-W09-R1, then independent Review-R1.
 runtime_or_visual_handoff: none
 ```
