@@ -31,6 +31,9 @@ capture_supervisor_pid=""
 hardware_preparation_pid=""
 hardware_event_source=""
 hardware_event_handoff=""
+hardware_configuration_output=""
+hardware_configuration_output_identity=""
+hardware_configuration_descriptor_open=0
 hardware_handoff_root=""
 hardware_handoff_root_name=""
 hardware_handoff_root_identity=""
@@ -128,6 +131,13 @@ import time
 MAX_BYTES = 262_144
 OPEN_DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 BASE_KEYS = {"runID", "caseID", "attemptID", "monotonicMilliseconds", "action", "result", "metrics"}
+CONFIGURATION_KEYS = {"schema", "caseID", "result", "category", "configuration_stage"}
+CONFIGURATION_STAGES = {
+    "isolation_not_enabled", "automation_not_enabled", "keychain_ui_not_suppressed",
+    "run_root_missing", "event_log_missing", "camera_id_missing",
+    "run_root_outside_temporary_root", "event_log_path_mismatch", "duration_invalid",
+    "case_id_invalid", "run_paths_unavailable", "unknown",
+}
 STAGE_KEYS = {
     "cameraProbePassed", "passthroughCompleted", "finalProbePassed", "cameraMediaSubtype",
     "finalizedMediaSubtype", "finalizedAudioMediaSubtype", "cameraFormat", "finalizedFormat",
@@ -197,6 +207,19 @@ def parse_event(line):
         return json.loads(line, object_pairs_hook=unique_object, parse_constant=lambda _: fail())
     except (UnicodeDecodeError, json.JSONDecodeError, RuntimeError, ValueError):
         fail()
+
+def validate_configuration(payload, expected_case):
+    if not payload.endswith(b"\n") or payload.count(b"\n") != 1:
+        fail()
+    value = parse_event(payload[:-1])
+    exact_keys(value, CONFIGURATION_KEYS)
+    safe_string(value["caseID"], CASE_IDENTIFIER)
+    if (value["schema"] != "dev_vlogs_phase_0b_configuration_v1"
+            or value["caseID"] != expected_case or value["result"] != "failed"
+            or value["category"] != "invalid_configuration"
+            or value["configuration_stage"] not in CONFIGURATION_STAGES):
+        fail()
+    return value["result"], value["category"], value["configuration_stage"]
 
 def metric_rules():
     rules = {
@@ -625,6 +648,76 @@ def publish():
                 except OSError:
                     pass
 
+def publish_configuration():
+    base = handoff = output = None
+    try:
+        base_path = os.environ["DV_HARDWARE_BASE"]
+        handoff_name = os.environ["DV_HARDWARE_HANDOFF_ROOT_NAME"]
+        case_id = os.environ["DV_HARDWARE_CASE_ID"]
+        stage = os.environ["DV_HARDWARE_CONFIGURATION_STAGE"]
+        if (HANDOFF_NAME.fullmatch(handoff_name) is None
+                or CASE_IDENTIFIER.fullmatch(case_id) is None
+                or stage not in CONFIGURATION_STAGES):
+            fail()
+        base, base_identities = walk_absolute(base_path)
+        base_value = os.fstat(base)
+        if base_value.st_uid != os.getuid() or stat.S_IMODE(base_value.st_mode) != 0o700:
+            fail()
+        handoff, handoff_identity = open_owned_directory(base, handoff_name)
+        if os.listdir(handoff):
+            fail()
+        payload = (json.dumps({
+            "schema": "dev_vlogs_phase_0b_configuration_v1", "caseID": case_id,
+            "result": "failed", "category": "invalid_configuration",
+            "configuration_stage": stage,
+        }, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+        result, category, dimension = validate_configuration(payload, case_id)
+        output = os.open("configuration.json", os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                         0o600, dir_fd=handoff)
+        output_identity = identity(os.fstat(output))
+        if os.write(output, payload) != len(payload):
+            fail()
+        os.fsync(output)
+        os.fchmod(output, 0o400)
+        output_value = os.fstat(output)
+        snapshot_digest = digest(payload)
+        if (identity(output_value) != output_identity[:4] + (0o400,)
+                or output_value.st_nlink != 1 or os.listdir(handoff) != ["configuration.json"]):
+            fail()
+        check_base, observed = walk_absolute(base_path)
+        os.close(check_base)
+        if observed != base_identities:
+            fail()
+        rebound, rebound_identity = open_owned_directory(base, handoff_name)
+        os.close(rebound)
+        if rebound_identity != handoff_identity:
+            fail()
+        check = os.open("configuration.json", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=handoff)
+        try:
+            if identity(os.fstat(check)) != identity(output_value) or read_snapshot(check) != payload:
+                fail()
+        finally:
+            os.close(check)
+        print("hardware_configuration_handoff=validated result=" + result +
+              " category=" + category + " configuration_stage=" + dimension +
+              " root_token=" + handoff_name + " root_device=" + str(handoff_identity[0]) +
+              " root_inode=" + str(handoff_identity[1]) +
+              " snapshot_device=" + str(output_value.st_dev) +
+              " snapshot_inode=" + str(output_value.st_ino) +
+              " snapshot_sha256=" + snapshot_digest +
+              " file=configuration.json cleanup=trusted_debug_consumer_once")
+    except Exception:
+        print("hardware_configuration_publish=failed reason=closed_validation_mismatch " +
+              "cleanup=remove_owned")
+        sys.exit(1)
+    finally:
+        for descriptor in (output, handoff, base):
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
+
 def consume():
     base = root = snapshot = None
     deleted = False
@@ -659,10 +752,12 @@ def consume():
                 expected_root_token = matches[0]
             reason = "root_identity_mismatch"
             fail()
-        if os.listdir(root) != ["events.jsonl"]:
+        names = os.listdir(root)
+        if names not in (["events.jsonl"], ["configuration.json"]):
             reason = "root_schema_mismatch"
             fail()
-        snapshot = os.open("events.jsonl", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=root)
+        snapshot_name = names[0]
+        snapshot = os.open(snapshot_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=root)
         snapshot_value = os.fstat(snapshot)
         if (identity(snapshot_value)[:2] != expected_snapshot
                 or not stat.S_ISREG(snapshot_value.st_mode)
@@ -677,14 +772,23 @@ def consume():
             reason = "snapshot_digest_mismatch"
             fail()
         reason = "snapshot_schema_mismatch"
-        result, category, dimension = validate_events(payload, os.environ["DV_HARDWARE_CASE_ID"])
+        if snapshot_name == "events.jsonl":
+            result, category, dimension = validate_events(
+                payload, os.environ["DV_HARDWARE_CASE_ID"]
+            )
+            dimension_label = "preservation_error"
+        else:
+            result, category, dimension = validate_configuration(
+                payload, os.environ["DV_HARDWARE_CASE_ID"]
+            )
+            dimension_label = "configuration_stage"
         os.lseek(snapshot, 0, os.SEEK_SET)
         proof_payload = read_snapshot(snapshot)
         if (proof_payload != payload or digest(proof_payload) != expected_digest
                 or identity(os.fstat(snapshot)) != identity(snapshot_value)):
             reason = "snapshot_post_validation_mismatch"
             fail()
-        check = os.open("events.jsonl", os.O_RDONLY | os.O_NOFOLLOW, dir_fd=root)
+        check = os.open(snapshot_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=root)
         try:
             if identity(os.fstat(check)) != identity(snapshot_value):
                 reason = "snapshot_identity_mismatch"
@@ -702,8 +806,8 @@ def consume():
                   " root_token=" + token, flush=True)
             time.sleep(10)
         if consumer_test == "snapshot_cleanup_mismatch":
-            os.link("events.jsonl", "events-retained", src_dir_fd=root, dst_dir_fd=root)
-        os.unlink("events.jsonl", dir_fd=root)
+            os.link(snapshot_name, "snapshot-retained", src_dir_fd=root, dst_dir_fd=root)
+        os.unlink(snapshot_name, dir_fd=root)
         deleted = True
         if os.fstat(snapshot).st_nlink != 0 or os.listdir(root):
             reason = "snapshot_cleanup_mismatch"
@@ -715,7 +819,7 @@ def consume():
             fail()
         os.rmdir(token, dir_fd=base)
         print("hardware_evidence_consumer=consumed result=" + result + " category=" + category +
-              " preservation_error=" + dimension + " root_token=" + token +
+              " " + dimension_label + "=" + dimension + " root_token=" + token +
               " cleanup=trusted_debug_exact_path")
     except Exception:
         outcome = "retained"
@@ -734,6 +838,8 @@ def consume():
 
 if os.environ.get("DV_HARDWARE_OPERATION") == "consume":
     consume()
+elif os.environ.get("DV_HARDWARE_OPERATION") == "publish_configuration":
+    publish_configuration()
 else:
     publish()
 PY
@@ -800,6 +906,8 @@ record_hardware_evidence_signal_retention() {
 }
 
 validate_and_handoff_hardware_evidence() {
+    local operation="${1:-publish}"
+    local configuration_stage="${2:-}"
     local output
     local publication_status
     local publisher_suffix="${${resolved_run_root:t}#holdtype-dv-p0b.}"
@@ -807,11 +915,12 @@ validate_and_handoff_hardware_evidence() {
     : > "$hardware_publisher_output"
     chmod 0600 "$hardware_publisher_output"
     set +e
-    DV_HARDWARE_OPERATION=publish \
+    DV_HARDWARE_OPERATION="$operation" \
         DV_HARDWARE_BASE="$resolved_temp_root" \
         DV_HARDWARE_RAW_ROOT_NAME="${resolved_run_root:t}" \
         DV_HARDWARE_HANDOFF_ROOT_NAME="$hardware_handoff_root_name" \
         DV_HARDWARE_CASE_ID="$case_id" \
+        DV_HARDWARE_CONFIGURATION_STAGE="$configuration_stage" \
         DV_HARDWARE_MUTATION="${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_EVIDENCE_TEST:-}" \
         "$timeout_executable" --signal=TERM --kill-after=1s 5s \
         /usr/bin/python3 -c "$hardware_evidence_handoff_source" >"$hardware_publisher_output" 2>&1 &
@@ -860,6 +969,64 @@ validate_and_handoff_hardware_evidence() {
        "$hardware_snapshot_digest" =~ '^[0-9a-f]{64}$' ]] || return 1
     hardware_snapshot_identity="$snapshot_device:$snapshot_inode"
     hardware_handoff_retained=1
+}
+
+prepare_hardware_configuration_diagnostic() {
+    [[ "$hardware_configuration_descriptor_open" == 0 ]] || return 1
+    hardware_configuration_output="$hardware_handoff_root/.configuration-diagnostic"
+    umask 077
+    set -o noclobber
+    exec 3> "$hardware_configuration_output" || { set +o noclobber; return 1; }
+    set +o noclobber
+    hardware_configuration_descriptor_open=1
+    chmod 0600 "$hardware_configuration_output"
+    hardware_configuration_output_identity=$(/usr/bin/stat -f '%d:%i:%u:%Lp:%l' \
+        "$hardware_configuration_output")
+}
+
+close_hardware_configuration_diagnostic() {
+    if [[ "$hardware_configuration_descriptor_open" == 1 ]]; then
+        exec 3>&-
+        hardware_configuration_descriptor_open=0
+    fi
+}
+
+discard_hardware_configuration_diagnostic() {
+    close_hardware_configuration_diagnostic
+    if [[ -n "$hardware_configuration_output" &&
+          "$hardware_configuration_output" == "$hardware_handoff_root/.configuration-diagnostic" &&
+          -f "$hardware_configuration_output" && ! -L "$hardware_configuration_output" ]]; then
+        rm -f -- "$hardware_configuration_output"
+    fi
+    hardware_configuration_output=""
+    hardware_configuration_output_identity=""
+}
+
+parse_hardware_configuration_diagnostic() {
+    local output="$1"
+    local prefix="dev_vlogs_phase_0b_configuration result=failed category=invalid_configuration configuration_stage="
+    [[ -n "$output" && "$output" != *$'\n'* && "$output" == "$prefix"* ]] || return 1
+    local stage="${output#$prefix}"
+    case "$stage" in
+        isolation_not_enabled|automation_not_enabled|keychain_ui_not_suppressed|run_root_missing|\
+        event_log_missing|camera_id_missing|run_root_outside_temporary_root|event_log_path_mismatch|\
+        duration_invalid|case_id_invalid|run_paths_unavailable|unknown) REPLY="$stage" ;;
+        *) return 1 ;;
+    esac
+}
+
+publish_hardware_configuration_diagnostic() {
+    close_hardware_configuration_diagnostic
+    local observed=$(/usr/bin/stat -f '%d:%i:%u:%Lp:%l' "$hardware_configuration_output") || return 2
+    [[ "$observed" == "$hardware_configuration_output_identity" ]] || return 2
+    local output=$(<"$hardware_configuration_output")
+    rm -f -- "$hardware_configuration_output"
+    hardware_configuration_output=""
+    hardware_configuration_output_identity=""
+    [[ -n "$output" ]] || return 1
+    parse_hardware_configuration_diagnostic "$output" || return 2
+    validate_and_handoff_hardware_evidence publish_configuration "$REPLY" || return 2
+    return 0
 }
 
 consume_hardware_evidence() {
@@ -2717,6 +2884,7 @@ cleanup_nonpermission_mode() {
     terminate_hardware_evidence_worker
     terminate_hardware_preparation
     terminate_capture_supervisor
+    discard_hardware_configuration_diagnostic
     if [[ -n "$resolved_run_root" ]]; then
         if [[ "$hardware_raw_cleanup_forbidden" == 1 ]]; then
             print -u2 -r -- "hardware_evidence_raw=retained root_token=${resolved_run_root:t} cleanup=retention_required"
@@ -2746,6 +2914,42 @@ cleanup() {
         cleanup_nonpermission_mode
     fi
 }
+if [[ -n "${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_CONFIGURATION_TEST:-}" &&
+      -n "${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_EVIDENCE_TEST:-}" ]]; then
+    exit 64
+fi
+if [[ "$mode" == "--hardware" &&
+      -n "${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_CONFIGURATION_TEST:-}" ]]; then
+    prepare_hardware_evidence_handoff
+    prepare_hardware_configuration_diagnostic
+    configuration_fixture="$HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_CONFIGURATION_TEST"
+    configuration_prefix="dev_vlogs_phase_0b_configuration result=failed category=invalid_configuration configuration_stage="
+    case "$configuration_fixture" in
+        invalid_duplicate)
+            print -r -- "${configuration_prefix}unknown" >&3
+            print -r -- "${configuration_prefix}unknown" >&3
+            ;;
+        invalid_extra) print -r -- "${configuration_prefix}unknown private=blocked" >&3 ;;
+        invalid_private) print -r -- "${configuration_prefix}/Users/private" >&3 ;;
+        invalid_category)
+            print -r -- "dev_vlogs_phase_0b_configuration result=failed category=private configuration_stage=unknown" >&3
+            ;;
+        invalid_empty) ;;
+        *) print -r -- "${configuration_prefix}${configuration_fixture}" >&3 ;;
+    esac
+    set +e
+    publish_hardware_configuration_diagnostic
+    configuration_status=$?
+    set -e
+    if [[ "$configuration_fixture" == invalid_* ]]; then
+        (( configuration_status != 0 && hardware_handoff_retained == 0 )) || exit 1
+        print -r -- "hardware_configuration_test=rejected attempt=zero ready=zero"
+        exit 65
+    fi
+    (( configuration_status == 0 && hardware_handoff_retained == 1 )) || exit 1
+    print -r -- "hardware_configuration_test=retained attempt=zero ready=zero"
+    exit 65
+fi
 if [[ "$mode" == "--hardware" && -n "${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_EVIDENCE_TEST:-}" ]]; then
     prepare_hardware_evidence_handoff
     create_hardware_evidence_test_fixture \
@@ -2958,6 +3162,7 @@ if [[ "$mode" == "--request-camera-permission" ]]; then
 fi
 
 prepare_hardware_evidence_handoff
+prepare_hardware_configuration_diagnostic
 hardware_timeout_seconds=$(( capture_duration + 300 ))
 "$timeout_executable" --signal=TERM --kill-after=5s "$hardware_timeout_seconds" env \
     HOLDTYPE_AUTOMATION=1 \
@@ -2968,6 +3173,7 @@ hardware_timeout_seconds=$(( capture_duration + 300 ))
     HOLDTYPE_DEV_VLOGS_PHASE_0B_DURATION="$capture_duration" \
     HOLDTYPE_DEV_VLOGS_PHASE_0B_CASE_ID="$case_id" \
     HOLDTYPE_DEV_VLOGS_PHASE_0B_EVENT_LOG="$hardware_event_source" \
+    HOLDTYPE_DEV_VLOGS_PHASE_0B_CONFIGURATION_DIAGNOSTIC_FD=3 \
     "$app_binary" &
 capture_supervisor_pid=$!
 set +e
@@ -2975,6 +3181,18 @@ wait "$capture_supervisor_pid"
 capture_status=$?
 set -e
 capture_supervisor_pid=""
+set +e
+publish_hardware_configuration_diagnostic
+configuration_status=$?
+set -e
+case "$configuration_status" in
+    0)
+        print -u2 -r -- "error: hardware configuration failed before attempt; retained closed diagnostic"
+        exit 65
+        ;;
+    1) ;;
+    *) print -u2 -r -- "error: hardware configuration diagnostic was invalid"; exit 1 ;;
+esac
 (( capture_status == 0 )) || exit "$capture_status"
 
 validate_and_handoff_hardware_evidence || {

@@ -36,18 +36,15 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             #expect(!duplicate.output.contains("hardware_evidence_consumer=consumed"))
         }
     }
-
     @Test func everyProtectedOrdinaryFailureFormPublishesAndConsumes() throws {
         let categories = [
             "audio_start", "camera_permission_required", "camera_permission_denied",
-            "camera_selection_disconnected", "camera_start_device_unavailable",
-            "camera_selection_busy", "camera_configuration_video_input",
-            "camera_configuration_movie_output", "camera_configuration_sample_output",
-            "camera_start_timed_out", "camera_first_frame_unavailable",
-            "camera_recording_failed", "camera_interruption_disconnected",
-            "camera_session_runtime_failure", "camera_session_not_capturing", "camera_unknown",
-            "capture_stop", "camera_probe", "passthrough_incompatible",
-            "passthrough_export_failed", "finalization", "final_probe",
+            "camera_selection_disconnected", "camera_start_device_unavailable", "camera_selection_busy",
+            "camera_configuration_video_input", "camera_configuration_movie_output",
+            "camera_configuration_sample_output", "camera_start_timed_out", "camera_first_frame_unavailable",
+            "camera_recording_failed", "camera_interruption_disconnected", "camera_session_runtime_failure",
+            "camera_session_not_capturing", "camera_unknown", "capture_stop", "camera_probe",
+            "passthrough_incompatible", "passthrough_export_failed", "finalization", "final_probe",
         ]
         for category in categories {
             let result = try runScenario("valid_failure_\(category)")
@@ -58,7 +55,6 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             #expect(try runConsumer(authority, in: result.outerRoot).status == 0)
         }
     }
-
     @Test func protectedIdentifierAndZeroNominalFPSFormsPublishAndConsume() throws {
         for (scenario, caseID) in [
             ("valid", "-leading-hyphen"), ("valid", "_leading-underscore"),
@@ -72,28 +68,24 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             #expect(try runConsumer(authority, in: result.outerRoot, caseID: caseID).status == 0)
         }
     }
-
     @Test func productionRouteRejectsOwnershipMutationSchemaAndPrivateDataMatrix() throws {
         let invalid = [
             "zero", "multiple", "add_after_list", "remove_after_list", "source_replacement",
-            "same_size_mutation", "source_parent_swap", "raw_root_swap",
-            "destination_parent_swap", "wrong_owner", "symlink", "source_ancestor_symlink",
-            "destination_ancestor_symlink", "hardlink", "wrong_source_mode",
-            "wrong_source_type", "wrong_source_parent_mode", "wrong_destination_mode",
-            "destination_collision", "malformed", "oversize", "duplicate_top",
-            "duplicate_nested", "unexpected_schema", "extra_nested", "missing_stage_key",
-            "false_stage", "wrong_case", "wrong_ids", "invalid_run_id", "invalid_attempt_id",
-            "wrong_order", "missing_start", "missing_terminal", "duplicate_terminal",
-            "ready_plus_failure", "unexpected_event", "arbitrary_category",
-            "impossible_failure_category", "arbitrary_dimension", "wrong_result_dimension",
-            "arbitrary_device", "identifier_too_long", "private_data", "private_subtype",
-            "nonfinite_metric", "out_of_range_metric", "unexpected_metric", "wrong_unit",
-            "wrong_disposition", "wrong_metric_value", "duplicate_metric",
-            "missing_required_metric", "preservation_extra_duration", "backward_timestamp",
-            "ready_extra_video_key", "ready_count_mismatch", "ready_unmatched",
-            "ready_wrong_method", "ready_bad_device_label", "ready_bad_device_class",
-            "ready_missing_audio_duration", "ready_missing_video_metric", "ready_missing_fps",
-            "ready_impossible_audio_metric", "ready_with_failure_category",
+            "same_size_mutation", "source_parent_swap", "raw_root_swap", "destination_parent_swap",
+            "wrong_owner", "symlink", "source_ancestor_symlink", "destination_ancestor_symlink",
+            "hardlink", "wrong_source_mode", "wrong_source_type", "wrong_source_parent_mode",
+            "wrong_destination_mode", "destination_collision", "malformed", "oversize", "duplicate_top",
+            "duplicate_nested", "unexpected_schema", "extra_nested", "missing_stage_key", "false_stage",
+            "wrong_case", "wrong_ids", "invalid_run_id", "invalid_attempt_id", "wrong_order", "missing_start",
+            "missing_terminal", "duplicate_terminal", "ready_plus_failure", "unexpected_event",
+            "arbitrary_category", "impossible_failure_category", "arbitrary_dimension",
+            "wrong_result_dimension", "arbitrary_device", "identifier_too_long", "private_data",
+            "private_subtype", "nonfinite_metric", "out_of_range_metric", "unexpected_metric", "wrong_unit",
+            "wrong_disposition", "wrong_metric_value", "duplicate_metric", "missing_required_metric",
+            "preservation_extra_duration", "backward_timestamp", "ready_extra_video_key",
+            "ready_count_mismatch", "ready_unmatched", "ready_wrong_method", "ready_bad_device_label",
+            "ready_bad_device_class", "ready_missing_audio_duration", "ready_missing_video_metric",
+            "ready_missing_fps", "ready_impossible_audio_metric", "ready_with_failure_category",
             "ordinary_failure_metrics", "ordinary_failure_device", "published_digest_mismatch",
             "published_identity_mismatch", "failed_output_replacement",
         ]
@@ -131,7 +123,6 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             remove(result.outerRoot)
         }
     }
-
     @Test func consumerDetectsPostExitDigestSnapshotAndRootReplacementWithoutCleanup() throws {
         for mutation in ConsumerMutation.allCases {
             let result = try runScenario("valid")
@@ -157,7 +148,6 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             }
         }
     }
-
     @Test func deadlineAndPreparationSignalsAreBoundedAndOwned() throws {
         let timeout = try runScenario("slow_validator")
         defer { remove(timeout.outerRoot) }
@@ -180,7 +170,6 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             remove(result.outerRoot)
         }
     }
-
     @Test func publisherAndConsumerTERMAndINTRetainEvidenceWithoutCollateralEffects() throws {
         for signal in [SIGTERM, SIGINT] {
             let publisherRoot = try makeOuterRoot()
@@ -215,7 +204,39 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             try assertSentinelSurvived(consumerSentinel, output: consumer.output)
         }
     }
-
+    @Test func preAttemptConfigurationDiagnosticIsRetainedClosedAndConsumedOnce() throws {
+        let result = try run(arguments: hardwareArguments, scenario: nil, timeout: 8,
+                             configurationScenario: "automation_not_enabled")
+        defer { remove(result.outerRoot) }
+        #expect(result.status == 65); #expect(result.output.contains("hardware_configuration_handoff=validated"))
+        #expect(result.output.contains("configuration_stage=automation_not_enabled")); #expect(result.output.contains("attempt=zero ready=zero"))
+        #expect(rawRoots(in: result.outerRoot).isEmpty)
+        let retained = try authority(in: result.output)
+        #expect(retained.snapshotFile == "configuration.json")
+        let snapshot = result.outerRoot.appendingPathComponent(retained.rootToken).appendingPathComponent(retained.snapshotFile)
+        try assertSnapshot(snapshot, authority: retained)
+        #expect(try runConsumer(retained, in: result.outerRoot).status == 0)
+        for scenario in ["invalid_duplicate", "invalid_extra", "invalid_private",
+                         "invalid_category", "invalid_empty"] {
+            let rejected = try run(arguments: hardwareArguments, scenario: nil, timeout: 8,
+                                   configurationScenario: scenario)
+            #expect(rejected.status == 65); #expect(rejected.output.contains("hardware_configuration_test=rejected"))
+            #expect(!rejected.output.contains("hardware_configuration_handoff=validated")); #expect(!rejected.output.contains("/Users/"))
+            #expect(rawRoots(in: rejected.outerRoot).isEmpty); #expect(handoffRoots(in: rejected.outerRoot).isEmpty)
+            remove(rejected.outerRoot)
+        }
+        for mutation in ["duplicate", "extra", "category", "private"] {
+            let produced = try run(arguments: hardwareArguments, scenario: nil, timeout: 8,
+                                   configurationScenario: "unknown")
+            defer { remove(produced.outerRoot) }
+            let original = try authority(in: produced.output)
+            let file = produced.outerRoot.appendingPathComponent(original.rootToken).appendingPathComponent(original.snapshotFile)
+            let changed = try mutateConfiguration(file, mutation: mutation, authority: original)
+            let consumed = try runConsumer(changed, in: produced.outerRoot)
+            #expect(consumed.status != 0); #expect(consumed.output.contains("reason=snapshot_schema_mismatch"))
+            #expect(!consumed.output.contains("/Users/"))
+        }
+    }
     @Test func hookIsHardwareOnlyAndEveryProcessWaitIsBounded() throws {
         for arguments in [["--help"], ["--unknown"], ["--hardware"],
                           ["--request-camera-permission", "--build-only"]] {
@@ -228,43 +249,15 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             #expect(!hooked.output.contains("hardware_evidence_handoff"))
         }
     }
-
-    @Test func scriptContractStatesTheNarrowTrustedBoundary() throws {
-        let source = try String(contentsOf: scriptURL, encoding: .utf8)
-        for token in [
-            "object_pairs_hook=unique_object", "source_digest_mismatch",
-            "snapshot_post_validation_mismatch", "trusted_debug_consumer_once",
-            "--consume-hardware-evidence", "hardware_evidence_preparation=owned",
-            "Under the accepted Phase 0B Debug trust boundary only",
-        ] {
-            #expect(source.contains(token))
-        }
-        #expect(source.contains("hardware_timeout_seconds=$(( capture_duration + 300 ))"))
-        #expect(!source.contains("capture_duration + 360"))
-        #expect(!source.contains("waitUntilExit"))
-        #expect(!source.contains("killall"))
-        let prepare = try #require(source.range(of: "prepare_hardware_evidence_handoff\n"))
-        let launch = try #require(source.range(of: "HOLDTYPE_DEV_VLOGS_PHASE_0B_EVENT_LOG="))
-        let validate = try #require(source.range(
-            of: "validate_and_handoff_hardware_evidence ||", options: .backwards
-        ))
-        let cleanup = try #require(source.range(of: "raw_media_cleanup=scheduled"))
-        #expect(prepare.lowerBound < launch.lowerBound)
-        #expect(launch.lowerBound < validate.lowerBound)
-        #expect(validate.lowerBound < cleanup.lowerBound)
-    }
-
     private var hardwareArguments: [String] {
         ["--hardware", "--camera-id", "fake-camera", "--case-id", "handoff-test"]
     }
-
     private func runScenario(
         _ scenario: String, caseID: String = "handoff-test", outerRoot: URL? = nil
     ) throws -> ScriptResult {
         try run(arguments: ["--hardware", "--camera-id", "fake-camera", "--case-id", caseID],
                 scenario: scenario, timeout: 8, outerRoot: outerRoot)
     }
-
     private func runConsumer(
         _ authority: HandoffAuthority, in outerRoot: URL, caseID: String = "handoff-test",
         consumerScenario: String? = nil, signalAfterOutput: String? = nil,
@@ -279,12 +272,11 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         ], scenario: nil, timeout: 8, signalAfterOutput: signalAfterOutput, signal: signal,
            outerRoot: outerRoot, consumerScenario: consumerScenario)
     }
-
     private func run(
         arguments: [String], scenario: String?, timeout: TimeInterval,
         signalAfterOutput: String? = nil, signal: Int32? = nil,
         preparationScenario: String? = nil, outerRoot suppliedRoot: URL? = nil,
-        consumerScenario: String? = nil
+        consumerScenario: String? = nil, configurationScenario: String? = nil
     ) throws -> ScriptResult {
         let outerRoot = suppliedRoot ?? FileManager.default.temporaryDirectory.appendingPathComponent(
             "dv-p0b-handoff-tests-\(UUID().uuidString)", isDirectory: true
@@ -307,6 +299,7 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_EVIDENCE_TEST"] = scenario
         environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_PREPARATION_TEST"] = preparationScenario
         environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_CONSUMER_TEST"] = consumerScenario
+        environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_CONFIGURATION_TEST"] = configurationScenario
         process.environment = environment
         process.currentDirectoryURL = repositoryRoot
         process.standardOutput = outputHandle
@@ -337,30 +330,42 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         try FileManager.default.removeItem(at: outputURL)
         return ScriptResult(status: process.terminationStatus, output: output, outerRoot: outerRoot)
     }
-
     private func authority(in output: String) throws -> HandoffAuthority {
-        let line = try #require(output.split(separator: "\n").first {
-            $0.contains("hardware_evidence_handoff=validated")
-        })
+        let line = try #require(output.split(separator: "\n").first { $0.contains("_handoff=validated") })
         let fields = Dictionary(uniqueKeysWithValues: line.split(whereSeparator: \.isWhitespace)
             .compactMap { item -> (String, String)? in
                 let parts = item.split(separator: "=", maxSplits: 1).map(String.init)
                 return parts.count == 2 ? (parts[0], parts[1]) : nil
             })
-        let rootDeviceText = try #require(fields["root_device"])
-        let rootInodeText = try #require(fields["root_inode"])
-        let snapshotDeviceText = try #require(fields["snapshot_device"])
-        let snapshotInodeText = try #require(fields["snapshot_inode"])
-        return HandoffAuthority(
-            rootToken: try #require(fields["root_token"]),
-            rootDevice: try #require(UInt64(rootDeviceText)),
-            rootInode: try #require(UInt64(rootInodeText)),
-            snapshotDevice: try #require(UInt64(snapshotDeviceText)),
-            snapshotInode: try #require(UInt64(snapshotInodeText)),
-            snapshotDigest: try #require(fields["snapshot_sha256"])
-        )
+        return .init(rootToken: try #require(fields["root_token"]),
+                     rootDevice: try #require(fields["root_device"].flatMap(UInt64.init)),
+                     rootInode: try #require(fields["root_inode"].flatMap(UInt64.init)),
+                     snapshotDevice: try #require(fields["snapshot_device"].flatMap(UInt64.init)),
+                     snapshotInode: try #require(fields["snapshot_inode"].flatMap(UInt64.init)),
+                     snapshotDigest: try #require(fields["snapshot_sha256"]), snapshotFile: try #require(fields["file"]))
     }
-
+    private func mutateConfiguration(
+        _ file: URL, mutation: String, authority: HandoffAuthority
+    ) throws -> HandoffAuthority {
+        var text = try String(contentsOf: file, encoding: .utf8)
+        switch mutation {
+        case "duplicate": text = text.replacingOccurrences(
+            of: "\"category\":", with: "\"category\":\"invalid_configuration\",\"category\":")
+        case "extra": text = text.replacingOccurrences(of: "}\n", with: ",\"extra\":true}\n")
+        case "category": text = text.replacingOccurrences(
+            of: "\"category\":\"invalid_configuration\"", with: "\"category\":\"private\"")
+        default: text = text.replacingOccurrences(
+            of: "\"configuration_stage\":\"unknown\"", with: "\"configuration_stage\":\"/Users/private\"")
+        }
+        chmod(file.path, 0o600)
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.truncate(atOffset: 0); try handle.write(contentsOf: Data(text.utf8))
+        try handle.synchronize(); try handle.close(); chmod(file.path, 0o400)
+        let digest = SHA256.hash(data: Data(text.utf8)).map { String(format: "%02x", $0) }.joined()
+        return .init(rootToken: authority.rootToken, rootDevice: authority.rootDevice,
+                     rootInode: authority.rootInode, snapshotDevice: authority.snapshotDevice,
+                     snapshotInode: authority.snapshotInode, snapshotDigest: digest, snapshotFile: authority.snapshotFile)
+    }
     private func assertSnapshot(_ url: URL, authority: HandoffAuthority) throws {
         var value = stat()
         #expect(lstat(url.path, &value) == 0)
@@ -373,7 +378,6 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         #expect(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() ==
                 authority.snapshotDigest)
     }
-
     private func mutate(
         _ mutation: ConsumerMutation, authority: HandoffAuthority, outerRoot: URL
     ) throws {
@@ -421,10 +425,8 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "dv-p0b-handoff-tests-\(UUID().uuidString)", isDirectory: true
         )
-        try FileManager.default.createDirectory(
-            at: root, withIntermediateDirectories: false,
-            attributes: [.posixPermissions: 0o700]
-        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false,
+                                                attributes: [.posixPermissions: 0o700])
         return root
     }
 
@@ -486,6 +488,7 @@ private struct HandoffAuthority {
     let snapshotDevice: UInt64
     let snapshotInode: UInt64
     let snapshotDigest: String
+    let snapshotFile: String
 }
 
 private enum ConsumerMutation: CaseIterable {

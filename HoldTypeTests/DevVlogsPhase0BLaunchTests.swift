@@ -14,29 +14,75 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(DevVlogsPhase0BConfiguration.shouldIsolate(environment: malformed))
         #expect(DevVlogsPhase0BConfiguration.resolve(environment: malformed) == nil)
     }
-    @Test func configurationRequiresSanitizationAndTemporaryRunRoot() throws {
+    @Test func everyPreAttemptGuardHasOneClosedDiagnosticAndNoOperatorSemanticChange() throws {
         let temporaryRoot = URL(fileURLWithPath: "/tmp/phase0b-tests", isDirectory: true)
-        var environment = makeEnvironment(runRoot: "/tmp/phase0b-tests/run")
-        #expect(
-            DevVlogsPhase0BConfiguration.resolve(
-                environment: environment,
-                temporaryRoot: temporaryRoot
-            ) != nil
+        let valid = makeEnvironment(runRoot: "/tmp/phase0b-tests/run")
+        #expect(DevVlogsPhase0BConfiguration.resolveDiagnostically(
+            environment: valid, temporaryRoot: temporaryRoot
+        ) == .success(try #require(DevVlogsPhase0BConfiguration.resolve(
+            environment: valid, temporaryRoot: temporaryRoot
+        ))))
+        let cases: [(DevVlogsPhase0BConfigurationFailureStage, ([String: String]) -> [String: String])] = [
+            (.isolationNotEnabled, { var value = $0; value.removeValue(
+                forKey: DevVlogsPhase0BConfiguration.enabledEnvironmentKey); return value }),
+            (.automationNotEnabled, { var value = $0
+                value[KeychainInteractionPolicy.automationEnvironmentKey] = "true"; return value }),
+            (.keychainUINotSuppressed, { var value = $0
+                value[KeychainInteractionPolicy.authenticationUIEnvironmentKey] = "allow"; return value }),
+            (.runRootMissing, { var value = $0; value.removeValue(
+                forKey: DevVlogsPhase0BConfiguration.runRootEnvironmentKey); return value }),
+            (.eventLogMissing, { var value = $0; value.removeValue(
+                forKey: DevVlogsPhase0BConfiguration.eventLogEnvironmentKey); return value }),
+            (.cameraIDMissing, { var value = $0
+                value[DevVlogsPhase0BConfiguration.cameraUniqueIDEnvironmentKey] = "  "; return value }),
+            (.runRootOutsideTemporaryRoot, { _ in
+                self.makeEnvironment(runRoot: "/Users/example/archive") }),
+            (.eventLogPathMismatch, { var value = $0
+                value[DevVlogsPhase0BConfiguration.eventLogEnvironmentKey] = "/tmp/private"; return value }),
+            (.durationInvalid, { var value = $0
+                value[DevVlogsPhase0BConfiguration.durationEnvironmentKey] = "inf"; return value }),
+            (.caseIDInvalid, { var value = $0
+                value[DevVlogsPhase0BConfiguration.caseIDEnvironmentKey] = "private/path"; return value }),
+        ]
+        for (stage, mutate) in cases {
+            #expect(DevVlogsPhase0BConfiguration.resolveDiagnostically(
+                environment: mutate(valid), temporaryRoot: temporaryRoot
+            ) == .failure(stage))
+        }
+        #expect(Set(cases.map(\.0)).union([.runPathsUnavailable, .unknown]) == Set(DevVlogsPhase0BConfigurationFailureStage.allCases))
+        #expect(DevVlogsPhase0BConfigurationFailureStage(error: NSError(
+            domain: "private", code: 7
+        )) == .unknown)
+        #expect(DevVlogsPhase0BOperatorSummary.line(for: .failed(.invalidConfiguration)) ==
+                "dev_vlogs_phase_0b result=failed category=invalid_configuration")
+
+        var transportEnvironment = valid
+        transportEnvironment[DevVlogsPhase0BConfigurationDiagnostic.descriptorEnvironmentKey] = "3"
+        var written = Data()
+        #expect(DevVlogsPhase0BConfigurationDiagnostic.record(
+            stage: .eventLogPathMismatch, environment: transportEnvironment,
+            write: { written.append($0) }
+        ))
+        #expect(String(decoding: written, as: UTF8.self) ==
+                DevVlogsPhase0BConfigurationDiagnostic.line(stage: .eventLogPathMismatch) + "\n")
+        #expect(!String(decoding: written, as: UTF8.self).contains("/tmp/private"))
+        #expect(!DevVlogsPhase0BConfigurationDiagnostic.record(
+            stage: .unknown, environment: valid, write: { _ in Issue.record("unexpected write") }
+        ))
+
+        let blockedRoot = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "dv-p0b-configuration-\(UUID().uuidString)"
         )
-        environment[KeychainInteractionPolicy.automationEnvironmentKey] = "true"
-        #expect(
-            DevVlogsPhase0BConfiguration.resolve(
-                environment: environment,
-                temporaryRoot: temporaryRoot
-            ) == nil
-        )
-        environment = makeEnvironment(runRoot: "/Users/example/archive")
-        #expect(
-            DevVlogsPhase0BConfiguration.resolve(
-                environment: environment,
-                temporaryRoot: temporaryRoot
-            ) == nil
-        )
+        try Data("blocked".utf8).write(to: blockedRoot, options: .withoutOverwriting)
+        defer { try? FileManager.default.removeItem(at: blockedRoot) }
+        do {
+            _ = try DevVlogsPhase0BLaunch.makeHarness(
+                environment: makeEnvironment(runRoot: blockedRoot.path)
+            )
+            Issue.record("Expected run path preparation to fail")
+        } catch {
+            #expect(DevVlogsPhase0BConfigurationFailureStage(error: error) == .runPathsUnavailable)
+        }
     }
     @Test func successfulFakeRunUsesOneAudioOwnerAndFinalizesExactlyOnce() async throws {
         let fixture = makeFixture()
@@ -291,11 +337,9 @@ struct DevVlogsPhase0BLaunchTests {
             DevVlogsPhase0BConfiguration.cameraUniqueIDEnvironmentKey: "sensitive-device-id",
             DevVlogsPhase0BConfiguration.durationEnvironmentKey: "10",
             DevVlogsPhase0BConfiguration.caseIDEnvironmentKey: "fake-success",
-            DevVlogsPhase0BConfiguration.eventLogEnvironmentKey:
-                "\(runRoot)/hardware-raw/evidence/events.jsonl",
+            DevVlogsPhase0BConfiguration.eventLogEnvironmentKey: "\(runRoot)/hardware-raw/evidence/events.jsonl",
             KeychainInteractionPolicy.automationEnvironmentKey: "1",
-            KeychainInteractionPolicy.authenticationUIEnvironmentKey:
-                KeychainInteractionPolicy.skipAuthenticationUIValue,
+            KeychainInteractionPolicy.authenticationUIEnvironmentKey: KeychainInteractionPolicy.skipAuthenticationUIValue,
         ]
     }
     private func makeFixture(
@@ -306,16 +350,11 @@ struct DevVlogsPhase0BLaunchTests {
     ) -> HarnessFixture {
         let root = URL(fileURLWithPath: "/tmp/phase0b-tests", isDirectory: true)
         let configuration = DevVlogsPhase0BConfiguration(
-            runRoot: root,
-            cameraUniqueID: "sensitive-device-id",
-            duration: 10,
-            caseID: "fake-success"
+            runRoot: root, cameraUniqueID: "sensitive-device-id", duration: 10, caseID: "fake-success"
         )
         let paths = DevVlogsPhase0BRunPaths(
             runID: "run-1",
-            runDirectory: root,
-            mediaDirectory: root,
-            eventLogURL: root.appendingPathComponent("events.jsonl"),
+            runDirectory: root, mediaDirectory: root, eventLogURL: root.appendingPathComponent("events.jsonl"),
             audioURL: root.appendingPathComponent("audio.m4a"),
             videoURL: root.appendingPathComponent("video.mov"),
             finalURL: root.appendingPathComponent("final.mov")
@@ -354,69 +393,44 @@ struct DevVlogsPhase0BLaunchTests {
     var currentStatus = AudioRecorderStatus.idle
     var lastFinalizationReachedMaximumDuration = false
     let acceptsPreparedRecordingFileURL = true
-    private(set) var startCount = 0
-    private(set) var stopCount = 0
-    private(set) var cancelCount = 0
+    private(set) var startCount = 0, stopCount = 0, cancelCount = 0
     private(set) var preparedURL: URL?
     func startRecording(maximumDuration: TimeInterval) async throws {}
     func startRecording(maximumDuration: TimeInterval, outputFileURL: URL?) async throws {
-        startCount += 1
-        preparedURL = outputFileURL
-        currentStatus = .recording
+        startCount += 1; preparedURL = outputFileURL; currentStatus = .recording
     }
     func stopRecording() async throws -> AudioRecordingArtifact {
         stopCount += 1
         let artifact = AudioRecordingArtifact(fileURL: preparedURL!, duration: 10, byteCount: 1_024)
-        currentStatus = .finished(artifact: artifact)
-        return artifact
+        currentStatus = .finished(artifact: artifact); return artifact
     }
-    func cancelRecording() {
-        cancelCount += 1
-        currentStatus = .cancelled
-    }
+    func cancelRecording() { cancelCount += 1; currentStatus = .cancelled }
     func setAutomaticStopHandler(_ handler: AudioRecorderAutomaticStopHandler?) {}
 }
 @MainActor private final class Phase0BCamera: DevVlogsPhase0BCameraCapturing {
-    let failure: DevVlogsPhase0BCameraCaptureError?
-    let stopFailure: DevVlogsPhase0BCameraCaptureError?
+    let failure, stopFailure: DevVlogsPhase0BCameraCaptureError?
     let videoURL: URL
-    private(set) var startCount = 0
-    private(set) var stopCount = 0
-    private(set) var cleanupCount = 0
+    private(set) var startCount = 0, stopCount = 0, cleanupCount = 0
     init(
         failure: DevVlogsPhase0BCameraCaptureError?,
         stopFailure: DevVlogsPhase0BCameraCaptureError?,
         videoURL: URL
     ) {
-        self.failure = failure
-        self.stopFailure = stopFailure
-        self.videoURL = videoURL
+        self.failure = failure; self.stopFailure = stopFailure; self.videoURL = videoURL
     }
     func startCapture(_ request: DevVlogsPhase0BCameraCaptureRequest) async throws
         -> DevVlogsPhase0BCameraCaptureStart {
         startCount += 1
-        if let failure {
-            cleanupCount += 1
-            throw failure
-        }
-        return .init(
-            requestMonotonicTime: 12,
-            recordingStartMonotonicTime: 12.1,
-            deviceClass: .builtIn,
-            redactedDeviceLabel: "built_in_camera"
-        )
+        if let failure { cleanupCount += 1; throw failure }
+        return .init(requestMonotonicTime: 12, recordingStartMonotonicTime: 12.1,
+                     deviceClass: .builtIn, redactedDeviceLabel: "built_in_camera")
     }
     func stopCapture() async throws -> DevVlogsPhase0BCameraCaptureArtifact {
         stopCount += 1
         if let stopFailure { throw stopFailure }
-        return .init(
-            fileURL: videoURL,
-            requestMonotonicTime: 12,
-            recordingStartMonotonicTime: 12.1,
-            firstFrameMonotonicTime: 12.2,
-            firstFramePresentationTime: 0,
-            recordingStopMonotonicTime: 22
-        )
+        return .init(fileURL: videoURL, requestMonotonicTime: 12,
+                     recordingStartMonotonicTime: 12.1, firstFrameMonotonicTime: 12.2,
+                     firstFramePresentationTime: 0, recordingStopMonotonicTime: 22)
     }
     func cancelCapture() async { cleanupCount += 1 }
 }
@@ -426,23 +440,17 @@ struct DevVlogsPhase0BLaunchTests {
     init(error: DevVlogsPhase0BMediaFinalizerError? = nil) { self.error = error }
     func finalize(_ request: DevVlogsPhase0BMediaFinalizationRequest) async throws
         -> DevVlogsPhase0BMediaFinalization {
-        callCount += 1
-        if let error { throw error }
-        return .init(
-            outputFileURL: request.outputFileURL,
-            audioInsertionOffset: 0,
-            videoInsertionOffset: 0.1,
-            videoSampleTimestampOffset: CMTime(seconds: 0.1, preferredTimescale: 60_000)
-        )
+        callCount += 1; if let error { throw error }
+        return .init(outputFileURL: request.outputFileURL, audioInsertionOffset: 0,
+                     videoInsertionOffset: 0.1,
+                     videoSampleTimestampOffset: CMTime(seconds: 0.1, preferredTimescale: 60_000))
     }
 }
 @MainActor private final class Phase0BProbe: DevVlogsPhase0BMediaProbing {
     private(set) var expectations: [DevVlogsPhase0BMediaProbeExpectation] = []
     var callCount: Int { expectations.count }
-    func probe(
-        fileURL: URL,
-        expectation: DevVlogsPhase0BMediaProbeExpectation
-    ) async throws -> DevVlogsPhase0BMediaProbeResult {
+    func probe(fileURL: URL, expectation: DevVlogsPhase0BMediaProbeExpectation) async throws
+        -> DevVlogsPhase0BMediaProbeResult {
         expectations.append(expectation)
         return phase0BValidProbeResult(audio: expectation == .finalized)
     }
@@ -453,8 +461,7 @@ struct DevVlogsPhase0BLaunchTests {
     init(error: DevVlogsPhase0BVideoPreservationError? = nil) { self.error = error }
     func compare(_ request: DevVlogsPhase0BVideoPreservationRequest) async throws
         -> DevVlogsPhase0BVideoPreservationResult {
-        callCount += 1
-        if let error { throw error }
+        callCount += 1; if let error { throw error }
         return .init(sampleCount: 300, encodedByteCount: 1_000_000, mediaSubtype: "avc1")
     }
 }
@@ -462,12 +469,10 @@ struct DevVlogsPhase0BLaunchTests {
     var events: [DevVlogsPhase0BEvent] = []
 }
 @MainActor private struct HarnessFixture {
-    let harness: DevVlogsPhase0BHarness
-    let paths: DevVlogsPhase0BRunPaths
+    let harness: DevVlogsPhase0BHarness; let paths: DevVlogsPhase0BRunPaths
     let audio: Phase0BAudioRecorder
     let camera: Phase0BCamera
-    let finalizer: Phase0BFinalizer
-    let probe: Phase0BProbe
+    let finalizer: Phase0BFinalizer; let probe: Phase0BProbe
     let preservation: Phase0BPreservation
     let events: Phase0BEvents
 }

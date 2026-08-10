@@ -61,6 +61,51 @@ enum DevVlogsPhase0BFailureCategory: String, Codable, Equatable, CaseIterable {
     case alreadyRun = "already_run"
 }
 
+enum DevVlogsPhase0BConfigurationFailureStage: String, Codable, Error, Equatable, CaseIterable {
+    case isolationNotEnabled = "isolation_not_enabled"
+    case automationNotEnabled = "automation_not_enabled"
+    case keychainUINotSuppressed = "keychain_ui_not_suppressed"
+    case runRootMissing = "run_root_missing"
+    case eventLogMissing = "event_log_missing"
+    case cameraIDMissing = "camera_id_missing"
+    case runRootOutsideTemporaryRoot = "run_root_outside_temporary_root"
+    case eventLogPathMismatch = "event_log_path_mismatch"
+    case durationInvalid = "duration_invalid"
+    case caseIDInvalid = "case_id_invalid"
+    case runPathsUnavailable = "run_paths_unavailable"
+    case unknown
+
+    init(error: Error) {
+        self = error as? Self ?? .unknown
+    }
+}
+
+enum DevVlogsPhase0BConfigurationDiagnostic {
+    static let descriptorEnvironmentKey =
+        "HOLDTYPE_DEV_VLOGS_PHASE_0B_CONFIGURATION_DIAGNOSTIC_FD"
+    static let descriptorValue = "3"
+
+    static func line(stage: DevVlogsPhase0BConfigurationFailureStage) -> String {
+        "dev_vlogs_phase_0b_configuration result=failed category=invalid_configuration " +
+            "configuration_stage=\(stage.rawValue)"
+    }
+
+    static func record(
+        stage: DevVlogsPhase0BConfigurationFailureStage,
+        environment: [String: String],
+        write: ((Data) throws -> Void)? = nil
+    ) -> Bool {
+        guard environment[descriptorEnvironmentKey] == descriptorValue,
+              let data = (line(stage: stage) + "\n").data(using: .utf8) else { return false }
+        do {
+            if let write { try write(data) } else {
+                try FileHandle(fileDescriptor: 3, closeOnDealloc: false).write(contentsOf: data)
+            }
+            return true
+        } catch { return false }
+    }
+}
+
 enum DevVlogsPhase0BVideoPreservationFailureDimension: String, Codable, Equatable, CaseIterable {
     case expectedOneVideoTrack = "expected_one_video_track"
     case readerUnavailable = "reader_unavailable"

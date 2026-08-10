@@ -3,18 +3,15 @@ import AppKit
 import Foundation
 import HoldTypeDomain
 struct DevVlogsPhase0BConfiguration: Equatable {
-    static let enabledEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B"
-    static let runRootEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT"
-    static let cameraUniqueIDEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_CAMERA_ID"
-    static let durationEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_DURATION"
-    static let caseIDEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_CASE_ID"
-    static let eventLogEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_EVENT_LOG"
-    static let defaultDuration: TimeInterval = 10
-    static let maximumDuration: TimeInterval = 900
-    let runRoot: URL
-    let cameraUniqueID: String
-    let duration: TimeInterval
-    let caseID: String
+    static let enabledEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B",
+               runRootEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_RUN_ROOT",
+               cameraUniqueIDEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_CAMERA_ID",
+               durationEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_DURATION",
+               caseIDEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_CASE_ID",
+               eventLogEnvironmentKey = "HOLDTYPE_DEV_VLOGS_PHASE_0B_EVENT_LOG"
+    static let defaultDuration: TimeInterval = 10, maximumDuration: TimeInterval = 900
+    let runRoot: URL; let cameraUniqueID: String
+    let duration: TimeInterval; let caseID: String
     static func shouldIsolate(environment: [String: String]) -> Bool {
         environment[enabledEnvironmentKey] == "1"
     }
@@ -22,38 +19,48 @@ struct DevVlogsPhase0BConfiguration: Equatable {
         environment: [String: String],
         temporaryRoot: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
     ) -> DevVlogsPhase0BConfiguration? {
-        guard shouldIsolate(environment: environment),
-              environment[KeychainInteractionPolicy.automationEnvironmentKey] == "1",
-              environment[KeychainInteractionPolicy.authenticationUIEnvironmentKey] ==
-                KeychainInteractionPolicy.skipAuthenticationUIValue,
-              let rawRoot = environment[runRootEnvironmentKey],
-              let rawEventLog = environment[eventLogEnvironmentKey],
-              let rawCameraID = environment[cameraUniqueIDEnvironmentKey]?.trimmingCharacters(
-                  in: .whitespacesAndNewlines
-              ),
-              !rawCameraID.isEmpty else {
-            return nil
+        try? resolveDiagnostically(environment: environment, temporaryRoot: temporaryRoot).get()
+    }
+    static func resolveDiagnostically(
+        environment: [String: String],
+        temporaryRoot: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+    ) -> Result<DevVlogsPhase0BConfiguration, DevVlogsPhase0BConfigurationFailureStage> {
+        guard shouldIsolate(environment: environment) else { return .failure(.isolationNotEnabled) }
+        guard environment[KeychainInteractionPolicy.automationEnvironmentKey] == "1" else {
+            return .failure(.automationNotEnabled)
         }
+        guard environment[KeychainInteractionPolicy.authenticationUIEnvironmentKey] ==
+                KeychainInteractionPolicy.skipAuthenticationUIValue else {
+            return .failure(.keychainUINotSuppressed)
+        }
+        guard let rawRoot = environment[runRootEnvironmentKey]
+        else { return .failure(.runRootMissing) }
+        guard let rawEventLog = environment[eventLogEnvironmentKey] else {
+            return .failure(.eventLogMissing)
+        }
+        guard let rawCameraID = environment[cameraUniqueIDEnvironmentKey]?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ), !rawCameraID.isEmpty else { return .failure(.cameraIDMissing) }
         let runRoot = URL(fileURLWithPath: rawRoot, isDirectory: true).standardizedFileURL
         let safeRoot = temporaryRoot.standardizedFileURL.resolvingSymlinksInPath()
         let resolvedRunRoot = runRoot.resolvingSymlinksInPath()
-        guard resolvedRunRoot.path.hasPrefix(safeRoot.path + "/") else { return nil }
-        let expectedEventLog = resolvedRunRoot
-            .appendingPathComponent("hardware-raw/evidence/events.jsonl").standardizedFileURL
-        guard URL(fileURLWithPath: rawEventLog).standardizedFileURL == expectedEventLog else {
-            return nil
+        guard resolvedRunRoot.path.hasPrefix(safeRoot.path + "/") else {
+            return .failure(.runRootOutsideTemporaryRoot)
         }
-        let duration = environment[durationEnvironmentKey]
-            .flatMap(TimeInterval.init) ?? defaultDuration
-        guard duration.isFinite, (1 ... maximumDuration).contains(duration) else { return nil }
+        let expectedEventLog = resolvedRunRoot.appendingPathComponent(
+            "hardware-raw/evidence/events.jsonl"
+        ).standardizedFileURL
+        guard URL(fileURLWithPath: rawEventLog).standardizedFileURL == expectedEventLog else {
+            return .failure(.eventLogPathMismatch)
+        }
+        let duration = environment[durationEnvironmentKey].flatMap(TimeInterval.init) ?? defaultDuration
+        guard duration.isFinite, (1 ... maximumDuration).contains(duration) else {
+            return .failure(.durationInvalid)
+        }
         let caseID = environment[caseIDEnvironmentKey] ?? "capture"
-        guard isSafeIdentifier(caseID) else { return nil }
-        return DevVlogsPhase0BConfiguration(
-            runRoot: resolvedRunRoot,
-            cameraUniqueID: rawCameraID,
-            duration: duration,
-            caseID: caseID
-        )
+        guard isSafeIdentifier(caseID) else { return .failure(.caseIDInvalid) }
+        return .success(.init(runRoot: resolvedRunRoot, cameraUniqueID: rawCameraID,
+                              duration: duration, caseID: caseID))
     }
     private static func isSafeIdentifier(_ value: String) -> Bool {
         !value.isEmpty && value.count <= 64 && value.allSatisfy {
@@ -384,15 +391,15 @@ enum DevVlogsPhase0BLaunch {
         return await harness.run(handshake: handshake, activeConfirmation: activeConfirmation)
     }
     static func makeHarness(environment: [String: String]) throws -> DevVlogsPhase0BHarness {
-        guard let configuration = DevVlogsPhase0BConfiguration.resolve(environment: environment) else {
-            throw DevVlogsPhase0BHarnessFailure.invalidConfiguration
-        }
+        let configuration = try DevVlogsPhase0BConfiguration.resolveDiagnostically(
+            environment: environment
+        ).get()
         let eventLogURL = configuration.runRoot
             .appendingPathComponent("hardware-raw/evidence/events.jsonl")
-        let paths = try DevVlogsPhase0BRunPaths.prepare(
-            configuration: configuration,
-            eventLogURL: eventLogURL
-        )
+        let paths: DevVlogsPhase0BRunPaths
+        do { paths = try DevVlogsPhase0BRunPaths.prepare(
+            configuration: configuration, eventLogURL: eventLogURL
+        ) } catch { throw DevVlogsPhase0BConfigurationFailureStage.runPathsUnavailable }
         return DevVlogsPhase0BHarness(
             configuration: configuration,
             paths: paths,
@@ -449,9 +456,14 @@ final class DevVlogsPhase0BLaunchDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             let outcome: DevVlogsPhase0BHarnessOutcome
-            if let harness = try? DevVlogsPhase0BLaunch.makeHarness(environment: launchEnvironment) {
-                outcome = await harness.run()
-            } else { outcome = .failed(.invalidConfiguration) }
+            do {
+                outcome = await try DevVlogsPhase0BLaunch.makeHarness(environment: launchEnvironment).run()
+            } catch {
+                _ = DevVlogsPhase0BConfigurationDiagnostic.record(
+                    stage: .init(error: error), environment: launchEnvironment
+                )
+                outcome = .failed(.invalidConfiguration)
+            }
             self?.completeHarness(outcome)
         }
     }
