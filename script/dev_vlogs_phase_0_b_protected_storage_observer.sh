@@ -516,6 +516,122 @@ move_pinned_evidence_tree_to_absent_name() {
     zf_mv -i "$source" "$destination" </dev/null 2>/dev/null
 }
 
+rename_directory_exclusively() {
+    local parent="$1" parent_identity="$2" source_name="$3" source_identity="$4"
+    local destination_name="$5" reserve="$6" helper_status=0
+    [[ "$source_name" != */* && "$destination_name" != */* && \
+       "$source_name" != "$destination_name" ]] || return 70
+    run_timed_command "$metadata_timeout_seconds" "$reserve" 1 /usr/bin/python3 - \
+        "$parent" "$parent_identity" "$source_name" "$source_identity" \
+        "$destination_name" <<'PY' || helper_status=$?
+import ctypes, errno, os, stat, sys
+parent, parent_identity, source_name, source_identity, destination_name = sys.argv[1:]
+def expected(value):
+    uid, mode, device, inode, links = value.split("|")
+    return int(uid), int(mode, 8), int(device), int(inode), int(links)
+def exact_directory(value, identity):
+    uid, mode, device, inode, links = expected(identity)
+    return (stat.S_ISDIR(value.st_mode) and value.st_uid == uid and
+            stat.S_IMODE(value.st_mode) == mode and value.st_dev == device and
+            value.st_ino == inode and value.st_nlink == links)
+flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+parent_fd = source_fd = None
+try:
+    parent_fd = os.open(parent, flags)
+    if not exact_directory(os.fstat(parent_fd), parent_identity): raise OSError()
+    source_fd = os.open(source_name, flags, dir_fd=parent_fd)
+    if not exact_directory(os.fstat(source_fd), source_identity): raise OSError()
+    try:
+        os.stat(destination_name, dir_fd=parent_fd, follow_symlinks=False)
+        raise SystemExit(73)
+    except FileNotFoundError:
+        pass
+    libc = ctypes.CDLL(None, use_errno=True)
+    rename = libc.renameatx_np
+    rename.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int,
+                       ctypes.c_char_p, ctypes.c_uint]
+    rename.restype = ctypes.c_int
+    if rename(parent_fd, os.fsencode(source_name), parent_fd,
+              os.fsencode(destination_name), 0x00000004) != 0:
+        raise SystemExit(73 if ctypes.get_errno() == errno.EEXIST else 70)
+    os._exit(0)
+except (OSError, ValueError):
+    raise SystemExit(70)
+finally:
+    for descriptor in (source_fd, parent_fd):
+        if descriptor is not None:
+            try: os.close(descriptor)
+            except OSError: pass
+PY
+    return "$helper_status"
+}
+
+reconcile_exclusive_evidence_publication() {
+    local parent="$1" parent_identity="$2" source_name="$3" source_identity="$4"
+    local events_identity="$5" file_identities="$6" destination_name="$7" stage="$8"
+    local source="$parent/$source_name" destination="$parent/$destination_name" current
+    current=$(evidence_directory_identity "$parent" "${parent_identity[(ws:|:)2]}") || return 70
+    [[ "$current" == "$parent_identity" ]] || return 70
+    if [[ -e "$source" || -L "$source" ]]; then
+        current=$(evidence_directory_identity "$source" 755) || return 70
+        [[ "$current" == "$source_identity" ]] || return 70
+        current=$(evidence_directory_identity "$source/events" 755) || return 70
+        [[ "$current" == "$events_identity" ]] || return 70
+        validate_evidence_file_identities "$source" "$file_identities" || return 70
+        validate_runtime_evidence "$source" "$stage" || return $?
+        if [[ -e "$destination" || -L "$destination" ]]; then
+            evidence_commit_reconciliation_state=absent_authority_collision_retained
+        else
+            evidence_commit_reconciliation_state=absent_authority
+        fi
+        return 0
+    fi
+    current=$(evidence_directory_identity "$destination" 755) || return 70
+    [[ "$current" == "$source_identity" ]] || return 70
+    current=$(evidence_directory_identity "$destination/events" 755) || return 70
+    [[ "$current" == "$events_identity" ]] || return 70
+    validate_evidence_file_identities "$destination" "$file_identities" || return 70
+    validate_runtime_evidence "$destination" "$stage" || return $?
+    evidence_commit_reconciliation_state=published
+}
+
+publish_pinned_evidence_tree_exclusively() {
+    local parent="$1" parent_identity="$2" source_name="$3" source_identity="$4"
+    local events_identity="$5" file_identities="$6" destination_name="$7" stage="$8"
+    local source="$parent/$source_name" destination="$parent/$destination_name" current
+    local helper_status=0
+    current=$(evidence_directory_identity "$parent" "${parent_identity[(ws:|:)2]}") || return 70
+    [[ "$current" == "$parent_identity" ]] || return 70
+    current=$(evidence_directory_identity "$source" 755) || return 70
+    [[ "$current" == "$source_identity" ]] || return 70
+    current=$(evidence_directory_identity "$source/events" 755) || return 70
+    [[ "$current" == "$events_identity" ]] || return 70
+    validate_evidence_file_identities "$source" "$file_identities" || return 70
+    validate_runtime_evidence "$source" "$stage" || return $?
+    [[ ! -e "$destination" && ! -L "$destination" ]] || return 70
+    if (( $+functions[observer_evidence_final_move_test_hook] )); then
+        observer_evidence_final_move_test_hook "$parent" "$destination_name" "$source_name" \
+            || return 70
+    fi
+    current=$(evidence_directory_identity "$parent" "${parent_identity[(ws:|:)2]}") || return 70
+    [[ "${current%|*}" == "${parent_identity%|*}" ]] || return 70
+    parent_identity="$current"
+    rename_directory_exclusively "$parent" "$parent_identity" "$source_name" \
+        "$source_identity" "$destination_name" "$evidence_post_swap_reserve_seconds" \
+        || helper_status=$?
+    evidence_commit_helper_status="$helper_status"
+    if (( helper_status == 0 )); then
+        evidence_commit_reconciliation_state=published
+        return 0
+    fi
+    reconcile_exclusive_evidence_publication "$parent" "$parent_identity" "$source_name" \
+        "$source_identity" "$events_identity" "$file_identities" "$destination_name" \
+        "$stage" || return 70
+    [[ "$evidence_commit_reconciliation_state" == published ]] && return 0
+    (( helper_status == 124 )) && return 124
+    return 70
+}
+
 reconcile_unpublished_evidence() {
     local parent="$1" parent_identity="$2" retained_name="$3" staged_name="$4"
     local staged_identity="$5" staged_events_identity="$6" staged_file_identities="$7"
@@ -837,14 +953,9 @@ hosted,$hosted_comparison
     reconcile_unpublished_evidence "$parent" "$parent_identity" "$retained_name" \
         "$staged_name" "$staged_identity" "$staged_events_identity" \
         "$staged_file_identities" || return $?
-    if (( $+functions[observer_evidence_final_move_test_hook] )); then
-        observer_evidence_final_move_test_hook "$parent" "$retained_name" "$staged_name" \
-            || return 70
-    fi
-    move_pinned_evidence_tree_to_absent_name "$parent" "$parent_identity" "$staged_name" \
+    publish_pinned_evidence_tree_exclusively "$parent" "$parent_identity" "$staged_name" \
         "$staged_identity" "$staged_events_identity" "$staged_file_identities" \
         "$retained_name" complete || return $?
-    evidence_commit_reconciliation_state=published
     evidence_commit_cleanup_state=complete
     success_staging_root=""
 }

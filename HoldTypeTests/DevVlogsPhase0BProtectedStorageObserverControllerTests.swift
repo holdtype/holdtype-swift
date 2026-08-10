@@ -185,20 +185,16 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             [[ $command_status == 7 && -z "$output" && $outer_status == 9 &&
                -z "$outer_output" ]] && print pins_and_redaction=pass
             """])
-        #expect(result.status == 0)
-        #expect(result.output == "pins_and_redaction=pass\n")
+        #expect(result.status == 0); #expect(result.output == "pins_and_redaction=pass\n")
     }
     @Test func summaryTruthfullyDisclosesTheRejectedLiveHomeDiagnostic() throws {
-        let summary = try String(contentsOfFile: summaryPath, encoding: .utf8)
-        let normalized = summary.split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        #expect(normalized.contains("exposed the live user Home or default Xcode result-metadata location") && normalized.contains("No protected content was inspected by the worker or reviewer"))
-        #expect(normalized.contains("host metadata access was not proven absent"))
-        #expect(normalized.contains("ephemeral task-owned `/tmp` token") && normalized.contains("No protected or user path entered durable evidence"))
+        let summary = try String(contentsOfFile: summaryPath, encoding: .utf8); let normalized = summary.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        #expect(normalized.contains("exposed the live user Home or default Xcode result-metadata location") && normalized.contains("No protected content was inspected by the worker or reviewer") && normalized.contains("host metadata access was not proven absent"))
+        #expect(normalized.contains("ephemeral task-owned `/tmp` token") && normalized.contains("No protected or user path entered durable evidence") && normalized.contains("wrong task-owned private-root prefix") && normalized.contains("canonical private-root rerun passed"))
         #expect(!summary.contains("inert route failed closed"))
     }
     @Test func terminalEvidenceCleanupAndFailureOverridesAreBehavioral() throws {
-        let ready = shellQuote(readyLine + "\n")
-        let timeout = try timeoutExecutable()
+        let ready = shellQuote(readyLine + "\n"), timeout = try timeoutExecutable()
         let result = try run(["/bin/zsh", "-c", """
             source \(shellQuote(scriptPath)); timeout_executable=\(shellQuote(timeout)); run_metadata_probe() { "$@" }
             deadline=$(( SECONDS + 60 )); fixture=$(/usr/bin/mktemp -d /private/tmp/holdtype-observer-terminal.XXXXXXXX)
@@ -265,6 +261,10 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             observer_evidence_final_postcondition_test_hook() { print unexpected >"$1/unexpected" }
             reset_case; schema="$fixture/schema"; schema_status=0; finalize_controller "$schema" || schema_status=$?; unfunction observer_evidence_final_postcondition_test_hook
             [[ $schema_status == 74 && -e "$success_staging_root/unexpected" ]] && assert_failure_safe "$schema" || exit 82
+            primitive="$fixture/primitive"; /bin/mkdir -m 755 "$primitive" "$primitive/source" "$primitive/destination" "$primitive/sibling"; primitive_parent_identity=$(evidence_directory_identity "$primitive" 755); primitive_source_identity=$(evidence_directory_identity "$primitive/source" 755); primitive_status=0; rename_directory_exclusively "$primitive" "$primitive_parent_identity" source "$primitive_source_identity" destination 3 || primitive_status=$?
+            [[ $primitive_status == 73 && -d "$primitive/source" && -d "$primitive/destination" && -d "$primitive/sibling" && ! -e "$primitive/destination/source" ]] || exit 92
+            observer_evidence_final_move_test_hook() { /bin/mkdir -m 755 "$1/$2"; /bin/mkdir -m 700 "$fixture/final-collision-sibling" }; reset_case; late="$fixture/late-collision"; late_status=0; finalize_controller "$late" || late_status=$?; unfunction observer_evidence_final_move_test_hook; set +e; late_public=$(emit_controller_terminal "$late_status" 2>&1); late_public_status=$?; set -e
+            [[ $late_status == 74 && $late_public_status == 74 && -z "$late_public" && "$evidence_commit_reconciliation_state" == absent_authority_collision_retained && -d "$late" && -d "$success_staging_root" && -d "$fixture/final-collision-sibling" && -z "$(/usr/bin/find "$late" -mindepth 1 -maxdepth 1 -print -quit)" ]] && assert_complete_success "$success_staging_root" || exit 93
             export HTDV_OBSERVER_TEST_POST_SWAP=exit70; reset_case; interrupted="$fixture/interrupted"; interrupted_status=0
             finalize_controller "$interrupted" || interrupted_status=$?; unset HTDV_OBSERVER_TEST_POST_SWAP
             [[ $interrupted_status == 74 && $evidence_commit_helper_status == 70 && "$evidence_commit_reconciliation_state" == absent_authority && ! -e "$interrupted" && -d "$success_staging_root" ]] && assert_complete_success "$success_staging_root" || exit 86
