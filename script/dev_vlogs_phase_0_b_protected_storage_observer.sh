@@ -51,6 +51,9 @@ run_id=""
 timeout_executable=""
 metadata_timeout_seconds=15
 cleanup_reserve_seconds=12
+evidence_post_swap_reserve_seconds=30
+evidence_commit_helper_status="not_run"
+evidence_commit_reconciliation_state="not_run"
 outer_timeout_seconds=930
 outer_kill_after_seconds=5
 controller_pid=""
@@ -434,7 +437,9 @@ cleanup_pinned_evidence_tree() {
     if (( $+functions[observer_evidence_cleanup_boundary_test_hook] )); then
         observer_evidence_cleanup_boundary_test_hook "$tree" || return 70
     fi
-    HTDV_EVIDENCE_IDENTITIES="$file_identities" run_metadata_probe /usr/bin/python3 - "$parent" \
+    HTDV_EVIDENCE_IDENTITIES="$file_identities" \
+        HTDV_OBSERVER_TEST_CLEANUP_FAIL_AFTER="${HTDV_OBSERVER_TEST_CLEANUP_FAIL_AFTER:-}" \
+        run_metadata_probe /usr/bin/python3 - "$parent" \
         "$parent_identity" "$name" "$tree_identity" "$events_identity" <<'PY' || return $?
 import os, stat, sys
 parent, parent_identity, tree_name, tree_identity, events_identity = sys.argv[1:]
@@ -469,9 +474,14 @@ try:
         name = relative.split("/")[-1]
         if not exact(os.stat(name, dir_fd=descriptor, follow_symlinks=False), identity, False):
             raise OSError()
+    fail_after = os.environ.pop("HTDV_OBSERVER_TEST_CLEANUP_FAIL_AFTER", "")
+    fail_after = int(fail_after) if fail_after else 0
+    removed = 0
     for relative in identities:
         descriptor = events_fd if relative.startswith("events/") else tree_fd
         os.unlink(relative.split("/")[-1], dir_fd=descriptor)
+        removed += 1
+        if fail_after and removed == fail_after: raise OSError()
     os.rmdir("events", dir_fd=tree_fd)
     os.rmdir(tree_name, dir_fd=parent_fd)
 except (OSError, ValueError):
@@ -486,9 +496,11 @@ PY
 
 atomic_swap_evidence_trees() {
     local parent="$1" parent_identity="$2" retained_name="$3" retained_identity="$4"
-    local staged_name="$5" staged_identity="$6"
-    run_metadata_probe /usr/bin/python3 - "$parent" "$parent_identity" "$retained_name" \
-        "$retained_identity" "$staged_name" "$staged_identity" <<'PY' || return $?
+    local staged_name="$5" staged_identity="$6" reserve="${7:-0}" helper_status=0
+    HTDV_OBSERVER_TEST_POST_SWAP="${HTDV_OBSERVER_TEST_POST_SWAP:-}" \
+        run_timed_command "$metadata_timeout_seconds" "$reserve" 1 /usr/bin/python3 - \
+        "$parent" "$parent_identity" "$retained_name" "$retained_identity" \
+        "$staged_name" "$staged_identity" <<'PY' || helper_status=$?
 import ctypes, os, stat, sys
 parent, parent_identity, retained, retained_identity, staged, staged_identity = sys.argv[1:]
 def expected(value):
@@ -529,6 +541,7 @@ finally:
     try: os.close(parent_fd)
     except (NameError, OSError): pass
 PY
+    return "$helper_status"
 }
 
 reconcile_evidence_swap() {
@@ -570,12 +583,25 @@ PY
 
 restore_failure_safe_evidence() {
     local parent="$1" parent_identity="$2" retained_name="$3" retained_identity="$4"
-    local staged_name="$5" staged_identity="$6" swap_status=0 state
+    local staged_name="$5" staged_identity="$6" staged_events_identity="$7"
+    local staged_file_identities="$8" swap_status=0 state staged_root="$parent/$staged_name"
+    [[ $(evidence_directory_identity "$staged_root" 755) == "$retained_identity" ]] || return 70
+    validate_runtime_evidence "$staged_root" pending || return 70
+    [[ $(evidence_directory_identity "$staged_root/events" 755) == \
+        "$staged_events_identity" ]] || return 70
+    validate_evidence_file_identities "$staged_root" "$staged_file_identities" || return 70
     atomic_swap_evidence_trees "$parent" "$parent_identity" "$retained_name" "$staged_identity" \
         "$staged_name" "$retained_identity" || swap_status=$?
     state=$(reconcile_evidence_swap "$parent" "$parent_identity" "$retained_name" \
         "$retained_identity" "$staged_name" "$staged_identity") || return 70
     [[ "$state" == uncommitted ]] || return 70
+    [[ $(evidence_directory_identity "$parent/$retained_name" 755) == \
+        "$retained_identity" ]] || return 70
+    validate_runtime_evidence "$parent/$retained_name" pending || return 70
+    [[ $(evidence_directory_identity "$parent/$retained_name/events" 755) == \
+        "$staged_events_identity" ]] || return 70
+    validate_evidence_file_identities "$parent/$retained_name" \
+        "$staged_file_identities" || return 70
 }
 
 recover_failure_safe_after_cleanup_uncertainty() {
@@ -728,6 +754,7 @@ write_runtime_evidence() {
     local summary_content source_content environment_content matrix_content measurements_content
     local capture_evidence_identities=false captured_evidence_identities=""
     typeset -A final_contents
+    evidence_commit_helper_status="not_run"; evidence_commit_reconciliation_state="not_run"
     remaining_budget 0 >/dev/null || return 124
     parent="${evidence_root:h}"; retained_name="${evidence_root:t}"
     [[ "${parent:A}" == "$parent" && "$retained_name" != */* ]] || return 70
@@ -837,9 +864,11 @@ hosted,$hosted_comparison
         observer_evidence_commit_test_hook "$parent" "$retained_name" "$staged_name" || return 70
     fi
     atomic_swap_evidence_trees "$parent" "$parent_identity" "$retained_name" "$root_identity" \
-        "$staged_name" "$staged_identity" || swap_status=$?
+        "$staged_name" "$staged_identity" "$evidence_post_swap_reserve_seconds" || swap_status=$?
+    evidence_commit_helper_status="$swap_status"
     swap_state=$(reconcile_evidence_swap "$parent" "$parent_identity" "$retained_name" \
         "$root_identity" "$staged_name" "$staged_identity") || return 70
+    evidence_commit_reconciliation_state="$swap_state"
     if [[ "$swap_state" == uncommitted ]]; then
         (( swap_status != 0 )) && return "$swap_status"
         return 70
@@ -853,12 +882,23 @@ hosted,$hosted_comparison
     validate_evidence_file_identities "$evidence_root" "$staged_file_identities" || return 70
     validate_runtime_evidence "$success_staging_root" pending || return $?
     validate_evidence_file_identities "$success_staging_root" "$retained_file_identities" || return 70
+    if (( swap_status != 0 )); then
+        evidence_commit_cleanup_state=retained_failure_safe
+        restore_failure_safe_evidence "$parent" "$parent_identity" "$retained_name" \
+            "$root_identity" "$staged_name" "$staged_identity" "$events_identity" \
+            "$retained_file_identities" || \
+            recover_failure_safe_after_cleanup_uncertainty "$parent" "$parent_mode" \
+                "$evidence_root" "$staged_identity" "$staged_events_identity" \
+                "$staged_file_identities" || return 70
+        return "$swap_status"
+    fi
     evidence_commit_cleanup_state=complete
     if (( $+functions[observer_evidence_cleanup_test_hook] )); then
         observer_evidence_cleanup_test_hook "$success_staging_root" || {
             evidence_commit_cleanup_state=retained_failure_safe
             restore_failure_safe_evidence "$parent" "$parent_identity" "$retained_name" \
-                "$root_identity" "$staged_name" "$staged_identity" || \
+                "$root_identity" "$staged_name" "$staged_identity" "$events_identity" \
+                "$retained_file_identities" || \
                 recover_failure_safe_after_cleanup_uncertainty "$parent" "$parent_mode" \
                     "$evidence_root" "$staged_identity" "$staged_events_identity" \
                     "$staged_file_identities" || return 70
@@ -869,7 +909,8 @@ hosted,$hosted_comparison
         "$retained_file_identities" || {
         evidence_commit_cleanup_state=retained_failure_safe
         restore_failure_safe_evidence "$parent" "$parent_identity" "$retained_name" \
-            "$root_identity" "$staged_name" "$staged_identity" || \
+            "$root_identity" "$staged_name" "$staged_identity" "$events_identity" \
+            "$retained_file_identities" || \
             recover_failure_safe_after_cleanup_uncertainty "$parent" "$parent_mode" \
                 "$evidence_root" "$staged_identity" "$staged_events_identity" \
                 "$staged_file_identities" || return 70
@@ -1254,7 +1295,8 @@ if [[ "${ZSH_EVAL_CONTEXT:-}" == toplevel ]]; then
         shift
     done
     [[ "$execute_enabled" == true ]] || fail "explicit --execute opt-in is required"
-    unset HTDV_OBSERVER_TEST_POST_SWAP HTDV_EVIDENCE_CONTENT HTDV_EVIDENCE_IDENTITIES
+    unset HTDV_OBSERVER_TEST_POST_SWAP HTDV_OBSERVER_TEST_CLEANUP_FAIL_AFTER \
+        HTDV_EVIDENCE_CONTENT HTDV_EVIDENCE_IDENTITIES
     if command -v timeout >/dev/null 2>&1; then timeout_executable=$(command -v timeout)
     elif command -v gtimeout >/dev/null 2>&1; then timeout_executable=$(command -v gtimeout)
     else fail "a bounded timeout command is required"

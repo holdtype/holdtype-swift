@@ -52,11 +52,16 @@ result bundle.
   separately identity-pinned success tree is built and validated. One
   descriptor-relative atomic namespace swap is the commit point. Every helper
   result is reconciled from the exact before/after identities, including an
-  interruption after the swap. Displaced-tree cleanup is one descriptor-
+  interruption after the swap. The commit starts only with a bounded
+  post-swap reconciliation/recovery reserve; a helper timeout or nonzero result
+  cannot consume that reserve or become a successful terminal result.
+  Displaced-tree cleanup is one descriptor-
   relative identity-verifying helper operation under the private mode-0700
   run-root trust boundary; it does not traverse or rewrite a replacement. If
-  that boundary detects replacement, a separately created and pinned
-  failure-safe tree is atomically restored as the authoritative durable tree.
+  that boundary detects replacement or fails after a partial cleanup, the
+  displaced tree is restored only after its complete pending schema and every
+  file identity validate. Otherwise a separately created and pinned
+  failure-safe tree becomes the authoritative durable tree.
   The displaced success tree is quarantined and removed only through the same
   descriptor-relative identity boundary; any remaining quarantine suppresses
   public success. The original, replacement, and sibling remain untouched.

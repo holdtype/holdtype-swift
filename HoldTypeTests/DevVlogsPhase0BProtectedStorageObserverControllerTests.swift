@@ -200,7 +200,7 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
         let ready = shellQuote(readyLine + "\n")
         let timeout = try timeoutExecutable()
         let result = try run(["/bin/zsh", "-c", """
-            source \(shellQuote(scriptPath)); run_metadata_probe() { "$@" }
+            source \(shellQuote(scriptPath)); timeout_executable=\(shellQuote(timeout)); run_metadata_probe() { "$@" }
             deadline=$(( SECONDS + 60 )); fixture=$(/usr/bin/mktemp -d /private/tmp/holdtype-observer-terminal.XXXXXXXX)
             /bin/chmod 700 "$fixture"; stop_supervisor() { trace+=s }; cleanup_run_root() { trace+=r }; stop_guard() { trace+=g }
             assert_failure_safe() {
@@ -266,13 +266,16 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
             observer_evidence_final_postcondition_test_hook() { print unexpected >"$1/unexpected" }
             reset_case; schema="$fixture/schema"; schema_status=0; finalize_controller "$schema" || schema_status=$?; unfunction observer_evidence_final_postcondition_test_hook
             [[ $schema_status == 74 && -e "$success_staging_root/unexpected" ]] && assert_failure_safe "$schema" || exit 82
-            HTDV_OBSERVER_TEST_POST_SWAP=exit70; reset_case; interrupted="$fixture/interrupted"; interrupted_status=0
+            export HTDV_OBSERVER_TEST_POST_SWAP=exit70; reset_case; interrupted="$fixture/interrupted"; interrupted_status=0
             finalize_controller "$interrupted" || interrupted_status=$?; unset HTDV_OBSERVER_TEST_POST_SWAP
-            [[ $interrupted_status == 0 && -z "$success_staging_root" ]] && validate_runtime_evidence "$interrupted" || exit 86
-            timeout_executable=\(shellQuote(timeout)); metadata_timeout_seconds=0.2; run_metadata_probe() { run_timed_command "$metadata_timeout_seconds" 0 1 "$@"; }
-            HTDV_OBSERVER_TEST_POST_SWAP=sleep; deadline=$(( SECONDS + 20 )); reset_case; timed="$fixture/timed"; timed_status=0; finalize_controller "$timed" || timed_status=$?; unset HTDV_OBSERVER_TEST_POST_SWAP
-            run_metadata_probe() { "$@" }; metadata_timeout_seconds=15
-            [[ $timed_status == 0 && -z "$success_staging_root" ]] && validate_runtime_evidence "$timed" || exit 87
+            [[ $interrupted_status == 74 && $evidence_commit_helper_status == 70 && "$evidence_commit_reconciliation_state" == committed && -d "$success_staging_root" ]] && validate_runtime_evidence "$interrupted" pending || exit 86
+            timeout_executable=\(shellQuote(timeout)); metadata_timeout_seconds=0.2; evidence_post_swap_reserve_seconds=3; run_metadata_probe() { run_timed_command "$metadata_timeout_seconds" 0 1 "$@"; }
+            export HTDV_OBSERVER_TEST_POST_SWAP=sleep; deadline=$(( SECONDS + 5 )); reset_case; timed="$fixture/timed"; timed_status=0; finalize_controller "$timed" || timed_status=$?; unset HTDV_OBSERVER_TEST_POST_SWAP
+            run_metadata_probe() { "$@" }; metadata_timeout_seconds=15; evidence_post_swap_reserve_seconds=30; deadline=$(( SECONDS + 60 ))
+            [[ $timed_status == 74 && $evidence_commit_helper_status == 124 && "$evidence_commit_reconciliation_state" == committed && -d "$success_staging_root" ]] && validate_runtime_evidence "$timed" pending || exit 87
+            /bin/mkdir -m 700 "$fixture/late-cleanup-sibling"; export HTDV_OBSERVER_TEST_CLEANUP_FAIL_AFTER=4
+            reset_case; partial="$fixture/partial-cleanup"; partial_status=0; finalize_controller "$partial" || partial_status=$?; unset HTDV_OBSERVER_TEST_CLEANUP_FAIL_AFTER
+            [[ $partial_status == 74 && "$evidence_commit_cleanup_state" == retained_failure_safe && -d "$success_staging_root" && -d "$fixture/late-cleanup-sibling" ]] && validate_runtime_evidence "$partial" pending && assert_failure_safe "$partial" && assert_failure_safe "$success_staging_root" || exit 90
             cleanup_boundary_pending=true; observer_evidence_cleanup_boundary_test_hook() { [[ $cleanup_boundary_pending == false ]] || { cleanup_boundary_pending=false; /bin/mv "$1" "$1.original"; /bin/mkdir -m 755 "$1"; /bin/mkdir -m 700 "$fixture/cleanup-boundary-sibling"; } }; reset_case; cleanup_replaced="$fixture/cleanup-replaced"; cleanup_replaced_status=0; finalize_controller "$cleanup_replaced" || cleanup_replaced_status=$?; unfunction observer_evidence_cleanup_boundary_test_hook
             [[ $cleanup_replaced_status == 74 && -d "$success_staging_root" && -d "$success_staging_root.original" && -d "$fixture/cleanup-boundary-sibling" && -z "$evidence_success_quarantine_root" ]] && assert_failure_safe "$cleanup_replaced" && assert_failure_safe "$success_staging_root.original" || exit 89
             observer_evidence_cleanup_test_hook() { return 70 }
@@ -415,12 +418,9 @@ struct DevVlogsPhase0BProtectedStorageObserverControllerTests {
     private var repositoryRoot: URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
     }
-    private var scriptPath: String { repositoryRoot.appendingPathComponent(
-        "script/dev_vlogs_phase_0_b_protected_storage_observer.sh").path }
-    private var probePath: String { repositoryRoot.appendingPathComponent(
-        "script/dev_vlogs_phase_0_b_protected_storage_probe.c").path }
-    private var summaryPath: String { repositoryRoot.appendingPathComponent(
-        "docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md").path }
+    private var scriptPath: String { repositoryRoot.appendingPathComponent("script/dev_vlogs_phase_0_b_protected_storage_observer.sh").path }
+    private var probePath: String { repositoryRoot.appendingPathComponent("script/dev_vlogs_phase_0_b_protected_storage_probe.c").path }
+    private var summaryPath: String { repositoryRoot.appendingPathComponent("docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md").path }
     private var runID: String { "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" }
     private var otherRunID: String { "11111111-2222-4333-8444-555555555555" }
     private var readyLine: String {
