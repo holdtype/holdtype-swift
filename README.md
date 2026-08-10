@@ -281,22 +281,15 @@ The official source and release page is
 
 ## Development
 
-This repository is spec-first. Product behavior lives under `docs/specs/`,
-while agent workflow rules live in `AGENTS.md`.
+Product contracts live under `docs/specs/`; use
+[`docs/specs/index.md`](docs/specs/index.md) as the registry. Repository-local
+agent routing and constraints live in [`AGENTS.md`](AGENTS.md), and Swift
+engineering rules live in [`SWIFT.md`](SWIFT.md).
 
 The working product-site brief lives in
 [docs/marketing/landing-page-plan.md](docs/marketing/landing-page-plan.md).
 
-For code work:
-
-1. Read `AGENTS.md`.
-2. Read `docs/agent-onboarding.md`.
-3. For product or behavioral work, read `docs/specs/README.md`,
-   `docs/specs/index.md`, and the active relevant specs, then state the Spec
-   Basis before opening implementation source.
-4. Read `SWIFT.md` after the Spec Basis and before Swift, SwiftUI, AppKit,
-   Xcode project, or test changes.
-5. Open `HoldType.xcodeproj` from the repository root.
+Open `HoldType.xcodeproj` from the repository root for local Xcode work.
 
 The current published product focus is the native macOS menu bar app. The
 iPhone app and HoldType Keyboard are source-buildable work in progress and are

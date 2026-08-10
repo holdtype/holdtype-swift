@@ -36,7 +36,6 @@ Required reading before edits:
 
 - `AGENTS.md`
 - `BACKLOG_DEVELOPMENT.md`
-- `docs/agent-onboarding.md`
 - `docs/agent-tooling.md`
 - `SWIFT.md`
 - `docs/specs/README.md`

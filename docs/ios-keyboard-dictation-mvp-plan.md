@@ -237,8 +237,8 @@ sheet itself contains no setup logic, recorder ownership, or provider code.
   scoped checkpoint commit.
 - Do not run overlapping implementation work against the same keyboard, Voice,
   bridge, project, or spec files.
-- Read `AGENTS.md`, `docs/agent-onboarding.md`, `SWIFT.md`, this plan, and only
-  the governing specs/source files for the selected slice.
+- Read `AGENTS.md`, `SWIFT.md`, this plan, and only the governing specs/source
+  files for the selected slice.
 - Do not create branches, worktrees, or backlog tasks.
 - Preserve unrelated edits and stage only task-owned paths.
 - Use `apply_patch` for file edits.

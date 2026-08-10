@@ -1,71 +1,11 @@
 # AGENTS.md
 
-This file defines workflow rules for agents working in this repository.
+This file adds repository-specific routing and constraints to the inherited
+global agent, product-truth, and orchestration rules. It does not restate those
+global contracts.
 
-It is not the source of truth for detailed feature behavior. Detailed feature
-behavior must live in `docs/specs/`.
-
-## Mandatory Spec Gate
-
-This gate applies to every product feature, behavioral bug, behavioral
-investigation, product-behavior plan, and refactor that may affect observable
-behavior. It applies before source code is used to decide what the product
-should do.
-
-1. Read `docs/specs/README.md`, `docs/specs/index.md`, and every active spec
-   selected by the index for the task.
-2. Before opening implementation source, state a compact **Spec Basis** in the
-   progress update or plan: authoritative spec paths, expected behavior,
-   invariants, gaps or conflicts, and whether the task requires a spec change.
-3. If the contract is missing or conflicting, create or update the spec first.
-   Ask the user only when settling it requires a material product choice that
-   the request does not answer.
-4. For a behavior change, make the spec edit before the first implementation
-   edit. The spec and implementation may share one checkpoint commit, but their
-   working order is not interchangeable.
-5. Only after the Spec Basis is explicit may the agent inspect implementation
-   source, tests, runtime evidence, or history. Those sources establish current
-   behavior and ownership; they do not override product intent in the specs.
-6. For behavioral diagnosis, derive expected behavior from the specs first,
-   actual behavior from evidence second, and name the discrepancy before
-   proposing or implementing a fix.
-7. Planning-only or investigation-only wording is a hard stop on
-   implementation until the user explicitly authorizes code changes.
-
-Explicit brownfield discovery is the narrow exception to source-after-spec
-ordering. When no reliable spec exists, the agent may inspect code and tests as
-evidence only after recording that gap, and must produce or update first-pass
-specs before implementation begins.
-
-## Specification Authority And Change Control
-
-An accepted, committed specification is an operator-owned product decision. An
-agent must not unilaterally cancel, weaken, replace, or reinterpret that
-decision to fit an implementation, a bug fix, a hardening idea, or a test.
-
-An explicit operator request to change behavior authorizes the corresponding
-spec amendment and implementation. The agent must make the requested change:
-it must not ask the operator to justify the request, or treat the existing spec
-as a blocker. Record the operator's decision in the spec before changing
-implementation.
-
-When an agent identifies a behavior change that the operator did not request,
-or cannot determine the intended contract from the request, it must not alter
-the accepted spec on its own. It must present a precise plan for the spec
-change and ask the operator to approve it before implementation.
-
-System-permission settings are status and request surfaces for genuine macOS
-permissions only. They must not add application-owned consent switches,
-defaults, or gates as substitutes for a system permission, or place unrelated
-product opt-ins in the system-permission section, unless an active spec
-explicitly requires it and the operator has approved that product decision.
-Application-specific privacy disclosure belongs in the feature or privacy
-surface that explains the action; it must not be presented as a fictitious
-system permission.
-
-The gate does not require a product spec for formatting, comments, copy-only
-marketing work, documentation-only maintenance, or proven behavior-neutral
-internal cleanup. If behavioral impact is uncertain, the gate applies.
+Detailed HoldType behavior lives in `docs/specs/`, selected through
+`docs/specs/index.md`.
 
 ## Repository Context
 
@@ -73,10 +13,35 @@ internal cleanup. If behavioral impact is uncertain, the gate applies.
 microphone input, sends audio to OpenAI transcription, and inserts returned
 text into the current active app.
 
-The repository now contains real macOS implementation code, tests, specs, and
-automation workflows. Treat `docs/openwhispr_swiftui_codex_tz.md` as fallback
-source evidence for initial MVP behavior only when current specs do not settle
-the behavior.
+The repository contains macOS and in-progress iOS implementation code, tests,
+specs, backlog workflows, and automation runbooks.
+
+## Local Document Routing
+
+Read the smallest project-specific file set required by the current action:
+
+- `docs/specs/index.md` is the specification registry. Use it to select the
+  exact active product contracts required by the global product-truth gate.
+- `SWIFT.md` governs Swift, SwiftUI, AppKit adapter, Xcode project, and test
+  changes. For product work, read it after the provisional product-contract
+  basis; for behavior-neutral Swift work, read it before opening or editing
+  those implementation paths.
+- `docs/specs/brownfield-discovery.md` is the current repository map when
+  source ownership is unclear.
+- `BACKLOG_DEVELOPMENT.md` applies only to explicit backlog work, scheduled
+  backlog automation, backlog scripts/runbooks, or backlog-file maintenance.
+- `docs/specs/backlog.md` applies only when grooming or selecting product
+  areas.
+- `docs/agent-tooling.md` applies when choosing Xcode, simulator, device,
+  runtime-QA, MCP, or Computer Use tooling.
+- `docs/openwhispr_swiftui_codex_tz.md` is fallback source evidence only when
+  an initial MVP behavior is not settled by a current contract.
+- `docs/openwhispr-reference-retirement.md` records the boundary for the
+  removed OpenWhispr snapshot.
+
+Before any iOS Simulator, iPhone Mirroring, or signed physical-device runtime
+QA, read and follow `iOS Simulator, Mirroring, And Physical Device QA` in
+`docs/agent-tooling.md`.
 
 ## Mandatory UI Skill Gate
 
@@ -85,59 +50,33 @@ interaction changes, UI bug investigation, accessibility work, and runtime
 visual QA. It applies before inspecting UI implementation code or proposing a
 visual solution.
 
-- For macOS UI work, read and use `build-macos-apps:swiftui-patterns` and
-  implement the interface in SwiftUI only.
+- For macOS UI work, read and use `build-macos-apps:swiftui-patterns`.
 - For iOS UI work, read and use `build-ios-apps:swiftui-ui-patterns`. When
   running or debugging the iOS interface, also use
   `build-ios-apps:ios-debugger-agent`; use the other Build iOS Apps skills when
   their specialized surface applies.
 - State in the first UI progress update which skill applies and why. Follow the
-  selected skill's desktop or mobile interaction, state-ownership, component,
-  and verification guidance throughout the task.
-- Do not substitute generic UI intuition, ad-hoc AppKit/UIKit code, or a
-  screenshot-only iteration for the applicable skill workflow.
+  selected skill's interaction, state-ownership, component, and verification
+  guidance throughout the task.
 
 ### Mandatory Computer Use For UI QA
 
 For every macOS or iOS task that changes a visible interface or interaction,
 agents must use the [@Computer](plugin://computer-use@openai-bundled) plugin
-for the runtime QA pass whenever it is available in the session. The explicit
-plugin link is required: do not replace it with an unlinked textual mention of
-“Computer Use.” The agent must operate the actual app UI itself: inspect the
-current screen, perform the changed action by clicking or keyboard interaction,
-and inspect the resulting screen. Do not replace this with AppleScript,
-`osascript`, JXA, CGEvent synthesis, or an unattended screenshot-only check.
+for the runtime QA pass whenever it is available in the session. The agent
+must inspect the actual app, perform the changed action by clicking or keyboard
+interaction, and inspect the resulting screen. Do not replace this with
+AppleScript, `osascript`, JXA, CGEvent synthesis, or an unattended
+screenshot-only check.
 
 An alternative verification path is allowed only when
-[@Computer](plugin://computer-use@openai-bundled) is genuinely unavailable or
-cannot perform that specific interaction after a bounded attempt (for example,
-the target is not exposed to its accessibility/screen surface). Record the
-concrete limitation, retain all successful Computer Use evidence, then use the
-narrowest available non-AppleScript fallback such as an app-provided UI test or
-a focused runtime test. This exception is not a reason to skip the linked
-plugin when it is available.
+[@Computer](plugin://computer-use@openai-bundled) is unavailable or cannot
+perform the specific interaction after a bounded attempt. Record the concrete
+limitation and use the narrowest non-AppleScript fallback.
 
-## SwiftUI-First AppKit Boundary
+## Local Apple UI Exceptions
 
-All visible product interfaces must be implemented in SwiftUI: windows, panels,
-menus, dialogs, controls, layouts, settings, and visible feedback. AppKit is
-not an alternative UI implementation path; existing AppKit code is not
-precedent for new UI work.
-
-AppKit may be used only as a narrow, isolated platform adapter when SwiftUI
-cannot preserve a required system-level behavior on the supported deployment
-targets without a demonstrated regression. Before adding or retaining such an
-adapter, the agent must verify the SwiftUI limitation, keep all visible content
-and interaction state in SwiftUI, document the exact necessity beside the code
-or in architecture documentation, and provide focused verification.
-
-Non-visual system adapters (for example clipboard, accessibility, global
-shortcut, permission, Finder/System Settings, or active-app integration) may
-use platform APIs only when required by the operating system and their purpose
-is explicit. Do not use `build-macos-apps:appkit-interop` to create ordinary UI
-surfaces or as a convenience fallback.
-
-### Narrow Fixes popup exception
+### Narrow Fixes Popup Exception
 
 The user approved one narrow exception on 2026-08-05 for the macOS Fixes
 palette and its unavailable-feedback dialog: their presentation shell may use
@@ -147,293 +86,128 @@ view, its controls, layout, state, and feedback content must remain SwiftUI.
 This exception does not permit AppKit in Manage Fixes, editor content, or any
 other visible product surface.
 
-## Repository Safety
+### Existing Native Dialog Maintenance
 
-The user's global agent rules already define detailed database, object-storage,
-preview, log, and timeout safety. This repository repeats only the local
-non-negotiables:
-
-- do not access MongoDB directly and never run destructive database operations;
-- do not remove, move, overwrite, sync-delete, purge, or clean remote object
-  storage;
-- use bounded previews or dry runs yourself when validating an operator-only
-  corrective workflow;
-- keep product logs concise by default and put verbose payloads behind opt-in
-  debug logging;
-- put explicit timeouts on external services, media tools, uploads, downloads,
-  and similar boundaries.
-
-## Existing Native Dialogs
-
-Do not migrate or replace working AppKit alerts, sheets, or confirmation dialogs
-(including Quit) with SwiftUI unless the user explicitly requests it. Use SwiftUI
-for new or substantially redesigned product UI; make targeted fixes in existing
-native dialog flows and preserve their focus, modality, and termination behavior.
-
-## Context Budget And Reading Order
-
-Read the smallest file set that can safely answer the current request. Do not
-read every spec, backlog task, runbook, reference checkout, or QA artifact "just
-in case".
-
-Baseline routing:
-
-1. Always read this `AGENTS.md` before file changes.
-2. Read `docs/agent-onboarding.md` for ordinary direct-chat implementation or
-   investigation work.
-3. For every task covered by the Mandatory Spec Gate, read
-   `docs/specs/README.md`, `docs/specs/index.md`, and the active task specs,
-   then state the Spec Basis before opening implementation source.
-4. Read `BACKLOG_DEVELOPMENT.md` only for explicit backlog work, scheduled
-   backlog automation, backlog scripts/runbooks, or backlog file maintenance.
-5. Read `SWIFT.md` after the Spec Basis and before Swift, SwiftUI, AppKit,
-   Xcode project, or test changes.
-6. Read `docs/specs/brownfield-discovery.md` when the current source ownership
-   is unclear or the task needs a repo map.
-7. Read `docs/openwhispr_swiftui_codex_tz.md` only when a behavior is still
-   governed by the initial MVP brief and no current feature spec settles it.
-8. Read `docs/specs/backlog.md` only when grooming or selecting product areas.
-9. Treat `docs/openwhispr-reference-retirement.md` as the retirement record for
-   the removed local OpenWhispr snapshot. Current specs, source, and tests are
-   the only repository-local evidence inputs for present work.
-
-Before any iOS Simulator, iPhone Mirroring, or signed physical-device runtime
-QA, agents must read and follow `iOS Simulator, Mirroring, And Physical Device
-QA` in `docs/agent-tooling.md`. That section is the repository-wide authority
-for tool setup, the Simulator/Mirroring/device evidence boundary, microphone
-qualification, signing checks, and cleanup.
-
-For backlog selection, prefer compact readback:
-
-```sh
-python3 scripts/backlog_next.py --compact-json
-```
-
-Use full `--json` only when compact output lacks diagnostics needed for the
-current decision.
+Working AppKit alerts, sheets, and confirmation dialogs, including Quit, may
+receive targeted maintenance fixes that preserve their existing focus,
+modality, and termination behavior. This maintenance rule does not authorize a
+new AppKit surface or a substantial redesign. New or substantially redesigned
+visible interfaces must follow the inherited SwiftUI boundary.
 
 ## Direct Chat Work Versus Backlog Work
 
-Ordinary user requests in a live chat are direct tasks. If the user asks for a
-feature, fix, refactor, or investigation without explicitly asking to create,
-select, decompose, claim, or process backlog items, do the work directly in the
-chat after the required reading, specs, implementation, verification, and
-scoped checkpoint commit.
+Ordinary user requests in a live chat are direct tasks. Do not create backlog
+tasks or run the selector unless one of these conditions applies:
 
-Do not create new backlog tasks, split the work into backlog files, or run the
-selector merely because a task is non-trivial. Use normal chat planning first,
-then implement once the user approves or the request is clearly an
-implementation request.
+- the user explicitly asks to use, create, select, decompose, groom, archive,
+  or execute backlog tasks;
+- a scheduled automation or installed runbook identifies the run as backlog
+  work;
+- the request maintains backlog files, scripts, or runbooks;
+- the user and agent explicitly agree to make a long effort restartable
+  through committed backlog tasks.
 
-Use backlog workflow only when one of these is true:
-
-- the user explicitly asks to use, create, select, decompose, groom, archive, or
-  execute backlog tasks;
-- a scheduled automation, installed runbook, or worker prompt explicitly says
-  it is a backlog worker;
-- the current request is maintenance of backlog files themselves;
-- the user and agent explicitly agree to make a long effort restartable through
-  committed backlog tasks.
-
-If a direct chat task later needs follow-up work, report the follow-up in the
-chat. Create backlog files for that follow-up only when the user asks for
-durable backlog tracking or the active automation/runbook requires it.
+If a direct task needs later follow-up, report it in chat. Create durable
+backlog entries only with user approval or when the active automation requires
+them.
 
 ## Landing And Marketing Fast Lane
 
-Landing-page and marketing work is a narrow, low-context workflow. This applies
-to copy, static HTML/CSS, social metadata, images, campaign assets, and asset
+Landing-page and marketing work is a narrow, low-context workflow for copy,
+static HTML/CSS, social metadata, images, campaign assets, and asset
 organization under `website/`, `marketing/`, and `docs/marketing/`.
 
-- Read only this `AGENTS.md` plus the exact landing or marketing files needed
-  for the request. Do not load Swift architecture, app feature specs, package
-  sources, app tests, backlog bodies, or unrelated repository history.
-- Do not run Xcode builds, Swift or package tests, the full website test suite,
-  browser QA, app runtime checks, deployment dry-runs, or repeated preflight
-  checks unless the user explicitly requests that exact verification.
-- Do not create or update product feature specs for copy-only, image-only,
-  static-layout, metadata, or marketing-asset changes.
-- Use only a quick check of the edited artifact itself when useful, such as
-  confirming image dimensions, inspecting the resulting metadata, or running
-  `git diff --check`.
+- Read only this file plus the exact landing or marketing files required.
+- Do not load Swift architecture, feature specs, app tests, backlog bodies, or
+  unrelated history.
+- Do not run Xcode builds, Swift/package tests, the full website suite, app
+  runtime checks, deployment dry-runs, or repeated preflights unless the user
+  asks for that verification.
+- Use a quick artifact check when useful, such as image dimensions, metadata,
+  or `git diff --check`.
 - When the user says to publish, make the requested change, create the scoped
-  checkpoint commit on `master`, and push it without adding repeated dry-run or
-  monitoring loops. If a safe direct `master` push is impossible, follow the
-  Master-Only Git Policy and ask the user instead of creating a workaround.
+  checkpoint commit on `master`, and push it. If a safe direct `master` push is
+  impossible, follow the Master-Only Git Policy and ask the user.
 
 ## Backlog Development
 
-`BACKLOG_DEVELOPMENT.md` is the root development workflow for this repository.
-It is the primary coordination model for explicit backlog work, scheduled
-backlog automations, backlog grooming, and user-requested restartable task
-queues. It is not required for ordinary direct chat tasks.
+`BACKLOG_DEVELOPMENT.md` is the project workflow for explicit backlog work,
+scheduled backlog automations, grooming, and user-requested restartable queues.
+Read it before opening detailed task bodies.
 
-When operating in backlog mode, use the root Backlog Development workflow before
-opening detailed task bodies. Agents may shallow-scan backlog task headers when
-selecting work, but they must not read the body of a non-selected task. The
-default selector readback is compact:
+Agents may shallow-scan backlog headers during selection but must not read a
+non-selected task body. Prefer compact selector output:
 
 ```sh
 python3 scripts/backlog_next.py --compact-json
 ```
 
-Use `python3 scripts/backlog_next.py --json` only for detailed queue
-diagnostics after compact output proves insufficient.
-
-For sequential automation, the canonical checkout is the source of truth. Use
-the current repository state, not chat memory, to determine task status.
+Use `python3 scripts/backlog_next.py --json` only when compact output lacks the
+diagnostics required for the current decision. Sequential automation uses the
+canonical checkout, not chat memory, as task-state authority.
 
 ## Master-Only Git Policy
 
-Agents must work only on the repository's existing `master` branch. Agents must
-never create a Git branch under any circumstance. This prohibition applies to
-local branches, remote branches, temporary branches, publish branches, task
-branches, automation branches, and branches created through a worktree.
+Agents must work only on the repository's existing `master` branch. Never
+create or switch to another branch, create a branch-backed worktree, push a
+non-`master` ref, force-push `master`, or rewrite its history.
 
-- Never run branch-creating or branch-switching workflows such as
-  `git switch -c`, `git checkout -b`, `git branch <name>`, or
-  `git worktree add -b`.
-- Never switch away from `master`, push a non-`master` ref, or use a detached
-  worktree as a substitute for direct `master` work.
-- Commit and push task changes directly on `master`, while staging only the
-  task-owned paths and preserving unrelated user changes.
-- A dirty, ahead, behind, or diverged `master` is not permission to create an
-  alternate branch. If a direct `master` commit or fast-forward push cannot be
-  completed safely, stop and ask the user how to proceed.
-- Never force-push `master` or rewrite its history to work around divergence.
+Commit and push task changes directly on `master`, staging only task-owned
+paths. A dirty, ahead, behind, or diverged `master` is not permission to create
+an alternate branch. If a safe direct commit or fast-forward push cannot be
+completed, stop and ask the user how to proceed.
 
 ## Dirty Git State Is Never A Blocker
 
-Agents must never stop, skip, block, or report success-without-work merely
-because `git status` is dirty. This includes conditions described as "GitHub
-dirty", "dirty Git", dirty worktree, dirty checkout, unstaged changes, staged
-changes, uncommitted changes, or overlapping local edits.
-
-Dirty state is normal in this repository because multiple automation and manual
-threads may touch the same checkout. The required behavior is:
-
-- inspect the relevant diff;
-- preserve existing changes;
-- work against the current file contents;
-- stage and commit only the current task's owned paths;
-- use path-limited commands such as `git add <owned paths>` and
-  `git commit --only <owned paths>` when unrelated changes exist.
+Dirty state is normal in this repository. Inspect relevant diffs, preserve
+existing changes, work against current contents, and use path-limited staging
+and commits such as `git add <owned paths>` and `git commit --only <owned
+paths>`.
 
 Do not revert, reset, clean, stash, or include unrelated changes unless the
-user explicitly asks for that exact Git operation. Do not introduce new
-workflow, runbook, prompt, or automation rules that make dirty Git state a stop
-condition.
+user explicitly requests that exact Git operation. Do not add or follow a
+project workflow that treats dirty Git state as a stop condition.
 
 ## Checkpoint Commits
 
-At the end of every task-solving chat that changes repository files, the agent
-must create a checkpoint commit before the final response.
+Every task-solving chat that changes repository files must create a checkpoint
+commit before the final response. Stage and commit only paths owned by the
+current task. Leave unrelated changes untouched and mention them in the final
+response.
 
-Checkpoint commits must stage and commit only the files changed for the current
-task. Do not stage unrelated user changes or unrelated generated files. If the
-worktree already contains unrelated changes, leave them untouched and mention
-them in the final response.
+Automation runs and bounded worker iterations follow the same rule: finish
+required status updates and verification, then create a scoped checkpoint
+commit before reporting completion or handing off.
 
-If no repository files changed during the chat, report that no checkpoint
-commit was needed.
+## Local Engineering Boundary
 
-Automation runs, separate worker chats, and bounded subtask executions count as
-task-solving iterations. If they change repository files, they must finish by
-updating any relevant plan/task status, running the appropriate verification,
-staging only their own changes, and creating a scoped checkpoint commit before
-reporting completion or handing work to the next run.
+- `docs/specs/` contains HoldType product contracts.
+- `SWIFT.md` contains Swift and Apple-platform engineering rules.
+- `BACKLOG_DEVELOPMENT.md` contains queue mechanics.
+- tests and QA artifacts contain verification evidence.
+- `AGENTS.md` contains only repository routing and local agent constraints.
 
-## When A Spec Is Required
+All Swift implementation must follow `SWIFT.md`. A necessary exception must be
+small, isolated, and explained in review or the final response.
 
-Create or update a spec when a task:
+## Verification
 
-- introduces a new feature
-- changes observable behavior
-- introduces or modifies route, state, persistence, permission, or data
-  contracts
-- affects multi-step user flows
-- changes recording, transcription, status, editing, or text handoff behavior
-- changes privacy, consent, microphone access, local storage, or remote-service
-  use
-- changes gating, permissions, or eligibility logic
-- introduces behavior that could be misunderstood later
+For macOS UI tests, Computer Use, or automated runtime QA, follow
+`docs/qa/macos/AGENTS.run.md` and these repository-wide additions:
 
-A new spec is usually not required for:
+- start a scoped `caffeinate` guard before the first UI action and stop it when
+  the UI session finishes;
+- launch HoldType with live Keychain access disabled, normally through
+  `script/build_and_run.sh --verify`;
+- never enter the macOS login keychain password or click `Always Allow` during
+  automation;
+- close and verify exit of every run-owned HoldType process before the final
+  response without terminating an instance the run did not launch;
+- do not use `script/build_and_run.sh --live-debug` for automation unless the
+  user explicitly requests a live OpenAI debug session.
 
-- pure refactors
-- formatting-only changes
-- comments-only edits
-- behavior-neutral internal cleanup
-
-## Separation Of Concerns
-
-- `AGENTS.md` defines workflow and agent rules.
-- `docs/specs/` defines product behavior.
-- tests or QA artifacts define verification and evidence.
-
-Do not merge these layers into one file.
-
-## Swift Implementation Rule
-
-Implement against the Spec Basis, not against ad hoc chat memory or behavior
-inferred from source. If behavior changes, update the spec before the first
-implementation edit.
-
-For Swift or Apple-platform code, specs must settle user-visible behavior before
-implementation details such as SwiftUI/AppKit/UIKit structure, speech framework
-choice, accessibility permissions, clipboard behavior, persistence, or remote
-transcription provider are treated as fixed.
-
-All Swift implementation must follow `SWIFT.md`. If a task needs to violate
-`SWIFT.md` for platform or integration reasons, document the reason in the code
-review or final response and prefer a small, isolated exception.
-
-## Verification Rule
-
-If a task changes behavior, update or add appropriate verification artifacts.
-Verification may be unit tests, integration tests, UI tests, manual app-run
-evidence, or another project-appropriate artifact.
-
-Before every UI test, Computer Use session, or automated runtime QA pass on
-macOS, agents must start a scoped `caffeinate` process (for example,
-`caffeinate -dimsu`) before the first interface action. Keep it running for the
-entire UI session so system idle timers cannot sleep or lock the Mac, then stop
-that process when the UI session finishes. Do not begin UI automation without
-this guard.
-
-Agents must perform every interface action that is available through Computer
-Use or another approved automation surface themselves. Do not ask the operator
-to click buttons, navigate menus, dismiss prompts, or enter ordinary values on
-the agent's behalf. Request operator action only when the required physical or
-authentication gesture is genuinely unavailable to automation, and continue
-all independent work instead of stopping while that action is pending.
-
-For UI tests, Computer Use, and automated runtime QA, HoldType must launch with
-live Keychain access disabled. Use the UI-test launch helper or
-`script/build_and_run.sh --verify`, which launches the app with a sanitized
-environment; do not raw-launch the app for automation when Keychain behavior is
-not the task. Agents must not enter the macOS login keychain password or click
-`Always Allow` during automated testing.
-
-After every UI test, Computer Use, or automated runtime QA pass, agents must
-close every HoldType process they launched before the final response. Track the
-run-owned PID or app path at launch, terminate only those run-owned instances,
-and verify that they have exited. Never leave a test or verification HoldType
-instance for the operator to close manually, and never terminate an instance
-that the current task did not launch.
-
-`script/build_and_run.sh --live-debug` is manual live-provider tooling only. Do
-not use it for automated verification, scheduled runs, UI tests, or Computer
-Use smoke unless the user explicitly asks for a live OpenAI debug session.
-
-For microphone, transcription, permissions, or external-service behavior, tests
-must avoid indefinite waits and must use bounded timeouts or controllable fakes.
-
-iOS runtime evidence must keep the three lanes separate: Simulator proves the
-actual extension and simulated host interaction; iPhone Mirroring may operate
-and observe only the containing app; a signed physical iPhone proves real
-microphone ownership, recording lifecycle, and device signing. One lane must
-never be reported as proof for another.
+iOS runtime evidence must keep Simulator, iPhone Mirroring, and signed physical
+device lanes separate as defined in `docs/agent-tooling.md`.
 
 For Swift behavior changes, the baseline verification is:
 
@@ -442,31 +216,13 @@ xcodebuild -project HoldType.xcodeproj -scheme HoldType -destination 'platform=m
 git diff --check
 ```
 
-Run the matching `xcodebuild ... test` command when tests or test-covered
-behavior change. For docs/spec-only changes, `git diff --check` is usually
-enough unless the edited docs change executable commands that should be
-exercised.
-
-## Writing Style For Specs
-
-Specs should be:
-
-- short
-- explicit
-- product-level
-- behavior-oriented
-
-Avoid deep implementation detail unless it is necessary to preserve the product
-contract.
+Run the matching test command when tests or test-covered behavior change. For
+docs/spec-only changes, `git diff --check` is normally sufficient unless an
+edited executable command should be exercised.
 
 ## Retired OpenWhispr Reference
 
-The local copied OpenWhispr source was retired after its useful MVP behavior
-had been reconciled into HoldType specs and native implementation work. Do not
-restore or require a `references/` checkout for normal development, grooming,
-investigation, or verification.
-
-Historical backlog records may still cite paths from that removed snapshot.
-Those citations preserve audit provenance only; they are not executable reading
-instructions or current product authority. Use active specs selected through
-`docs/specs/index.md`, then current HoldType source and tests, for present work.
+Do not restore or require a `references/` checkout for normal development,
+grooming, investigation, or verification. Historical backlog citations to the
+removed snapshot preserve provenance only; they are not executable reading
+instructions or current product authority.

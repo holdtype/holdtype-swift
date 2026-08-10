@@ -44,7 +44,6 @@ Required reading before edits:
 
 - `AGENTS.md`
 - `BACKLOG_DEVELOPMENT.md`
-- `docs/agent-onboarding.md`
 - `docs/agent-tooling.md` when Xcode, simulator, MCP, runtime QA, or
   tool-selection decisions are involved
 - `docs/specs/README.md`

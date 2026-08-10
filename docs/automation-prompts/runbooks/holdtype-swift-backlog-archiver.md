@@ -28,7 +28,6 @@ Required reading before action:
 
 - `AGENTS.md`
 - `BACKLOG_DEVELOPMENT.md`
-- `docs/agent-onboarding.md`
 - `docs/agent-tooling.md`
 - `docs/specs/features/backlog-grooming-automation.md`
 - this runbook

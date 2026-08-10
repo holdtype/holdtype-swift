@@ -9,9 +9,9 @@ agent runs.
 Ordinary user requests in a live chat are not backlog work by default. When the
 user asks for a feature, fix, refactor, or investigation without asking to use,
 create, select, decompose, claim, or process backlog tasks, handle it directly
-in the chat after the required reading, specs, implementation, verification,
-and scoped checkpoint commit. Do not create backlog files or run the selector
-just because the task is non-trivial.
+in the chat under the inherited governance and repository-local `AGENTS.md`.
+Do not create backlog files or run the selector just because the task is
+non-trivial.
 
 Use this file after `AGENTS.md` and before opening detailed backlog task bodies
 only when the current request is in backlog mode.
@@ -26,10 +26,10 @@ decide priorities. In backlog mode, the durable source of truth for work state
 is the repository: backlog files, specs, reference reports, verification
 artifacts, and checkpoint commits.
 
-In direct chat mode, the task source is the user's latest chat request plus the
-repository's specs and source files. Direct chat work still updates specs when
-behavior changes, verifies the result, and creates scoped checkpoint commits
-when repository files change.
+In direct chat mode, the user's request supplies task scope while the inherited
+product-truth governance and project registry supply product authority. Direct
+chat work still uses task-appropriate verification and scoped checkpoint
+commits when repository files change.
 
 The normal backlog-mode unit of work is:
 
@@ -304,14 +304,14 @@ After claiming:
 - read only the selected task body and required root workflow files;
 - follow the task's dependencies, scope, allowed paths, denied paths, and
   expected outputs;
+- route product work through the inherited product-truth governance and the
+  exact contract slice selected by `docs/specs/index.md`;
 - read `SWIFT.md` before Swift or SwiftUI source changes;
-- read the relevant feature spec before changing product behavior;
-- update specs when behavior changes;
 - use the smallest task-specific reading slice;
 - do not widen into adjacent tasks;
 - write durable reports or evidence when the task asks for them;
 - create follow-up task files for downstream or cross-boundary work;
-- keep chat updates short and treat repository files as the durable state.
+- keep chat updates short and treat repository files as the durable state;
 - never treat unrelated dirty Git state as a task blocker; preserve it, work
   around it, and commit only the current task's owned paths.
 
@@ -415,7 +415,7 @@ task-appropriate Xcode, simulator, or Computer Use path.
 
 ## Relationship To Other Files
 
-- `AGENTS.md` defines workflow, safety, and agent rules.
+- `AGENTS.md` defines repository-local routing and constraints.
 - `BACKLOG_DEVELOPMENT.md` defines queue execution, claim, and checkpoint
   behavior.
 - `SWIFT.md` defines Swift, SwiftUI, AppKit interop, and engineering rules.
