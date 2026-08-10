@@ -265,8 +265,8 @@ other external root remain unauthorized.
 | `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09@20787c4` | read-only exact repair/provenance review | rejected | receipt below | Return exact three-path leaf no-follow repair; no runtime. |
 | `DV-P0B-CAPTURE-W09-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W09 review | Launch, Launch tests, W01 summary only | accepted_with_residual | `7342f18`; receipt below | No-follow final-leaf repair accepted; Debug trust residual remains. |
 | `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1@7342f18` | read-only exact repair/provenance review | accepted_with_residual | receipt below | One separately admitted hardware attempt is dependency-ready. |
-| `DV-P0B-CAPTURE-R09` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W09 Review-R1; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R09 QA root; exact internal temp media root only | running | — | Exactly one attempt, no retry/fallback; review required. |
-| `DV-P0B-CAPTURE-R09-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R09` terminal receipt | read-only exact runtime evidence/provenance | queued | — | No subsequent runtime before review. |
+| `DV-P0B-CAPTURE-R09` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W09 Review-R1; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R09 QA root; exact internal temp media root only | review / functional_fail | `8c5ea02`; receipt below | Probes/passthrough pass; strict preservation reading_failed; review running. |
+| `DV-P0B-CAPTURE-R09-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R09@8c5ea02` | read-only exact runtime evidence/provenance | running | — | No subsequent runtime before review. |
 | `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | accepted `DV-P0B-REVIEW` plus user disposition | named specs and acceptance map | blocked | — | Do not produce `DV-ACTIVE-1` from the current failed gates. |
 | `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
 | `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
@@ -497,7 +497,9 @@ other external root remain unauthorized.
   parent canonicalization but review rejected its leaf-symlink escape. Exact
   three-path R1 `7342f18` adds no-follow final-leaf validation and is accepted
   with the existing Debug trust residual. One serialized no-retry R09 hardware
-  attempt is admitted; no further runtime is implied.
+  attempt completed: probes and passthrough passed, strict preservation failed
+  at reading_failed, and Ready remained zero. Independent review is running;
+  no further runtime is implied.
 - The connected iPhone is reserved for the later dependency-ready Continuity
   Camera runtime gate.
 - E01 observed writable external SSD and HDD classes. A fresh bounded read-only
@@ -8401,5 +8403,49 @@ residual: Real Continuity/TCC/media/preservation/quantitative evidence remains.
 The accepted private Debug boundary does not promise resistance to a malicious
 same-UID post-validation namespace race.
 next_dependency: One separately coordinator-authorized R09 hardware attempt.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R09`
+
+```text
+packet_id: DV-P0B-CAPTURE-R09
+status: failed
+functional_result: fail
+commit: 8c5ea025e56ef2982c802f48295d84127abe51e9
+parent: d3a5b2dd60da7ad0a16cb8d49bf139c98397a0c8
+
+outcome: One fresh explicit Continuity ten-second attempt ran with no retry or
+fallback. Camera-only probe passed playable 1V/0A, passthrough passed, and final
+probe passed playable 1V/1A. Strict stored_sample_exact_v1 failed at emitted
+dimension reading_failed; Ready remained zero.
+
+authorization: Authorized, supported by accepted route ordering and successful
+camera capture. No requestAccess, permission mode, UI, System Settings or TCC
+action occurred.
+
+counts_and_media: Enumeration=1, eligible=1, invocation=1, attempt=1,
+terminal=1, Ready=0, retry=0. Camera/final video is 1920x1080 avc1 with identity
+transform; final audio is AAC. One dictation-audio owner and zero camera audio
+inputs. Product dictation or shipping lease is not claimed.
+
+measurements: Validated W07 handoff retains cadence, timestamp bounds and
+estimated rates as evidence_only. Sample/file bytes, exact durations, latency,
+resources, sync and drift are unavailable; no markers were used.
+
+cleanup: Validated handoff published and consumed once. Raw media and all
+run-owned roots/processes/guard are absent; one unrelated old root was
+preserved. Protected metadata-only counts/path sets remain unchanged at
+54/0/0/53/0; no external or remote I/O.
+
+scope_check: Exactly nine redacted text files under the R09 QA root; no source,
+test, script, spec, registry, project, plist, entitlement, product, TCC or
+storage change.
+deviations: One wrong pre-runtime build-only spelling exited before launch;
+correct build-only passed. A post-enumeration zsh readonly-variable error did
+not cause re-enumeration. No retry, fallback or second invocation.
+residual: Debug-spike strict preservation reading_failed; no lower-level cause
+or unavailable quantitative value is inferred.
+next_dependency: DV-P0B-CAPTURE-R09-REVIEW.
 runtime_or_visual_handoff: none
 ```
