@@ -7,12 +7,14 @@ import Testing
 @testable import HoldType
 @MainActor
 struct DevVlogsPhase0BLaunchTests {
-    @Test func gateDefaultsOffAndMalformedEnabledRunStillIsolates() {
+    @Test func gateDefaultsOffAndEveryHardwareIntentStillIsolates() {
         #expect(!DevVlogsPhase0BConfiguration.shouldIsolate(environment: [:]))
         #expect(DevVlogsPhase0BConfiguration.resolve(environment: [:]) == nil)
-        let malformed = [DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1"]
-        #expect(DevVlogsPhase0BConfiguration.shouldIsolate(environment: malformed))
-        #expect(DevVlogsPhase0BConfiguration.resolve(environment: malformed) == nil)
+        for key in DevVlogsPhase0BConfiguration.hardwareIntentEnvironmentKeys {
+            let partial = [key: key == DevVlogsPhase0BConfiguration.enabledEnvironmentKey ? "wrong" : "value"]
+            #expect(DevVlogsPhase0BConfiguration.shouldIsolate(environment: partial))
+            #expect(DevVlogsPhase0BConfiguration.resolveDiagnostically(environment: partial) == .failure(.isolationNotEnabled))
+        }
     }
     @Test func everyPreAttemptGuardHasOneClosedDiagnosticAndNoOperatorSemanticChange() throws {
         let temporaryRoot = URL(fileURLWithPath: "/tmp/phase0b-tests", isDirectory: true)
@@ -55,7 +57,6 @@ struct DevVlogsPhase0BLaunchTests {
         )) == .unknown)
         #expect(DevVlogsPhase0BOperatorSummary.line(for: .failed(.invalidConfiguration)) ==
                 "dev_vlogs_phase_0b result=failed category=invalid_configuration")
-
         var transportEnvironment = valid
         transportEnvironment[DevVlogsPhase0BConfigurationDiagnostic.descriptorEnvironmentKey] = "3"
         var written = Data()
@@ -69,7 +70,6 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(!DevVlogsPhase0BConfigurationDiagnostic.record(
             stage: .unknown, environment: valid, write: { _ in Issue.record("unexpected write") }
         ))
-
         let blockedRoot = FileManager.default.temporaryDirectory.appendingPathComponent(
             "dv-p0b-configuration-\(UUID().uuidString)"
         )
@@ -228,23 +228,21 @@ struct DevVlogsPhase0BLaunchTests {
         #expect(printLine.lowerBound < clear.lowerBound && clear.lowerBound < transition.lowerBound)
         #expect(transition.lowerBound < schedule.lowerBound && !completion.contains("harnessTask.value"))
     }
-    @Test func applicationRouterConstructsOnlyTheSelectedComposition() {
+    @Test func applicationRouterConstructsNormalOnlyWithoutHardwareIntent() {
         var normalStarts = 0
         var harnessStarts = 0
         DevVlogsPhase0BLaunch.startApplication(
             environment: [:],
-            startNormalApplication: { normalStarts += 1 },
-            startHarnessApplication: { harnessStarts += 1 }
-        )
+            startNormalApplication: { normalStarts += 1 }, startHarnessApplication: { harnessStarts += 1 })
         #expect(normalStarts == 1)
         #expect(harnessStarts == 0)
-        DevVlogsPhase0BLaunch.startApplication(
-            environment: [DevVlogsPhase0BConfiguration.enabledEnvironmentKey: "1"],
-            startNormalApplication: { normalStarts += 1 },
-            startHarnessApplication: { harnessStarts += 1 }
-        )
+        for key in DevVlogsPhase0BConfiguration.hardwareIntentEnvironmentKeys {
+            DevVlogsPhase0BLaunch.startApplication(
+                environment: [key: "wrong"],
+                startNormalApplication: { normalStarts += 1 }, startHarnessApplication: { harnessStarts += 1 })
+        }
         #expect(normalStarts == 1)
-        #expect(harnessStarts == 1)
+        #expect(harnessStarts == DevVlogsPhase0BConfiguration.hardwareIntentEnvironmentKeys.count)
     }
     @Test func harnessCompositionContainsNoProductScenesAndNormalCompositionRemainsIntact() throws {
         let repositoryRoot = URL(fileURLWithPath: #filePath)

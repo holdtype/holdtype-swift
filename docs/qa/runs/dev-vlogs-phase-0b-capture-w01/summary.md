@@ -104,13 +104,22 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
   event path, invalid duration/case ID, run-path preparation failure, and a
   foreign `unknown` fallback. Before a hardware launch the script opens one
   fixed descriptor in the already-pinned handoff authority; the Debug target
-  may emit only the fixed closed line to that descriptor. The script deletes
-  the raw diagnostic and publishes a strict mode-0400 `configuration.json`
-  snapshot descriptor-relatively without consulting the rejected run root or
-  event path. Its one-shot consumer accepts exactly that singleton alternate
+  may emit only one ASCII closed line terminated by exactly one LF and EOF to
+  that descriptor. Missing LF, CRLF, extra records or bytes, NUL, non-ASCII,
+  partial and private forms fail closed. The script captures the raw regular
+  file's device, inode, owner, full mode/type and link count, then deletes and
+  publishes only while that identity still matches. A mode, link-count, inode,
+  replacement or sibling mismatch retains the implicated private handoff root,
+  publishes nothing and returns failure. Exact identity permits a strict
+  mode-0400 `configuration.json` snapshot without consulting the rejected run
+  root or event path. Its one-shot consumer accepts exactly that alternate
   schema under the same root/snapshot identity and digest authority. Duplicate,
   extra, private, malformed, or unknown fields fail closed. The ordinary valid
   W07 two-event JSONL path and permission/non-hardware modes remain unchanged.
+  Debug with no hardware-intent key still constructs normal HoldType; any
+  partial or wrong canonical hardware intent remains inside the isolated
+  noncapturing route and reports `isolation_not_enabled` without product-owner
+  construction.
   This route was fake-verified only and does not retroactively identify R07.
 - Stored-video comparison failures now retain one closed redacted preservation
   dimension for each existing typed comparator failure, with a generic
@@ -158,14 +167,14 @@ Camera behavior, real codecs, latency, synchronization, drift, or resource use.
 | Check | Result |
 | --- | --- |
 | Swift structure gate | Pass; all new Swift files remain at or below the 500-line hard limit. |
-| Focused macOS fake tests | Pass; 21/21 W08 launch and production-handoff tests cover every configuration guard, foreign fallback, exact operator terminal, descriptor-disabled behavior, valid alternate publication/consumption, malformed/duplicate/extra/private forms, and unchanged ordinary handoff behavior. The serial ordinary Phase 0B selection passed 117/117 in 14 suites. The separate protected-storage hosted test still requires its accepted private runner environment and is not claimed by this ordinary invocation. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, preservation dimensions, authorization, and redaction remain covered. |
+| Focused macOS fake tests | Pass; 21/21 W08 launch and production-handoff tests cover every configuration guard, foreign fallback, exact operator terminal, descriptor-disabled behavior, valid alternate publication/consumption, malformed/duplicate/extra/private forms, and unchanged ordinary handoff behavior. The serial ordinary Phase 0B selection passed 115/115 in 14 suites. The separate protected-storage hosted test still requires its accepted private runner environment and is not claimed by this ordinary invocation. Existing launch, deferred termination, R03 lifecycle/errors, native-source, passthrough, probes, sample preservation, one-audio-owner, Ready gating, preservation dimensions, authorization, and redaction remain covered. |
 | Debug macOS build | Pass through script build-only mode; hardware mode not run. |
 | Release macOS build | Pass; Debug source compiles out. Existing unrelated concurrency warnings remain. |
 | Debug build settings | `Info-Debug.plist`, Debug capture entitlements, and `DEBUG` selected. |
 | Release build settings | Existing `Info.plist` and `HoldType.entitlements` remain selected. |
 | Built Debug artifact | Camera and Microphone purpose strings present; audio-input and camera entitlements present. |
 | Built Release artifact | Existing Microphone purpose string present; Camera purpose string absent. |
-| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration, descriptor-relative no-replacement publication, immutable snapshot validation, and success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision remains unchanged from the accepted permission-lane basis. Hardware mode additionally pre-opens the fixed configuration-diagnostic descriptor, accepts only one exact closed line, and publishes either its validated configuration snapshot or the unchanged ordinary W07 event snapshot before raw cleanup. The explicit consumer validates and consumes either schema once under the reported identity/digest authority. Invalid configuration diagnostics retain no unvalidated raw path; build-only, help, permission, and invalid modes cannot enter the route. Neither real hardware nor permission-request mode was run. |
+| Script checks | Shell syntax, help/default-help, invalid/extra/mutually-exclusive argument rejection, bounded build-only execution, timeout-wrapped build-settings inspection, and planned-duration-plus-300-second hardware supervision passed. The helper compiles and its injected self-test covers exact configuration, descriptor-relative no-replacement publication, immutable snapshot validation, and success/rejection/timeout/cancellation/late-callback arbitration. Camera-request supervision remains unchanged from the accepted permission-lane basis. Hardware mode additionally pre-opens the fixed configuration-diagnostic descriptor, accepts exactly one LF-terminated closed record plus EOF, and publishes either its identity-bound validated configuration snapshot or the unchanged ordinary W07 event snapshot before raw cleanup. Missing/extra terminators, trailing bytes and identity changes fail closed; an identity mismatch retains the implicated private handoff root and emits no success. The explicit consumer validates and consumes either published schema once under the reported identity/digest authority. Build-only, help, permission, default and invalid modes cannot enter the route. Neither real hardware nor permission-request mode was run. |
 | Diff hygiene | Pass; changed paths are confined to the repair packet and `git diff --check` is clean. |
 
 The script accepts hardware execution only through the explicit `--hardware`

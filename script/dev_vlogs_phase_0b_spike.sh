@@ -221,6 +221,21 @@ def validate_configuration(payload, expected_case):
         fail()
     return value["result"], value["category"], value["configuration_stage"]
 
+def validate_raw_configuration(payload):
+    if not payload or len(payload) > 512 or not payload.endswith(b"\n") or payload.count(b"\n") != 1:
+        fail()
+    try:
+        line = payload[:-1].decode("ascii")
+    except UnicodeDecodeError:
+        fail()
+    prefix = "dev_vlogs_phase_0b_configuration result=failed category=invalid_configuration configuration_stage="
+    if not line.startswith(prefix):
+        fail()
+    stage = line[len(prefix):]
+    if stage not in CONFIGURATION_STAGES:
+        fail()
+    return stage
+
 def metric_rules():
     rules = {
         "camera_video_duration": ("s", "evidence_only", 1e-12, 86400.0, False),
@@ -649,23 +664,80 @@ def publish():
                     pass
 
 def publish_configuration():
-    base = handoff = output = None
+    base = handoff = raw = output = None
+    raw_name = ".configuration-diagnostic"
+    operation = os.environ["DV_HARDWARE_OPERATION"]
+    raw_operation = operation in {"publish_configuration_raw", "discard_configuration_raw"}
+    retain_implicated = False
     try:
         base_path = os.environ["DV_HARDWARE_BASE"]
         handoff_name = os.environ["DV_HARDWARE_HANDOFF_ROOT_NAME"]
         case_id = os.environ["DV_HARDWARE_CASE_ID"]
-        stage = os.environ["DV_HARDWARE_CONFIGURATION_STAGE"]
         if (HANDOFF_NAME.fullmatch(handoff_name) is None
-                or CASE_IDENTIFIER.fullmatch(case_id) is None
-                or stage not in CONFIGURATION_STAGES):
+                or CASE_IDENTIFIER.fullmatch(case_id) is None):
             fail()
         base, base_identities = walk_absolute(base_path)
         base_value = os.fstat(base)
         if base_value.st_uid != os.getuid() or stat.S_IMODE(base_value.st_mode) != 0o700:
             fail()
         handoff, handoff_identity = open_owned_directory(base, handoff_name)
-        if os.listdir(handoff):
-            fail()
+        if raw_operation:
+            expected_parts = os.environ["DV_HARDWARE_CONFIGURATION_IDENTITY"].split(":")
+            if len(expected_parts) != 5:
+                fail()
+            expected = (int(expected_parts[0]), int(expected_parts[1]), int(expected_parts[2]),
+                        int(expected_parts[3], 8), int(expected_parts[4]))
+            raw = os.open(raw_name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=handoff)
+            raw_value = os.fstat(raw)
+            observed = (raw_value.st_dev, raw_value.st_ino, raw_value.st_uid,
+                        raw_value.st_mode, raw_value.st_nlink)
+            if observed != expected or not stat.S_ISREG(raw_value.st_mode):
+                retain_implicated = True
+                fail()
+            mutation = os.environ.get("DV_HARDWARE_CONFIGURATION_MUTATION", "")
+            if mutation == "identity_mode":
+                os.chmod(raw_name, 0o400, dir_fd=handoff, follow_symlinks=False)
+            elif mutation == "identity_hardlink":
+                os.link(raw_name, ".configuration-link", src_dir_fd=handoff, dst_dir_fd=handoff)
+            elif mutation == "identity_replace":
+                os.rename(raw_name, ".configuration-original", src_dir_fd=handoff, dst_dir_fd=handoff)
+                replacement = os.open(raw_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                                      0o600, dir_fd=handoff)
+                os.write(replacement, b"replacement\n")
+                os.close(replacement)
+            elif mutation == "identity_sibling":
+                sibling = os.open(".configuration-sibling", os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                                  0o600, dir_fd=handoff)
+                os.close(sibling)
+            path_value = os.stat(raw_name, dir_fd=handoff, follow_symlinks=False)
+            path_observed = (path_value.st_dev, path_value.st_ino, path_value.st_uid,
+                             path_value.st_mode, path_value.st_nlink)
+            after = os.fstat(raw)
+            after_observed = (after.st_dev, after.st_ino, after.st_uid, after.st_mode, after.st_nlink)
+            if (path_observed != expected or after_observed != expected
+                    or os.listdir(handoff) != [raw_name]):
+                retain_implicated = True
+                fail()
+            payload = read_snapshot(raw)
+            if operation == "discard_configuration_raw":
+                os.unlink(raw_name, dir_fd=handoff)
+                print("hardware_configuration_discard=removed cleanup=exact_identity")
+                return
+            if not payload:
+                os.unlink(raw_name, dir_fd=handoff)
+                print("hardware_configuration_diagnostic=absent cleanup=remove_owned")
+                sys.exit(1)
+            try:
+                stage = validate_raw_configuration(payload)
+            except Exception:
+                os.unlink(raw_name, dir_fd=handoff)
+                print("hardware_configuration_diagnostic=rejected cleanup=remove_owned")
+                sys.exit(2)
+            os.unlink(raw_name, dir_fd=handoff)
+        else:
+            stage = os.environ["DV_HARDWARE_CONFIGURATION_STAGE"]
+            if stage not in CONFIGURATION_STAGES or os.listdir(handoff):
+                fail()
         payload = (json.dumps({
             "schema": "dev_vlogs_phase_0b_configuration_v1", "caseID": case_id,
             "result": "failed", "category": "invalid_configuration",
@@ -706,12 +778,18 @@ def publish_configuration():
               " snapshot_inode=" + str(output_value.st_ino) +
               " snapshot_sha256=" + snapshot_digest +
               " file=configuration.json cleanup=trusted_debug_consumer_once")
+    except SystemExit:
+        raise
     except Exception:
+        if retain_implicated:
+            print("hardware_configuration_publish=retained reason=identity_mismatch " +
+                  "cleanup=retain_implicated")
+            sys.exit(3)
         print("hardware_configuration_publish=failed reason=closed_validation_mismatch " +
               "cleanup=remove_owned")
-        sys.exit(1)
+        sys.exit(2)
     finally:
-        for descriptor in (output, handoff, base):
+        for descriptor in (output, raw, handoff, base):
             if descriptor is not None:
                 try:
                     os.close(descriptor)
@@ -838,7 +916,8 @@ def consume():
 
 if os.environ.get("DV_HARDWARE_OPERATION") == "consume":
     consume()
-elif os.environ.get("DV_HARDWARE_OPERATION") == "publish_configuration":
+elif os.environ.get("DV_HARDWARE_OPERATION") in {
+        "publish_configuration", "publish_configuration_raw", "discard_configuration_raw"}:
     publish_configuration()
 else:
     publish()
@@ -921,6 +1000,8 @@ validate_and_handoff_hardware_evidence() {
         DV_HARDWARE_HANDOFF_ROOT_NAME="$hardware_handoff_root_name" \
         DV_HARDWARE_CASE_ID="$case_id" \
         DV_HARDWARE_CONFIGURATION_STAGE="$configuration_stage" \
+        DV_HARDWARE_CONFIGURATION_IDENTITY="$hardware_configuration_output_identity" \
+        DV_HARDWARE_CONFIGURATION_MUTATION="${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_CONFIGURATION_TEST:-}" \
         DV_HARDWARE_MUTATION="${HOLDTYPE_DEV_VLOGS_PHASE_0B_HARDWARE_EVIDENCE_TEST:-}" \
         "$timeout_executable" --signal=TERM --kill-after=1s 5s \
         /usr/bin/python3 -c "$hardware_evidence_handoff_source" >"$hardware_publisher_output" 2>&1 &
@@ -951,10 +1032,11 @@ validate_and_handoff_hardware_evidence() {
     hardware_publisher_output=""
     [[ -z "$output" ]] || print -r -- "$output"
     if [[ "$output" == *"cleanup=retain_implicated"* ]]; then
-        hardware_raw_cleanup_forbidden=1
+        [[ "$operation" == *configuration* ]] || hardware_raw_cleanup_forbidden=1
         hardware_handoff_cleanup_forbidden=1
     fi
     (( publication_status == 0 )) || return "$publication_status"
+    [[ "$operation" != "discard_configuration_raw" ]] || return 0
     local field
     local snapshot_device=""
     local snapshot_inode=""
@@ -980,7 +1062,7 @@ prepare_hardware_configuration_diagnostic() {
     set +o noclobber
     hardware_configuration_descriptor_open=1
     chmod 0600 "$hardware_configuration_output"
-    hardware_configuration_output_identity=$(/usr/bin/stat -f '%d:%i:%u:%Lp:%l' \
+    hardware_configuration_output_identity=$(/usr/bin/stat -f '%d:%i:%u:%p:%l' \
         "$hardware_configuration_output")
 }
 
@@ -993,40 +1075,20 @@ close_hardware_configuration_diagnostic() {
 
 discard_hardware_configuration_diagnostic() {
     close_hardware_configuration_diagnostic
-    if [[ -n "$hardware_configuration_output" &&
-          "$hardware_configuration_output" == "$hardware_handoff_root/.configuration-diagnostic" &&
-          -f "$hardware_configuration_output" && ! -L "$hardware_configuration_output" ]]; then
-        rm -f -- "$hardware_configuration_output"
+    if [[ -n "$hardware_configuration_output" && -n "$hardware_configuration_output_identity" ]]; then
+        validate_and_handoff_hardware_evidence discard_configuration_raw || true
     fi
     hardware_configuration_output=""
     hardware_configuration_output_identity=""
 }
 
-parse_hardware_configuration_diagnostic() {
-    local output="$1"
-    local prefix="dev_vlogs_phase_0b_configuration result=failed category=invalid_configuration configuration_stage="
-    [[ -n "$output" && "$output" != *$'\n'* && "$output" == "$prefix"* ]] || return 1
-    local stage="${output#$prefix}"
-    case "$stage" in
-        isolation_not_enabled|automation_not_enabled|keychain_ui_not_suppressed|run_root_missing|\
-        event_log_missing|camera_id_missing|run_root_outside_temporary_root|event_log_path_mismatch|\
-        duration_invalid|case_id_invalid|run_paths_unavailable|unknown) REPLY="$stage" ;;
-        *) return 1 ;;
-    esac
-}
-
 publish_hardware_configuration_diagnostic() {
     close_hardware_configuration_diagnostic
-    local observed=$(/usr/bin/stat -f '%d:%i:%u:%Lp:%l' "$hardware_configuration_output") || return 2
-    [[ "$observed" == "$hardware_configuration_output_identity" ]] || return 2
-    local output=$(<"$hardware_configuration_output")
-    rm -f -- "$hardware_configuration_output"
+    local diagnostic_status=0
+    validate_and_handoff_hardware_evidence publish_configuration_raw || diagnostic_status=$?
     hardware_configuration_output=""
     hardware_configuration_output_identity=""
-    [[ -n "$output" ]] || return 1
-    parse_hardware_configuration_diagnostic "$output" || return 2
-    validate_and_handoff_hardware_evidence publish_configuration "$REPLY" || return 2
-    return 0
+    return "$diagnostic_status"
 }
 
 consume_hardware_evidence() {
@@ -2929,21 +2991,32 @@ if [[ "$mode" == "--hardware" &&
             print -r -- "${configuration_prefix}unknown" >&3
             print -r -- "${configuration_prefix}unknown" >&3
             ;;
+        invalid_missing_lf) print -n -r -- "${configuration_prefix}unknown" >&3 ;;
+        invalid_crlf) printf '%s\r\n' "${configuration_prefix}unknown" >&3 ;;
+        invalid_extra_lf) printf '%s\n\n' "${configuration_prefix}unknown" >&3 ;;
+        invalid_nul) printf '%s\0\n' "${configuration_prefix}unknown" >&3 ;;
+        invalid_non_ascii) printf '%sé\n' "${configuration_prefix}unknown" >&3 ;;
+        invalid_trailing) printf '%s\ntrailing' "${configuration_prefix}unknown" >&3 ;;
         invalid_extra) print -r -- "${configuration_prefix}unknown private=blocked" >&3 ;;
         invalid_private) print -r -- "${configuration_prefix}/Users/private" >&3 ;;
         invalid_category)
             print -r -- "dev_vlogs_phase_0b_configuration result=failed category=private configuration_stage=unknown" >&3
             ;;
         invalid_empty) ;;
+        identity_*) print -r -- "${configuration_prefix}unknown" >&3 ;;
         *) print -r -- "${configuration_prefix}${configuration_fixture}" >&3 ;;
     esac
-    set +e
-    publish_hardware_configuration_diagnostic
-    configuration_status=$?
-    set -e
+    configuration_status=0
+    publish_hardware_configuration_diagnostic || configuration_status=$?
     if [[ "$configuration_fixture" == invalid_* ]]; then
         (( configuration_status != 0 && hardware_handoff_retained == 0 )) || exit 1
         print -r -- "hardware_configuration_test=rejected attempt=zero ready=zero"
+        exit 65
+    fi
+    if [[ "$configuration_fixture" == identity_* ]]; then
+        (( configuration_status == 3 && hardware_handoff_cleanup_forbidden == 1 &&
+           hardware_handoff_retained == 0 )) || exit 1
+        print -r -- "hardware_configuration_test=retained_identity_mismatch attempt=zero ready=zero"
         exit 65
     fi
     (( configuration_status == 0 && hardware_handoff_retained == 1 )) || exit 1
@@ -3181,10 +3254,8 @@ wait "$capture_supervisor_pid"
 capture_status=$?
 set -e
 capture_supervisor_pid=""
-set +e
-publish_hardware_configuration_diagnostic
-configuration_status=$?
-set -e
+configuration_status=0
+publish_hardware_configuration_diagnostic || configuration_status=$?
 case "$configuration_status" in
     0)
         print -u2 -r -- "error: hardware configuration failed before attempt; retained closed diagnostic"

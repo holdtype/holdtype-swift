@@ -216,8 +216,9 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
         let snapshot = result.outerRoot.appendingPathComponent(retained.rootToken).appendingPathComponent(retained.snapshotFile)
         try assertSnapshot(snapshot, authority: retained)
         #expect(try runConsumer(retained, in: result.outerRoot).status == 0)
-        for scenario in ["invalid_duplicate", "invalid_extra", "invalid_private",
-                         "invalid_category", "invalid_empty"] {
+        for scenario in ["invalid_missing_lf", "invalid_crlf", "invalid_extra_lf",
+                         "invalid_duplicate", "invalid_nul", "invalid_non_ascii",
+                         "invalid_trailing", "invalid_extra", "invalid_private", "invalid_category", "invalid_empty"] {
             let rejected = try run(arguments: hardwareArguments, scenario: nil, timeout: 8,
                                    configurationScenario: scenario)
             #expect(rejected.status == 65); #expect(rejected.output.contains("hardware_configuration_test=rejected"))
@@ -225,16 +226,16 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             #expect(rawRoots(in: rejected.outerRoot).isEmpty); #expect(handoffRoots(in: rejected.outerRoot).isEmpty)
             remove(rejected.outerRoot)
         }
-        for mutation in ["duplicate", "extra", "category", "private"] {
-            let produced = try run(arguments: hardwareArguments, scenario: nil, timeout: 8,
-                                   configurationScenario: "unknown")
-            defer { remove(produced.outerRoot) }
-            let original = try authority(in: produced.output)
-            let file = produced.outerRoot.appendingPathComponent(original.rootToken).appendingPathComponent(original.snapshotFile)
-            let changed = try mutateConfiguration(file, mutation: mutation, authority: original)
-            let consumed = try runConsumer(changed, in: produced.outerRoot)
-            #expect(consumed.status != 0); #expect(consumed.output.contains("reason=snapshot_schema_mismatch"))
-            #expect(!consumed.output.contains("/Users/"))
+        for scenario in ["identity_mode", "identity_hardlink", "identity_replace", "identity_sibling"] {
+            let retained = try run(arguments: hardwareArguments, scenario: nil, timeout: 8,
+                                   configurationScenario: scenario)
+            #expect(retained.status == 70); #expect(retained.output.contains("reason=identity_mismatch"))
+            #expect(!retained.output.contains("hardware_configuration_handoff=validated"))
+            let roots = handoffRoots(in: retained.outerRoot)
+            #expect(rawRoots(in: retained.outerRoot).isEmpty); #expect(roots.count == 1)
+            let names = try FileManager.default.contentsOfDirectory(atPath: try #require(roots.first).path)
+            #expect(names.contains(".configuration-diagnostic")); #expect(!names.contains("configuration.json"))
+            remove(retained.outerRoot)
         }
     }
     @Test func hookIsHardwareOnlyAndEveryProcessWaitIsBounded() throws {
@@ -249,9 +250,7 @@ struct DevVlogsPhase0BHardwareEvidenceHandoffTests {
             #expect(!hooked.output.contains("hardware_evidence_handoff"))
         }
     }
-    private var hardwareArguments: [String] {
-        ["--hardware", "--camera-id", "fake-camera", "--case-id", "handoff-test"]
-    }
+    private var hardwareArguments: [String] { ["--hardware", "--camera-id", "fake-camera", "--case-id", "handoff-test"] }
     private func runScenario(
         _ scenario: String, caseID: String = "handoff-test", outerRoot: URL? = nil
     ) throws -> ScriptResult {

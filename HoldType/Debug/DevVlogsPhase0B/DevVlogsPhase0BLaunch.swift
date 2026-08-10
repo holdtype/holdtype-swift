@@ -12,9 +12,10 @@ struct DevVlogsPhase0BConfiguration: Equatable {
     static let defaultDuration: TimeInterval = 10, maximumDuration: TimeInterval = 900
     let runRoot: URL; let cameraUniqueID: String
     let duration: TimeInterval; let caseID: String
-    static func shouldIsolate(environment: [String: String]) -> Bool {
-        environment[enabledEnvironmentKey] == "1"
-    }
+    static func shouldIsolate(environment: [String: String]) -> Bool { hardwareIntentEnvironmentKeys.contains { environment[$0] != nil } }
+    static let hardwareIntentEnvironmentKeys = [enabledEnvironmentKey, runRootEnvironmentKey, cameraUniqueIDEnvironmentKey,
+        durationEnvironmentKey, caseIDEnvironmentKey,
+        eventLogEnvironmentKey, DevVlogsPhase0BConfigurationDiagnostic.descriptorEnvironmentKey]
     static func resolve(
         environment: [String: String],
         temporaryRoot: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
@@ -25,7 +26,7 @@ struct DevVlogsPhase0BConfiguration: Equatable {
         environment: [String: String],
         temporaryRoot: URL = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
     ) -> Result<DevVlogsPhase0BConfiguration, DevVlogsPhase0BConfigurationFailureStage> {
-        guard shouldIsolate(environment: environment) else { return .failure(.isolationNotEnabled) }
+        guard environment[enabledEnvironmentKey] == "1" else { return .failure(.isolationNotEnabled) }
         guard environment[KeychainInteractionPolicy.automationEnvironmentKey] == "1" else {
             return .failure(.automationNotEnabled)
         }
@@ -60,7 +61,7 @@ struct DevVlogsPhase0BConfiguration: Equatable {
         let caseID = environment[caseIDEnvironmentKey] ?? "capture"
         guard isSafeIdentifier(caseID) else { return .failure(.caseIDInvalid) }
         return .success(.init(runRoot: resolvedRunRoot, cameraUniqueID: rawCameraID,
-                              duration: duration, caseID: caseID))
+                             duration: duration, caseID: caseID))
     }
     private static func isSafeIdentifier(_ value: String) -> Bool {
         !value.isEmpty && value.count <= 64 && value.allSatisfy {
