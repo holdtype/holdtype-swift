@@ -154,8 +154,9 @@ remains evidence under the dispositions below.
 | `DV-P1-SETUP` | `DV-ACTIVE-1` | accepted `DV-P0C-REVIEW` | accepted_with_residual at `ceeee8b` | Release `Dev Vlogs…`, separate SwiftUI window, Overview default, truthful Off/Setup; focused tests/build accepted. Computer Use transport blocked the post-repair visual pass. |
 | `DV-P1-CAMERA-SETUP` | `DV-ACTIVE-1` | accepted `DV-P1-SETUP` source/build review | accepted_with_residual at `e2614c7` | Genuine Camera status/request/recovery and preferred-camera discovery/selection ship without passive request, preview, capture, fallback, or dictation dependency. Computer Use visual QA remains blocked. |
 | `DV-P1-APPLICATIONS` | `DV-ACTIVE-1` | accepted `DV-P1-CAMERA-SETUP` | accepted_with_residual at `b27d859` | Selected-app default and explicit all-apps-with-exclusions policy, durable bundle-ID identity, validated app picker/editor; no capture integration. Computer Use visual QA remains blocked. |
-| `DV-P1-STORAGE` | `DV-ACTIVE-1` | accepted `DV-P1-APPLICATIONS` | next shipping packet | Default/custom bookmark-backed destination, truthful availability, and complete Phase 1 readiness; no numeric thresholds or capture writes. |
-| `DV-P2-CAPTURE` | current Active epoch | accepted full Phase 1 plus dependent residual closure | queued | One playable exact-once clip without dictation regression. |
+| `DV-P1-STORAGE` | `DV-ACTIVE-1` | accepted `DV-P1-APPLICATIONS` | accepted_with_residual at `9f8c01c` | Default/custom bookmark-backed destination, truthful availability, and complete Phase 1 readiness ship without numeric thresholds or capture writes. Computer Use visual QA remains blocked. |
+| `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-1` | accepted Phase 1 source/build review plus explicit user authority for one bounded Phase 0B dependency check | awaiting_user_authority | Review existing W10 and run at most one Continuity attempt to close or precisely retain R09 `reading_failed`; no new tooling architecture. |
+| `DV-P2-CAPTURE` | current Active epoch | accepted `DV-P2-PRESERVATION-GATE` | queued | One playable exact-once shipping clip without dictation regression. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
 | `DV-P4-BUILD` | current Active epoch | accepted Phase 3 and `DV-BUILD-6` when applicable | queued | Deterministic local Build, Export, Reveal, and Share. |
 | `DV-FINAL-QA` | final Active epoch | accepted Phase 4 | queued | Proportional build/test/runtime/visual/protected-domain verification. |
@@ -183,6 +184,15 @@ remains evidence under the dispositions below.
   separately confirmed all-apps-with-exclusions mode, bundle-ID-owned lists,
   and validated SwiftUI app import are accepted. No active-app observation or
   capture integration was introduced.
+- Storage setup delivered by `9f8c01c`: exact default/custom destination,
+  bookmark-backed identity, closed corrupt/unavailable states, no fallback,
+  root-owned passive readiness refresh, and Off/Setup/Ready/degraded reduction
+  are accepted without live destination writes.
+- Phase 1 source/build status: complete and accepted with one shared visual
+  residual. Computer Use repeatedly timed out before the changed interaction;
+  the compact operator check remains title/Overview/Off, enable/Setup, Capture,
+  Applications, Storage, close/reopen persistence, with no passive Camera
+  prompt, preview, or capture.
 - Editorial residual: Dev Vlogs still calls the human-readable folder
   hierarchy "part of the draft contract" in one sentence. Active authority is
   otherwise unambiguous; correct that wording only during a later natural
@@ -191,11 +201,12 @@ remains evidence under the dispositions below.
 - Outcome plan remains 60/25/15: approximately 60% shipping implementation,
   25% verification/review/QA, and 15% discovery/diagnostics/tooling/
   coordination, adjusted only for demonstrated risk.
-- Exact next capability: dispatch `DV-P1-STORAGE` as `shipping_product`. It may
-  add the default destination, explicit custom folder selection, bookmark-
-  backed identity, truthful availability, and the complete Phase 1 readiness
-  reducer, but no capture writes, external-drive runtime, guessed numeric
-  thresholds, cleanup/delete, or Debug tooling.
+- Exact next dependency: obtain explicit user authority for
+  `DV-P2-PRESERVATION-GATE`. The bounded packet may review the already-written
+  W10 mapping and perform at most one real Continuity attempt to determine the
+  exact R09 `reading_failed` side/operation. It may not create another Debug
+  subsystem or expand Phase 0B. If the attempt does not close strict source
+  preservation, stop with the exact residual before shipping capture.
 - Direct publication remains outside the goal.
 
 ## Contract Delta — `DV-ACTIVE-1`
