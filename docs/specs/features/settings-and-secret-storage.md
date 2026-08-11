@@ -56,6 +56,19 @@ This spec covers:
 
 ## User-visible behavior
 
+- `DV-SETTINGS-1`: Dev Vlogs is a separate normal window and product-domain
+  store. It must not become a Settings sidebar section or reuse the large
+  shared Settings state owner for camera, destination, app policy, library, or
+  build state.
+- `DV-SETTINGS-2`: Dev Vlogs may read the existing Microphone permission status
+  for truthful feature presentation. It must not create another Microphone
+  request owner, permission record, or setup authority.
+- `DV-SETTINGS-3`: Small non-secret Dev Vlogs preferences such as enablement,
+  preferred camera identity, and app-policy choice may be persisted locally by
+  a focused feature store. They are not secrets, transcript/history entries,
+  Recording Cache metadata, usage records, or Keychain items. Destination
+  bookmark ownership and vlog archive metadata remain in their dedicated
+  feature stores rather than shared Settings persistence.
 - Before concrete settings fields exist, Settings may open a native placeholder
   window titled for HoldType settings. The placeholder must not show fake or
   nonfunctional form controls.
@@ -461,6 +474,9 @@ The OpenAI API key has no UserDefaults value or default. It is Keychain-only.
   upload, email, or otherwise transmit diagnostic bundles or logs automatically.
 - Update settings must remain local-only and must not introduce accounts,
   telemetry, or a custom backend.
+- Dev Vlogs persistence must remain local and separate from Settings,
+  Transcript History, Recording Cache, and Keychain. Shared Settings behavior
+  and its defaults must not change merely because Dev Vlogs is enabled.
 
 ## Edge cases and failure policy
 
@@ -539,6 +555,10 @@ UserDefaults may store:
 Keychain stores:
 
 - OpenAI API key
+
+Dev Vlogs stores no value in Keychain. Its focused local non-secret preference
+store and bookmark/archive owners are governed by `DV-SETTINGS-1` through
+`DV-SETTINGS-3` and the active Dev Vlogs contract.
 
 A local debug key file may contain an OpenAI API key only for explicit Debug
 developer launches. It is not a production persistence store, must be gitignored,

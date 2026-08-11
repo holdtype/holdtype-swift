@@ -31,7 +31,7 @@ contract slice and locating project-specific ownership evidence.
 | Post-processing actions | `features/post-transcription-actions.md` | Output intent, correction/translation dispatch after transcription |
 | Text correction | `features/text-correction.md` | Correction prompt, correction toggle, corrected transcript behavior |
 | Text Fixes | `features/text-fixes.md` | Immediate selected-text or complete-field Translate, Fix, custom prompt actions, macOS palette, iOS Voice, or keyboard Fixes |
-| Dev Vlogs (draft) | `features/dev-vlogs.md` | Draft discovery for opt-in macOS camera clips triggered by dictation, per-app local archives, external destinations, builds, and future publication; not implementation authority |
+| Dev Vlogs | `features/dev-vlogs.md` | Active/Evolving macOS implementation authority for the opt-in Dev Vlogs window, setup, eligible dictation-triggered camera clips, local archives, library, Build, Export, and Share; read its capability acceptance map and residuals before implementation or acceptance claims |
 | Voice emoji commands | `features/voice-emoji-commands.md` | Built-in spoken emoji aliases, Dictionary placement, local emoji replacement |
 | Transcript history | `features/transcript-history.md` | History storage, display, recovery, retention |
 | Diagnostics | `features/diagnostics-and-crash-reports.md` | Logs, crash/diagnostic reports, operator-facing error evidence |

@@ -1,20 +1,20 @@
 # HoldType Dev Vlogs Implementation Plan
 
-Status: planning only; implementation is not authorized.
+Status: active delivery plan. Phase 0C is complete/preserved; Phase 1 is next
+after proportional contract review.
 
-Date: 2026-08-08
+Date: 2026-08-11
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-DRAFT-4`.
+`DV-ACTIVE-1`.
 
 Active persistent-goal registry:
 [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
 
-This document converts the Dev Vlogs discovery draft into a reviewable work
-sequence. It is an implementation plan, not product authority. Before product
-code changes, the Draft must be reconciled, its material decisions must be
-settled, the affected active specs must be amended, and a new Active Dev Vlogs
-contract revision must be accepted.
+This document sequences delivery under the Active/Evolving Dev Vlogs contract.
+The contract is product authority; this plan does not replace it. Capability
+acceptance remains scenario- and residual-gated. The immediate consumer of
+Phase 0C is the Release-path Phase 1 menu/window/Off/Setup slice.
 
 ## 1. Outcome
 
@@ -29,14 +29,15 @@ ambient recorder, or a second failure dependency for dictation.
 
 ## 2. Contract Change Envelope
 
-- Task: plan Dev Vlogs implementation and identify the remaining product
-  decisions.
-- Change mode: `discover` until an accepted contract revision activates the
-  feature; future implementation will be `evolve`.
-- User-authorized outcome: a durable plan and decision brief only.
+- Task: deliver Dev Vlogs through Phase 4, beginning with the smallest
+  Release-path setup slice.
+- Change mode: scoped `evolve` under `DV-ACTIVE-1`; reconcile only when evidence
+  proves a contract omission or discrepancy.
+- User-authorized outcome: Active Dev Vlogs implementation authority and
+  outcome-first delivery, explicitly authorized on 2026-08-11.
 - Authorized domains: Dev Vlogs enablement, eligibility, camera capture,
-  storage, local archive, review, builds, export, future publication, and the
-  separate Dev Vlogs window.
+  storage, local archive, review, builds, export, macOS Share, and the separate
+  Dev Vlogs window. Direct publication is outside the active goal.
 - Authorized UI clarification: use the repository's existing normal-window
   infrastructure, with a Settings-like sidebar/detail structure and SwiftUI
   visible content only.
@@ -47,24 +48,24 @@ ambient recorder, or a second failure dependency for dictation.
 - Shared owners that may later be extended without changing other consumers:
   app scene composition, active-app identification, permission adapters,
   recording finalization, and app-window activation.
-- Authority status: Dev Vlogs remains Draft and is not implementation
-  authority.
+- Authority status: Active/Evolving; implementation authority is present while
+  capability acceptance remains gated by the active acceptance map.
 - Stability baseline: existing macOS behavior is released and protected; Dev
   Vlogs is new and evolving.
-- Required evidence: Phase 0 capture measurements, current source ownership,
-  active spec reconciliation, unit/integration tests, signed macOS permission
-  evidence, external-drive tests, and runtime SwiftUI QA.
+- Required evidence: the capability-specific evidence in the active acceptance
+  map, proportional tests/review, and runtime SwiftUI QA for visible slices.
 - Allowed specification delta: only the named Dev Vlogs behavior and explicit,
   narrow integration clauses in affected active contracts.
 - Forbidden specification delta: weakening normal audio cleanup, changing
   dictation exact-once behavior, adding hidden capture, moving feature toggles
   into Permissions, or changing iOS.
-- Material user decisions: the `DV-BUILD-6` incompatible-source fallback
-  remains pending in Section 11; the source-quality rule is resolved.
-- Current contract revision: `DV-DRAFT-4`.
-- Required review and QA: contract review before implementation; focused media
-  and persistence tests per phase; real macOS UI and device/storage QA before
-  release claims.
+- Material user decisions: only the `DV-BUILD-6` incompatible-source fallback
+  remains pending in Section 11; it gates Phase 4 fallback only.
+- Current contract revision: `DV-ACTIVE-1`.
+- Required review and QA: proportional `DV-P0C-REVIEW` before Phase 1
+  implementation acceptance; focused evidence per delivered capability; real
+  macOS UI/device/storage QA before the corresponding acceptance or release
+  claim.
 
 ## 3. Accepted Product Baseline
 
@@ -123,10 +124,10 @@ owner itself. Dev Vlogs needs a separate domain model so camera, destination,
 library, build, and publication state cannot accidentally affect Settings or
 dictation lifecycle.
 
-Before future UI design or implementation, the implementing agent must load
-the repository-required `build-macos-apps:swiftui-patterns` skill. It was not
-available in the tool set used for this planning pass, so this document does
-not substitute its own UI conventions for that required guidance.
+The repository-required `build-macos-apps:swiftui-patterns` skill is available
+and governs UI design and implementation. It reinforces the dedicated utility
+window, explicit window-scoped navigation, native sidebar/detail structure,
+short menu label, and SwiftUI-first boundary used here.
 
 The capture spike must also prove a SwiftUI-first live-preview path. If the
 supported macOS targets cannot deliver an acceptable live camera preview
@@ -138,13 +139,13 @@ navigation, controls, state, overlays, and feedback stay in SwiftUI.
 
 | Section | Responsibility | First delivery |
 | --- | --- | --- |
-| Overview | Feature enablement, readiness, current-day summary, primary recovery or build action | Setup MVP |
-| Capture | Preferred camera, bounded preview, visible recording behavior | Setup MVP |
-| Applications | Selected-app allowlist or all-apps-with-exclusions policy | Setup MVP |
-| Storage | Destination, bookmark health, free space, archive size, Finder actions | Setup MVP |
+| Overview | Feature enablement and readiness first; current-day summary and primary recovery/build actions only as their owners ship | Immediate passive Off/Setup slice |
+| Capture | Preferred camera, bounded preview, visible recording behavior | Later Phase 1 setup increment after its lifecycle is truthful |
+| Applications | Selected-app allowlist or all-apps-with-exclusions policy | Later Phase 1 setup increment |
+| Storage | Destination, bookmark health, free space, archive size, Finder actions | Later Phase 1 setup increment; no numeric thresholds without evidence |
 | Library | Days, app groups, clips, playback, inclusion, Reveal, Delete | Local clip MVP |
 | Builds | Saved recipes, progress, retry, completed exports, Share | Build/export phase |
-| Permissions | Genuine Camera status/action and shared Microphone status | Setup MVP |
+| Permissions | Genuine Camera status/action and shared Microphone status | Later Phase 1 setup increment after passive window delivery |
 | Publishing | Destination accounts and publication attempts | Deferred phase only |
 
 The first implementation should not render empty placeholder sections for work
@@ -231,7 +232,7 @@ unrecorded side effect.
 
 ## 6. Delivery Sequence
 
-### Phase 0A — Close the decision brief
+### Phase 0A — Close the decision brief — complete
 
 Goal: settle the product forks in Section 11 that materially affect capture,
 storage, and the initial UI.
@@ -239,10 +240,12 @@ storage, and the initial UI.
 Work:
 
 1. Record the user's answers in the Dev Vlogs spec.
-2. Define the exact Phase 0 measurement matrix and acceptable thresholds.
+2. Define the exact Phase 0 measurement matrix while keeping product
+   thresholds evidence-derived.
 3. Decide which sections appear in the first usable window and its default
    landing section.
-4. Keep the contract Draft until the feasibility evidence exists.
+4. Keep the contract Draft until feasibility evidence and residuals are
+   truthfully dispositioned.
 
 Exit:
 
@@ -250,7 +253,7 @@ Exit:
 - the spike has measurable pass/fail criteria;
 - no product implementation has started.
 
-### Phase 0B — Capture and storage feasibility spike
+### Phase 0B — Capture and storage feasibility spike — terminal with residuals
 
 Goal: prove the high-risk technical chain without exposing unfinished product
 behavior.
@@ -272,24 +275,29 @@ The spike may use a debug-only harness, fixtures, and logs. It must not ship a
 feature toggle, capture from ordinary user actions, or weaken dictation
 durability.
 
-Exit:
+Closeout:
 
-- one microphone owner and later muxing are demonstrated or rejected with
-  evidence;
-- bounded preparation does not delay dictation beyond the accepted budget;
-- source finalization preserves the negotiated video without downsampling or
-  additional video encoding, or returns an exact dependency;
-- external-drive interruption has a truthful recovery classification;
-- any disproved assumption returns to the user as a concrete product fork.
+- R09 produced playable camera `1V/0A`, playable final `1V/1A`, and completed
+  passthrough, but strict preservation failed `reading_failed`; Ready=0;
+- controlled storage mechanics succeeded, but R05 changed protected metadata
+  and the exact cause remains unknown;
+- UI R01 is terminal `not_available` with Camera `notDetermined`; live frames,
+  Stop, mirroring, release, and reacquisition remain unproven;
+- fake-backed paired E07 dictation non-regression is accepted; the shipping
+  shared-audio lease and real product integration are not accepted;
+- representative latency, sync/drift, resource, byte-rate, and finalization-
+  overhead datasets remain incomplete, so no numeric thresholds are accepted;
+- W10 is unreviewed supporting work and does not prove a runtime result;
+- no Phase 0B expansion is admitted without separate user approval.
 
-### Phase 0C — Activate the product contract
+### Phase 0C — Activate the product contract — complete / review pending
 
 Goal: turn the Draft into implementation authority before the first product
-code edit.
+code edit. Completed by `DV-ACTIVE-1`; independent review is pending.
 
 Required spec work:
 
-1. Advance Dev Vlogs beyond `DV-DRAFT-4` to the proposed `DV-ACTIVE-1`, record
+1. Advance Dev Vlogs beyond `DV-DRAFT-4` to `DV-ACTIVE-1`, record
    the accepted spike evidence, add acceptance scenario IDs, and mark the
    contract Active.
 2. Amend `privacy-and-permissions.md` with optional Camera permission and one
@@ -306,22 +314,34 @@ Required spec work:
 7. Add a QA acceptance map for setup, capture, storage, library, and later
    build flows.
 
-Exit:
+Disposition:
 
-- final reconciled Spec Basis is explicit;
-- contract review accepts the delta and protected adjacent domains;
-- implementation work is pinned to the new contract revision.
+- the final reconciled Spec Basis and Contract Delta are explicit;
+- implementation authority is pinned to `DV-ACTIVE-1`;
+- proportional `DV-P0C-REVIEW` remains the next acceptance step;
+- Phase 0B residuals gate dependent capability claims, not Phase 1 passive
+  window/Off/Setup delivery.
 
 ### Phase 1 — Foundation and setup vertical slice
 
-Goal: open the separate window and reach a truthful Ready or blocked state
-without recording clips yet.
+Goal: first ship the separate window and truthful Off/Setup state without
+recording clips or requesting Camera; then add setup capabilities in bounded
+increments whose dependent state can be represented truthfully.
 
-Work:
+Immediate Release-path slice:
 
-- add the separate SwiftUI scene, menu command, navigation owner, and delivered
-  sidebar sections;
-- implement off-by-default settings and readiness state;
+- add `Dev Vlogs…` to the utility group while preserving all existing commands
+  and compactness;
+- add a separate normal SwiftUI window titled `HoldType: Dev Vlogs`;
+- open Overview by default with window-scoped selection;
+- present off-by-default Off/Setup truth;
+- ensure opening/reopening the window never starts capture, starts preview, or
+  requests Camera permission;
+- do not add empty sections or placeholder controls that imply unavailable
+  capabilities.
+
+Later Phase 1 setup increments:
+
 - add genuine Camera permission status/request/recovery;
 - show shared Microphone status without duplicating its owner;
 - add camera discovery, remembered identity, disconnect/reconnect state, and an
@@ -332,7 +352,15 @@ Work:
 - present feature, camera, app-policy, and storage states in their correct
   sections.
 
-Exit:
+Immediate-slice exit:
+
+- the Release menu item opens the dedicated window;
+- Overview opens first and truthfully shows Off/Setup;
+- passive opening/reopening neither captures nor requests Camera;
+- existing menu commands and ordinary dictation behavior remain unchanged;
+- product tests and Computer Use cover the changed action-state-result chain.
+
+Full Phase 1 exit:
 
 - enabling does not start capture;
 - Ready requires camera, destination, and at least one effective eligible app
@@ -533,15 +561,19 @@ consumer's behavior.
 
 Use small master-branch checkpoints that leave a coherent, verified state:
 
-1. accepted contract and QA map;
-2. Phase 0 spike evidence, then remove or explicitly retain debug-only harness
-   ownership;
-3. domain/persistence foundation;
-4. separate window and setup vertical slice;
-5. one-clip capture vertical slice;
-6. library/review/delete;
-7. build/export/share;
-8. each publication adapter separately.
+1. proportional review of `DV-ACTIVE-1` and its acceptance map;
+2. Release `Dev Vlogs…`, separate SwiftUI window, Overview, and truthful
+   Off/Setup state;
+3. remaining setup capabilities in dependency-ready increments;
+4. one-clip capture vertical slice only after its dependent residuals close;
+5. library/review/delete;
+6. build/export/share after `DV-BUILD-6` is resolved where applicable.
+
+Plan ordinary milestones around 60% shipping implementation, 25%
+verification/review/QA, and 15% discovery/diagnostics/tooling/coordination.
+This is a risk tripwire, not permission to skip demonstrated safety evidence.
+No Phase 0B expansion is admitted without separate user approval, and support
+work must not replace the next user-visible milestone.
 
 Every semantic discovery updates the contract before dependent implementation.
 Do not continue an implementation checkpoint against a stale contract revision.
@@ -575,7 +607,7 @@ or override individual items.
 | `DV-D04` | V1 audio source | Always the same dictation microphone | Avoids a second capture owner and keeps the spoken take consistent. |
 | `DV-D05` | Source quality | Preserve the camera/macOS-negotiated source without a HoldType resolution/FPS downgrade or additional source-video encode; expose no capture-quality selector | Preserves what the camera and system actually provide without promising sensor RAW or turning native 1080p into a HoldType preset. |
 | `DV-D06` | Mirroring | Mirror preview only; keep the source physically correct; defer build-time mirroring | Familiar setup preview without baking an irreversible presentation choice into source media. |
-| `DV-D07` | Low-space policy | Derive numeric warning/hard-stop values from measured negotiated-source byte rates; hard-stop must reserve at least one max-length attempt under a safe measured bound plus finalization overhead | A guessed fixed threshold may be unsafe across actual camera formats; if no safe bound is proven, Phase 0C must leave the threshold open. |
+| `DV-D07` | Low-space policy | Derive numeric warning/hard-stop values from measured negotiated-source byte rates; hard-stop must reserve at least one max-length attempt under a safe measured bound plus finalization overhead | A guessed fixed threshold may be unsafe across actual camera formats; until a safe bound is proven, the numeric policy remains capability-gated. |
 | `DV-D08` | Automatic retention | No automatic deletion in V1; show usage and require explicit Delete | Preserves trust while the archive model is new. Add bounded retention later as an explicit opt-in policy. |
 | `DV-D09` | First build editing | Selection and reorder, but no trim/timeline | Enough control to remove noise and shape the day without creating a video editor. |
 | `DV-D10` | Transcript metadata | Do not persist transcript text beside clips in V1 | Keeps the video archive independent from transcript retention and avoids a second sensitive text index. |

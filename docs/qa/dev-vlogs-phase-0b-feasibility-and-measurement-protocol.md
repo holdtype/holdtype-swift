@@ -1,11 +1,14 @@
 # Dev Vlogs Phase 0B Feasibility and Measurement Protocol
 
-Status: bounded Draft evidence protocol; not product implementation authority.
+Status: closed Phase 0B evidence protocol; historical supporting evidence, not
+current product implementation authority.
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-DRAFT-4`.
+`DV-DRAFT-4` for execution; superseded by active revision `DV-ACTIVE-1` for
+current product authority.
 
-Phase: `DV-P0B` after `DV-P0A-QUALITY-REVIEW` accepts the pinned Draft.
+Phase: `DV-P0B`, terminal with scoped residuals. No expansion is admitted
+without separate explicit user approval.
 
 ## Purpose and boundary
 
@@ -37,7 +40,7 @@ evidence.
 | `DV-P0B-E02` | Debug-only camera, dictation-audio, and mux spike | Playable media probes and lifecycle evidence |
 | `DV-P0B-E03` | Storage and finalization spike | Capacity, bookmark, interruption, and recovery evidence |
 | `DV-P0B-E04` | Controlled runtime hardware matrix | Completed matrix with unavailable-hardware residuals |
-| `DV-P0B-E05` | SwiftUI-first live-preview feasibility | Gate result and visual/runtime evidence after the required skill is available |
+| `DV-P0B-E05` | SwiftUI-first live-preview feasibility | Terminal `not_available`: skill availability resolved, but R01 produced no live-frame/Stop/reacquisition proof |
 | `DV-P0B-E06` | Quantitative measurements | Latency, sync/drift, resource, byte-rate, and overhead dataset |
 | `DV-P0B-E07` | Dictation non-regression | Baseline comparison and failure-independence results |
 | `DV-P0B-E08` | Cleanup and residual closure | Cleanup receipt and classified residuals |
@@ -214,16 +217,20 @@ it is never allowed to wait indefinitely.
 
 ## 5. UI preview feasibility gate — `DV-P0B-E05`
 
-This gate is blocked until `build-macos-apps:swiftui-patterns` is available and
-has been read by the assigned UI feasibility owner. No UI prototype, preview
-design, or visual implementation may begin before then. Capture and storage
-evidence may proceed independently.
-
-Once unblocked, the bounded gate must determine whether supported macOS targets
+The required `build-macos-apps:swiftui-patterns` skill became available and was
+read, resolving the former skill dependency. The bounded gate was executed to
+determine whether supported macOS targets
 can provide a live preview while keeping the preview, controls, overlays,
 layout, state, and feedback in SwiftUI. A narrow non-visual/rendering adapter
 may be proposed only if the spike demonstrates the exact SwiftUI limitation.
 It cannot own product navigation, controls, or visible feedback.
+
+R01 closed this gate as terminal `not_available`: it selected the sole explicit
+external camera and exercised Start, but the app reported Camera
+`notDetermined` and made no permission request or capture. Live frames, Stop,
+mirroring, release, and reacquisition were not proven. This result gates a live
+preview acceptance claim; it does not gate the separate Phase 1 window and
+truthful Off/Setup slice.
 
 The gate passes when a SwiftUI-first preview starts and stops through explicit
 test actions, releases the camera, and preserves the mirror-preview-only rule.
@@ -319,7 +326,6 @@ Each functional gate or matrix cell receives exactly one functional result:
 - `fail`: a reproducible functional gate failed;
 - `not_available`: named hardware or a required external condition was not
   available;
-- `blocked_skill`: only for `DV-P0B-E05` while the required skill is absent.
 
 Each quantitative latency, sync/drift, resource, byte-rate, or overhead field
 also receives the disposition `evidence_only` until Phase 0C derives and
@@ -336,7 +342,7 @@ also use one residual class:
 - hardware unavailable;
 - measurement outlier;
 - product-threshold input awaiting Phase 0C;
-- UI-skill gate;
+- UI preview environment/signing residual;
 - real product fork requiring user authority.
 
 Do not turn an unavailable USB camera, SSD, or HDD into a pass. Do not turn a
@@ -365,16 +371,23 @@ different interaction or claiming success.
 
 ## Phase 0B closeout
 
-Phase 0B may advance to review only when all available hardware cells and every
-functional gate have terminal evidence, unavailable cells are explicit, raw
-media cleanup is confirmed, and `DV-P0B-E05` is either completed after the
-required skill becomes available or remains an exact dependency that prevents
-the corresponding UI feasibility claim.
+Phase 0B is closed with the following truthful disposition:
 
-The review returns functional failures and protected-domain dependencies as
-blockers. It carries quantitative evidence and honest environment residuals to
-Phase 0C. Phase 0C, not this protocol, derives numeric start-latency and
-low-space product thresholds from actual negotiated-source behavior before
-proposing an Active contract. Evidence about direct-compatible Build
-passthrough may be retained, but the unresolved `DV-BUILD-6` fallback remains
-a separate user decision.
+- R09 reached playable camera `1V/0A`, playable final `1V/1A`, and completed
+  passthrough; strict stored-sample preservation failed `reading_failed`, so
+  Ready remained zero;
+- storage mechanics succeeded in controlled cells, but R05 changed protected
+  metadata and the exact cause remains unknown; protected-scope storage did
+  not pass;
+- E05/R01 is terminal `not_available` as described above;
+- deterministic fake-backed E07 dictation non-regression is accepted, while
+  the shipping audio lease and real product integration are unaccepted;
+- representative latency, sync/drift, resource, byte-rate, and overhead data
+  remain incomplete, so no numeric product threshold is accepted;
+- W10 is support-only and unreviewed; it does not prove runtime success.
+
+`DV-ACTIVE-1` carries these as capability-scoped residuals. They gate capture,
+preview, protected-scope storage, and numeric-policy claims, not the Phase 1
+menu/window/Off/Setup implementation. No further Phase 0B evidence cycle is
+authorized without separate user approval. `DV-BUILD-6` remains a separate
+Phase 4 incompatible-source decision.

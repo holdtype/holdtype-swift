@@ -83,6 +83,17 @@ This spec covers:
 - Stopping an active recording returns a completed local recording artifact
   with the file URL, captured duration, and byte size before transcription may
   begin.
+- `DV-AUDIO-LEASE-1`: A shipping Dev Vlogs finalizer may receive one bounded
+  read lease on the already-finalized authoritative dictation audio artifact.
+  The lease does not start or own microphone capture, create a second audio
+  artifact authority, delay provider work indefinitely, change transcription
+  eligibility, or change provider/output exact-once behavior.
+- `DV-AUDIO-LEASE-2`: While the lease is active, ordinary dictation cleanup may
+  not delete the leased artifact. The lease must release on every vlog terminal
+  path, including success, skip, timeout, cancel, finalization failure, and
+  owner teardown. A vlog lease or finalization failure affects the vlog branch
+  only; dictation transcription, accepted output, and ordinary terminal state
+  continue under their existing owners.
 - The user must be able to explicitly discard a session before accepting or
   handing off the generated text. The destructive action must be labelled as
   Discard/Cancel Recording and must not be inferred from task cancellation,
@@ -169,6 +180,9 @@ This spec covers:
   unlimited retention.
 - Active, finalizing, and unresolved recovery audio is not ordinary recording
   cache. Cache Clear, individual Delete, and retention pruning must exclude it.
+- A Dev Vlogs read lease never becomes a second microphone, provider, output,
+  History, or Recording Cache owner. It is bounded protection against ordinary
+  cleanup only, and every terminal route releases it.
 - Every attempt must follow
   `recording-durability-and-interruption.md`; internal cancellation is never
   destructive user authority.
@@ -233,6 +247,10 @@ state.
 Completed recording artifacts carry file URL, duration, and byte-count metadata
 so downstream transcription can validate input without reading raw audio into
 default logs.
+An active Dev Vlogs read lease is ephemeral attempt state. It may delay only
+ordinary deletion of that exact finalized artifact until lease release; it
+must not persist transcript text, duplicate microphone capture, or transfer
+dictation ownership into the vlog archive.
 
 ## Verification mapping
 

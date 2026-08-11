@@ -1,0 +1,8605 @@
+# Dev Vlogs Execution Registry Archive
+
+Status: Historical; non-authoritative.
+
+This file preserves the pre-`DV-ACTIVE-1` registry and receipt bodies verbatim
+below this header. It is evidence and provenance only. Current coordination,
+contract epoch, residuals, and packet state live in
+[`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
+
+Do not dispatch work, infer current product authority, or select a next packet
+from the archived text.
+
+---
+
+# Dev Vlogs Persistent Goal Registry
+
+Status: active
+
+Goal thread: `019fe09f-e938-7bb3-b984-dd3ac4f05848`
+
+Started: 2026-08-08
+
+Governing plan: [`docs/dev-vlogs-implementation-plan.md`](dev-vlogs-implementation-plan.md)
+
+Pinned contract: [`docs/specs/features/dev-vlogs.md`](specs/features/dev-vlogs.md),
+revision `DV-DRAFT-4`, checkpoint `2f3266a`.
+
+## Restart Gate
+
+After every start, resume, clear, or context compaction, `/root` must read the
+active persistent goal, `AGENTS.md`, `root-orchestration.md`,
+`product-truth-governance.md`, the governing plan, the current Dev Vlogs
+contract, and this registry before dispatching or accepting goal work.
+
+Chat memory, summaries, live worker state, and earlier green checks do not
+replace this pass.
+
+## Scope Guard
+
+The goal ends after accepted Phase 4 local Build, Export, and macOS Share.
+Direct publication adapters and every other deferred item in the governing plan
+are outside the goal.
+
+No packet may improve, refactor, redesign, or clean up an adjacent product or
+shared owner beyond the smallest change proven necessary for Dev Vlogs. The
+protected domains are ordinary dictation, transcription and output, Transcript
+History, Recording Cache, shared Settings, Keychain, diagnostics, updates,
+unrelated menu behavior, all iOS behavior, and website/marketing.
+
+Real technical blockers remain visible. A worker must return the exact
+dependency or environment residual rather than weaken the contract, invent a
+fallback, or broaden scope.
+
+## Accepted Decisions
+
+The user accepted `DV-D01` through `DV-D13` on 2026-08-08. Their original
+Draft integration is `DV-DRAFT-3@ed108fa`; the later native-source decision is
+integrated and independently accepted in `DV-DRAFT-4@2f3266a`. The contract is
+still Draft evidence, not an Active product implementation epoch.
+
+On 2026-08-08 the user superseded the fixed 720p/30 source-quality part of
+`DV-D05`: HoldType must preserve the camera/macOS-negotiated source without an
+app-imposed resolution/FPS downgrade or extra source-video recompression. The
+exact Build fallback when passthrough is impossible remains a pending material
+decision, but it does not block a source-only contract delta. Affected
+capture/runtime packets are stale until `DV-DRAFT-4` records and independently
+reviews the new source rule. Native 1080p or another negotiated format is not a
+new HoldType preset or control; HoldType simply does not downsample it.
+
+On 2026-08-09 the user accepted a narrow Phase 0B Debug trust boundary for the
+camera-permission and hardware-evidence lanes. A random private mode-0700
+run-owned Debug root may be treated as trusted against malicious same-UID
+namespace replacement, while every detected identity, schema, ownership, or
+cleanup mismatch must still fail closed and retain the exact residual. This
+decision does not weaken product storage/delete requirements or authorize
+shipping behavior.
+
+On 2026-08-09 the user authorized bounded Phase 0B storage runtime only inside
+new run-owned scratch directories under exactly
+`/Volumes/TB4-Movies-Archive` and `/Volumes/Movie_Archive`. No write or delete
+is authorized outside those newly created scratch directories. Physical
+unplug, mount, eject, remount, traversal of existing user content, and any
+other external root remain unauthorized.
+
+On 2026-08-10 the user rejected the accumulated execution economics: extensive
+Debug, test, evidence, and review work had produced no Release-reachable Dev
+Vlogs capability. The user requires a balanced outcome-first policy: product
+functionality is the primary progress measure; quality work remains
+proportional to demonstrated risk; noncritical uncertainty is carried as a
+truthful residual instead of creating an unbounded repair chain. No new Phase
+0B diagnostic, observer, tooling, permission, storage, preview, or hardware
+runtime packet is authorized without a separate user-approved cost/benefit
+decision. The next bounded coordination checkpoint is Phase 0C reconciliation,
+followed immediately by a Release-path Phase 1 vertical slice. Existing
+dictation, user data, privacy, security, permission, storage, and released-
+behavior protections are not weakened by this economic decision.
+
+## Contract Epoch
+
+| Epoch | Authority | Status | Notes |
+| --- | --- | --- | --- |
+| `DV-DRAFT-2@8081c10` | Earlier discovery draft | superseded | Replaced after the accepted decisions were integrated and reviewed. |
+| `DV-DRAFT-3@ed108fa` | Prior decision-complete discovery draft plus Phase 0B protocol | superseded | Source-quality clauses replaced by accepted DV-DRAFT-4; unaffected accepted evidence remains recorded. |
+| `DV-DRAFT-4@2f3266a` | Native-source-quality Draft revision | current | Accepted for source evidence; final Build fallback remains explicitly pending. Product implementation is still unauthorized. |
+| `DV-ACTIVE-1` | Future reconciled Dev Vlogs and adjacent active specs | pending | Required before Phase 1 product implementation. |
+
+## Packet Registry
+
+| Packet | Owner | Contract epoch | Dependencies | Writable scope | Status | Receipt | Residual / next dependency |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `DV-G0-REGISTRY` | `/root` | `DV-DRAFT-2@8081c10` | none | registry; plan registry link | accepted | recorded below | Dispatch `DV-P0A-SPEC`. |
+| `DV-P0A-SPEC` | `/root/dv_p0a_spec` | `DV-DRAFT-2@8081c10` | `DV-G0-REGISTRY` | Dev Vlogs spec; Phase 0B protocol | accepted | `ed108fa` | Decision-complete `DV-DRAFT-3` produced. |
+| `DV-P0A-REVIEW` | `/root/dv_p0a_review` | `DV-DRAFT-3@ed108fa` | `DV-P0A-SPEC` | read-only | accepted_with_residual | recorded below | Phase 0B quantitative evidence and UI skill remain expected residuals. |
+| `DV-P0B-CAPTURE-E01` | `/root/dv_p0b_capture_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only capture/source/platform evidence | accepted_with_residual | recorded below | Debug-only capture spike feasible; shipping audio lease remains Phase 0C work. |
+| `DV-P0B-STORAGE-E01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | `DV-P0A-REVIEW` | read-only storage/source/platform/environment evidence | accepted_with_residual | recorded below | Test-only storage spike feasible; physical disconnect/read-only cells remain environment residuals. |
+| `DV-P0B-E01-REVIEW` | `/root/dv_p0b_e01_review` | `DV-DRAFT-3@ed108fa` | both E01 maps | read-only | accepted_with_residual | recorded below | Writable capture/storage packets must be serialized and keep distinct QA run roots. |
+| `DV-P0B-CAPTURE-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-E01-REVIEW` | exact Debug-only capture paths from accepted E01 map | accepted_with_residual | `9d9efec`, repair `ff70155`; receipts below | Debug/fake/build feasibility accepted; real hardware/media evidence and shipping audio lease remain. |
+| `DV-P0B-CAPTURE-W01-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-W01@9d9efec` | read-only | rejected | recorded below | Return exact four blockers to the original owner; runtime/storage remain blocked. |
+| `DV-P0B-CAPTURE-W01-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | repair `ff70155` | read-only | accepted_with_residual | recorded below | Storage is dependency-ready; hardware remains a separate controlled runtime gate. |
+| `DV-P0B-STORAGE-W01` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-W01@ff70155` | two exact storage test files; one redacted QA summary; marker-verified internal temp roots | accepted_with_residual | `2486b56`, repair `69b2d16`; receipts below | Internal bookmark/capacity/promotion/cleanup evidence accepted; external/media runtime remains. |
+| `DV-P0B-STORAGE-W01-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-W01@2486b56` | read-only | rejected | recorded below | Return exact safety/claim repairs to original owner; external/runtime work remains blocked. |
+| `DV-P0B-STORAGE-W01-REVIEW-R1` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | repair `69b2d16` | read-only | accepted_with_residual | recorded below | Controlled external/runtime evidence may be packetized separately. |
+| `DV-P0B-CAPTURE-R01` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-3@ed108fa` | accepted capture/storage W01 repairs | one redacted capture-R01 QA run; raw media in exact temporary run root only | accepted_with_residual | `f698fcb`; receipts below | All camera classes terminal not_available; preflight only, no capture/media claim. |
+| `DV-P0B-CAPTURE-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R01@f698fcb` | read-only | accepted_with_residual | recorded below | Retry capture only when an explicit camera uniqueID enumerates. |
+| `DV-P0B-CAPTURE-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-3@ed108fa` | accepted R01 preflight; user reports iPhone connected/prepared | one redacted capture-R02 QA run; raw media in exact temporary run root only | accepted_evidence / functional_fail | `0e21972`; receipts below | Repair typed camera-start evidence and bounded termination before retry. |
+| `DV-P0B-CAPTURE-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R02@0e21972` | read-only | accepted_with_residual | recorded below | Evidence is sound; functional cell remains fail/debug-spike defect. |
+| `DV-P0B-CAPTURE-R03` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-3@ed108fa` | accepted `DV-P0B-CAPTURE-R02-REVIEW` | exact Debug launch/camera/event/test/script paths | accepted_with_residual | base `8b0b263`; repairs `1276283`, `ba058f8`, `f141be6`; receipts below | Typed category and bounded termination accepted; real hardware/media remains. |
+| `DV-P0B-CAPTURE-R03-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-CAPTURE-R03@8b0b263` | read-only | rejected | recorded below | Return classifier-only repair to original owner; no hardware/storage dispatch. |
+| `DV-P0B-CAPTURE-R03-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | classifier repair `1276283` | read-only | rejected | recorded below | Return propagation-only repair to original owner; accepted lifecycle/script blobs remain protected. |
+| `DV-P0B-CAPTURE-R03-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | propagation repair `ba058f8` | read-only | rejected | recorded below | Return explicit-stop context ordering/test repair; no hardware/storage dispatch. |
+| `DV-P0B-CAPTURE-R03-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-3@ed108fa` | stop-context repair `f141be6` | read-only | accepted_with_residual | recorded below | One controlled Continuity retry is dependency-ready. |
+| `DV-P0B-CAPTURE-R04` | unassigned | stale `DV-DRAFT-3@ed108fa` quality clauses | accepted `DV-P0B-CAPTURE-R03-REVIEW-R3` | one redacted capture-R04 QA run; raw media in exact temp root only | retired before dispatch | — | User superseded fixed 720p/30 source quality; redefine only after DV-DRAFT-4 review. |
+| `DV-P0A-QUALITY-SPEC` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | explicit user native-source decision | Dev Vlogs spec; Phase 0B protocol; governing plan only | accepted_with_residual | `2f3266a`; receipt below | Source delta accepted; Build fallback remains separate. |
+| `DV-P0A-QUALITY-REVIEW` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a` | `DV-P0A-QUALITY-SPEC` | read-only | accepted_with_residual | recorded below | Revalidate affected capture/media packets; Build remains gated. |
+| `DV-P0A-BUILD-QUALITY-DECISION` | user decision | future Build clause | source-only `DV-DRAFT-4`; Build evidence later | no writable scope | pending | — | Decide whether incompatible sources permit one final no-downscale/no-FPS-reduction encode or make Build fail; does not block source capture evidence. |
+| `DV-P0B-CAPTURE-E03` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0A-QUALITY-REVIEW` | read-only exact Debug harness/test/script/QA revalidation | accepted_with_residual | receipt below | Passthrough-preserving Debug repair is feasible; realized hardware compatibility remains evidence-needed. |
+| `DV-P0B-CAPTURE-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-E03` | exact Debug camera/finalizer/probe/preservation/launch/event, focused tests, W01 summary | accepted_with_residual | `f7ff6bf`; receipt below | Native-source Debug repair accepted; real device/media evidence remains. |
+| `DV-P0B-CAPTURE-W02-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W02@f7ff6bf` | read-only exact 13-path commit | accepted_with_residual | receipt below | Controlled DV-DRAFT-4 hardware/runtime evidence is dependency-ready. |
+| `DV-P0B-CAPTURE-R05` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-W02-REVIEW` | one redacted capture-R05 QA run; raw media in exact internal temporary run root only | accepted_evidence / functional_fail | `11cb9a2`; receipt below | Explicit Continuity selection passed; camera permission remained notDetermined before camera start. |
+| `DV-P0B-CAPTURE-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R05@11cb9a2` | read-only exact eight-file evidence commit | accepted_with_residual | receipt below | Same signed Debug identity needs one genuine bounded Camera request before capture retry. |
+| `DV-P0B-CAMERA-AUTH-W01` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R05-REVIEW` | exact Debug launch/event permission seam, focused tests, existing spike script, W01 summary | accepted_with_residual | `5b3ed20`; receipt below | Same-identity bounded requestAccess seam accepted; genuine prompt remains. |
+| `DV-P0B-CAMERA-AUTH-W01-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W01@5b3ed20` | read-only exact six-path commit | accepted_with_residual | receipt below | One bounded signed Debug permission invocation is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-R01` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W01-REVIEW` | one redacted capture-auth-R01 QA run; no media | rejected | `4f0efb5`; receipt below | Runtime facts accepted provisionally, but summary overclaims unchanged TCC state. |
+| `DV-P0B-CAMERA-AUTH-R01-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R01@4f0efb5` | read-only exact seven-file evidence commit | rejected | recorded below | Summary-only truthfulness repair required before permission action. |
+| `DV-P0B-CAMERA-AUTH-R01-R1` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | rejected AUTH-R01 review | exact capture-auth-R01 summary only | accepted_with_residual | `308a191`; receipt below | Summary contradiction repaired; permission state remains unknown. |
+| `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | repair `308a191` | read-only exact one-path repair commit | accepted_with_residual | receipt below | Enable and verify HoldType Camera switch before capture retry. |
+| `DV-P0B-CAMERA-AUTH-R02` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1` | exact System Settings Camera action plus one redacted auth-R02 QA run | accepted_with_residual | `36445d2`; receipt below | HoldType Camera row absent; no setting action or capture. |
+| `DV-P0B-CAMERA-AUTH-R02-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R02@36445d2` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Same-identity activation-before-request seam is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-W02` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R02-REVIEW` | exact Debug Launch, authorization tests, W01 summary | accepted_with_residual | `f35ac7f3659`; receipt below | Auth-only activation repair accepted; real permission runtime remains. |
+| `DV-P0B-CAMERA-AUTH-W02-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | incorrect full commit authority | read-only | rejected | recorded below | Requested full SHA did not exist; no source inspection occurred. |
+| `DV-P0B-CAMERA-AUTH-W02-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | corrected `DV-P0B-CAMERA-AUTH-W02@f35ac7f3659` | read-only exact three-path commit | accepted_with_residual | receipt below | One bounded same-signed active permission runtime is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-R03` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W02-REVIEW-R1` | one redacted capture-auth-R03 QA run; no media | accepted_evidence / functional_fail | `744f313`; receipt below | One closed unknown accepted; category/stage diagnosis is a Debug-spike defect. |
+| `DV-P0B-CAMERA-AUTH-R03-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R03@744f313` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Repair closed stage categories before any permission retry. |
+| `DV-P0B-CAMERA-AUTH-W03` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R03-REVIEW` | exact Debug launch/auth/event, authorization tests, W01 summary | rejected | `1ae703f`; receipt below | Diagnostic core passes, but rejection path can issue a second activation and misclassify. |
+| `DV-P0B-CAMERA-AUTH-W03-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W03@1ae703f` | read-only exact five-path commit | rejected | recorded below | Repair activation rejection and behavioral coverage before runtime. |
+| `DV-P0B-CAMERA-AUTH-W03-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W03 review | exact CameraAuthorization source/test; summary only if claim changes | accepted_with_residual | `0e9f032`; receipt below | First activation rejection suppresses all later activation/authorization. |
+| `DV-P0B-CAMERA-AUTH-W03-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `0e9f032` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded repaired permission runtime is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-R04` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W03-REVIEW-R1` | one redacted capture-auth-R04 QA run; no media | accepted_evidence / functional_fail | `baafcb9`; receipt below | Activation semantics and natural cleanup are Debug-spike defects. |
+| `DV-P0B-CAMERA-AUTH-R04-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R04@baafcb9` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Read-only activation/termination exploration required before repair. |
+| `DV-P0B-CAMERA-AUTH-E04` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R04-REVIEW` | read-only exact activation/termination/script/SDK evidence | accepted_with_residual | receipt below | One NSApplication activation plus deferred terminate and direct-PID supervision supported. |
+| `DV-P0B-CAMERA-AUTH-W04` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E04` | exact auth/launch tests, permission script, W01 summary | rejected | `b2a2abf`; receipt below | Activation/termination pass; 420-second permission bound is not globally enforced. |
+| `DV-P0B-CAMERA-AUTH-W04-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W04@b2a2abf` | read-only exact six-path commit | rejected | recorded below | Enforce one absolute post-launch deadline and add slow-identity fake. |
+| `DV-P0B-CAMERA-AUTH-W04-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W04 review | permission script and W01 summary only | accepted_with_residual | `48c0d5c`; receipt below | One absolute deadline bounds all permission supervision; genuine permission runtime remains. |
+| `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `48c0d5c` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded same-signed permission-only runtime is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-R05` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1` | one redacted capture-auth-R05 QA run; no media | accepted_evidence / functional_fail | `4101f74`; receipt below | Activation timed out before authorization; a second same-launch Debug process required exact cleanup TERM. |
+| `DV-P0B-CAMERA-AUTH-R05-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R05@4101f74` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Evidence accepted; additional same-launch process is a Debug-spike defect. |
+| `DV-P0B-CAMERA-AUTH-E05` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R05-REVIEW` | read-only exact Debug entry/auth/launch/script/process evidence | accepted_with_residual | receipt below | Exact creator is unrecoverable; script-only marker-bound multi-process supervision is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-W05` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E05` | exact permission script, authorization script-structure tests, W01 summary | accepted_with_residual | `b071056`; receipt below | Marker-bound multi-process supervision accepted; genuine permission runtime remains. |
+| `DV-P0B-CAMERA-AUTH-W05-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W05@b071056` | read-only exact three-path repair commit | accepted_with_residual | receipt below | One bounded diagnostic permission-only runtime is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-W05-REVIEW` | one redacted capture-auth-R06 QA run; no media | accepted_evidence / functional_fail | `a7f47a9`; receipt below | One direct process exited naturally; activation timed out before authorization. |
+| `DV-P0B-CAMERA-AUTH-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-R06@a7f47a9` | read-only exact seven-file evidence commit | accepted_with_residual | receipt below | Clean topology accepted; activation remains a platform dependency before authorization. |
+| `DV-P0B-CAMERA-AUTH-E06` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-R06-REVIEW` | read-only exact activation/LaunchServices/source/script/SDK evidence | accepted_with_residual | receipt below | Exact-URL NSWorkspace design accepted with review corrections. |
+| `DV-P0B-CAMERA-AUTH-E06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | terminal `DV-P0B-CAMERA-AUTH-E06` | read-only exact map/API/ownership review | accepted_with_residual | receipt below | Corrected 12-path Debug repair is dependency-ready. |
+| `DV-P0B-CAMERA-AUTH-W06` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAMERA-AUTH-E06-REVIEW` | exact 12 Debug helper/script/auth/handshake/launch/termination/event/test/summary paths | rejected | `169e895`; receipt below | Architecture/build isolation pass; runtime path/parser/deadline/cancellation guarantees fail. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAMERA-AUTH-W06@169e895` | read-only exact 12-path repair commit | rejected | receipt below | Seven-path focused repair required before runtime. |
+| `DV-P0B-CAMERA-AUTH-W06-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 review | exact script/helper/auth/three test/summary repair paths | rejected | `daac571`; receipt below | Original five findings closed; cleanup deadline and test-hook isolation remain. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `daac571` | read-only exact six-path repair commit | rejected | receipt below | Three-path cleanup/hook-isolation repair required. |
+| `DV-P0B-CAMERA-AUTH-W06-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R1 review | permission script, LaunchServices tests, W01 summary only | rejected | `10804b6`; receipt below | Hook isolation closed; timeout escalation and root identity remain unsafe. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `10804b6` | read-only exact three-path repair commit | rejected | receipt below | Hard-bound TERM-ignoring cleanup and no-follow root-identity repair required. |
+| `DV-P0B-CAMERA-AUTH-W06-R3` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R2 review | permission script, LaunchServices tests, W01 summary only | rejected | `68b9bc3`; receipt below | Hard timeout closed; destructive-boundary TOCTOU and pipeline timeout defects remain. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R3` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `68b9bc3` | read-only exact three-path repair commit | rejected | receipt below | Return exact three-path R4 repair to original owner before permission runtime. |
+| `DV-P0B-CAMERA-AUTH-W06-R4` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W06 R3 review | permission script, LaunchServices tests, W01 summary only | rejected | `f989aa8`; receipt below | Full-pipeline timeout closed; exact-object deletion remains unproven. |
+| `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | repair `f989aa8` | read-only exact three-path repair commit | rejected | receipt below | Pathname deletion still follows final validation; do not dispatch runtime. |
+| `DV-P0B-CAMERA-AUTH-E07` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a` | rejected W06 R4 review | read-only Darwin cleanup API and current script/test evidence | blocked | receipt below | Darwin has no supported exact-fd unlink/rmdir; protocol authority is required before a fail-closed retained-root lane. |
+| `DV-P0B-CAMERA-AUTH-CLEANUP-DECISION` | user decision | `DV-DRAFT-4@2f3266a`; Phase 0B E08 | blocked E07 and W07 R1 review | no writable scope | accepted | user decision recorded above | Random private mode-0700 run-owned Debug roots are trusted only for Phase 0B; detected mismatch still fails closed. |
+| `DV-P0B-CAPTURE-E08` | `/root/dv_p0b_capture_map` | `DV-DRAFT-4@2f3266a`; accepted capture W02/R03 and hardware supervisor | user reports Camera permission enabled on 2026-08-09 | read-only exact accepted capture/auth/script/runtime evidence | accepted_with_residual | receipt below | One direct no-retry Continuity 10-second hardware attempt is dependency-ready; permission-only cleanup remains blocked separately. |
+| `DV-P0B-CAPTURE-R06` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a`; accepted E08/W02/R03 hardware path | accepted `DV-P0B-CAPTURE-E08`; fresh explicit Continuity uniqueID required | eight redacted capture-R06 QA files; raw media in exact internal run root only | rejected | `7fbeab8`; receipt below | Functional fail is supported, but evidence incorrectly attributes all unavailable details to watcher loss. |
+| `DV-P0B-CAPTURE-R06-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R06@7fbeab8` | read-only exact evidence commit plus accepted current capture/finalizer/probe/comparator provenance | rejected | receipt below | Three-path evidence-only causal-wording repair required; no runtime retry. |
+| `DV-P0B-CAPTURE-R06-R1` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | rejected R06 review | exact R06 summary, residuals, and measurements only | accepted_with_residual | `323844e`; receipt below | Functional fail/nulls preserved; collapsed failure evidence is separated from watcher loss. |
+| `DV-P0B-CAPTURE-R06-REVIEW-R1` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | R06 evidence repair `323844e` | read-only exact three-path repair | accepted_with_residual | receipt below | Evidence is truthful; exact mismatch and realized metrics remain unavailable from R06. |
+| `DV-P0B-CAPTURE-W07` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a`; accepted R06 evidence | accepted R06 review R1 | exact Debug event/launch/script, four focused test files, W01 summary | rejected | `fc514a7`; receipt below | Preservation diagnostics pass; handoff is deleted at EXIT and lacks closed schema/ancestor pinning. |
+| `DV-P0B-CAPTURE-W07-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 repair `fc514a7` | read-only exact eight-path repair commit | rejected | receipt below | Three-path handoff-only repair required; no hardware retry. |
+| `DV-P0B-CAPTURE-W07-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W07 review | script, hardware handoff tests, W01 summary only | rejected | `eede551`; receipt below | Snapshot survives cleanup, but post-exit exact identity/delete, same-size mutation, schema completeness, and signal cleanup remain open. |
+| `DV-P0B-CAPTURE-W07-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | W07 R1 repair `eede551` | read-only exact three-path repair | rejected | receipt below | R2 must not begin until the same-UID cleanup trust boundary is decided. |
+| `DV-P0B-CAPTURE-W07-R2` | `/root/dv_p0b_capture_w07_r2` | `DV-DRAFT-4@2f3266a` | rejected W07 R1 review; accepted cleanup decision | script, hardware handoff tests, W01 summary only | rejected | `b34dc16`; receipt below | Digest/consumer core passes; detected-mismatch retention and exact protected-emitter schema remain defective. |
+| `DV-P0B-CAPTURE-W07-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | W07 R2 repair `b34dc16` | read-only exact three-path repair commit and protected-owner provenance | rejected | receipt below | Return exact three-path retention/schema/signal repair to the same owner. |
+| `DV-P0B-CAPTURE-W07-R3` | `/root/dv_p0b_capture_w07_r2` | `DV-DRAFT-4@2f3266a` | rejected W07 R2 review | script, hardware handoff tests, W01 summary only | accepted_with_residual | `a90f888`; receipt below | Deterministic Debug handoff repair accepted; real hardware evidence remains separate. |
+| `DV-P0B-CAPTURE-W07-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | W07 R3 repair `a90f888` | read-only exact three-path repair commit and protected-owner provenance | accepted_with_residual | receipt below | W07 handoff lane is accepted under the narrow Debug trust boundary. |
+| `DV-P0B-STORAGE-E02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3@ed108fa` | accepted storage W01 repair and capture R01 cleanup | read-only exact external-runtime seam/command map | accepted_with_residual | receipts below | Existing harness is internal-only; three-path test-only seam is dependency-ready. |
+| `DV-P0B-STORAGE-E02-REVIEW` | `/root/dv_p0b_storage_w01_review` | `DV-DRAFT-3@ed108fa` | `DV-P0B-STORAGE-E02` | read-only | accepted_with_residual | recorded below | Implement seam first; exact external mount roots require later explicit authorization. |
+| `DV-P0B-STORAGE-W02` | `/root/dv_p0b_storage_map` | `DV-DRAFT-3` storage clauses; revalidated unaffected by pending `DV-DRAFT-4` quality delta | accepted `DV-P0B-STORAGE-E02-REVIEW` | two storage test files plus one test-only wrapper | accepted_with_residual | base `e6b3a13`; repairs `986af6c`, `767edd9`, `d0c9ce5`, `a50026a`; receipts below | Test-only seam accepted; actual external runtime requires exact-root authorization. |
+| `DV-P0B-STORAGE-W02-REVIEW` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | `DV-P0B-STORAGE-W02@e6b3a13` | read-only exact three-path commit | rejected | recorded below | Return exact two findings to original owner; repeat review before external runtime. |
+| `DV-P0B-STORAGE-W02-REVIEW-R1` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `986af6c` | read-only exact three-path repair commit | rejected | recorded below | Return exact three remaining findings to original owner; repeat review before external runtime. |
+| `DV-P0B-STORAGE-W02-REVIEW-R2` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `767edd9` | read-only exact three-path repair commit | rejected | recorded below | One wrapper-only process identity completeness defect remains; repair and repeat review. |
+| `DV-P0B-STORAGE-W02-REVIEW-R3` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `d0c9ce5` | read-only wrapper-only repair commit | rejected | recorded below | Supervisor-group repair closed; one caffeinate PID-reuse escalation defect remains. |
+| `DV-P0B-STORAGE-W02-REVIEW-R4` | `/root/dv_p0b_storage_w01_review` | same revalidated storage clauses | repair `a50026a` | read-only wrapper-only repair commit | accepted_with_residual | recorded below | Exact-root external runtime may be packetized only after explicit authorization. |
+| `DV-P0B-STORAGE-INVENTORY-R01` | `/root/dv_p0b_storage_inventory_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4 | read-only mounted-volume metadata only | accepted_with_residual | receipt below | Writable external SSD and HDD candidates are currently mounted; exact-root runtime awaits explicit user authorization. |
+| `DV-P0B-STORAGE-R01` | `/root/dv_p0b_storage_r01` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted storage W02 review R4; accepted inventory; exact user authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted QA evidence root only | rejected_scope / cells_accepted | `f7bbc9d`; receipt below | Both storage mechanics cells are accepted; packet scope failed because normal app-host lifecycle exposed TranscriptionRecovery. |
+| `DV-P0B-STORAGE-R01-REVIEW` | `/root/dv_p0b_storage_r01_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R01@f7bbc9d` | read-only exact runtime evidence and accepted seam/source provenance | rejected | receipt below | Add and review a closed inert Debug storage test-host route before any rerun. |
+| `DV-P0B-STORAGE-W03` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected storage R01 scope review | exact Debug entry/storage-host route, wrapper, launch/wrapper tests, one QA summary | rejected | `89127cc`; receipt below | Router isolation passes, but inert host retains the private volume root in app state. |
+| `DV-P0B-STORAGE-W03-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W03@89127cc` | read-only exact repair commit | rejected | receipt below | Replace retained raw configuration with a value-free validated marker. |
+| `DV-P0B-STORAGE-W03-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W03 review | Debug storage-host source and focused test only; summary only if claim changes | accepted_with_residual | `7b1ba8d`; receipt below | Value-free inert-host repair accepted; external evidence still requires one controlled rerun. |
+| `DV-P0B-STORAGE-W03-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | W03 R1 repair `7b1ba8d` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One bounded storage R02 under prior exact-root authority is dependency-ready. |
+| `DV-P0B-STORAGE-R02` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W03 review R1; prior exact-root authorization | two exact authorized mount roots; new run-owned scratch directories and one redacted R02 QA root only | review / protected-scope-fail | `98b3b66`; receipt below | Both mechanics cells pass again; protected Recovery metadata changed under the accepted inert host. |
+| `DV-P0B-STORAGE-R02-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R02@98b3b66` | read-only exact runtime evidence and accepted W03 provenance | rejected_scope / cells_accepted | receipt below | Both mechanics cells remain accepted; live-HOME exposure prevents protected-scope closure. |
+| `DV-P0B-STORAGE-W04` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected R02 review | external-storage wrapper, canonical feasibility test, W01 summary only if claim changes | rejected | `03fac5c`; receipt below | Foundation confinement passes; task-HOME pathname cleanup can delete a replacement. |
+| `DV-P0B-STORAGE-W04-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04@03fac5c` | read-only exact two-path repair commit | rejected | receipt below | Repair the wrapper cleanup race and add an exact replacement fixture. |
+| `DV-P0B-STORAGE-W04-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W04 review | external-storage wrapper and canonical feasibility test only | accepted_with_residual | `029f836`; receipt below | Replacement-safe task-HOME cleanup accepted; runtime evidence remains. |
+| `DV-P0B-STORAGE-W04-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W04-R1@029f836` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final protected-scope runtime is dependency-ready. |
+| `DV-P0B-STORAGE-R03` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W04 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R03 QA root only | accepted_evidence / functional_fail | `dc81960`; receipt below | Truthful SSD host-launch fail; HDD stopped; protected scope remains not_proven. |
+| `DV-P0B-STORAGE-R03-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R03@dc81960` | read-only exact seven-file runtime evidence and accepted wrapper provenance | accepted_with_residual | receipt below | Add one explicit task-owned DerivedData path shared by both Xcode phases. |
+| `DV-P0B-STORAGE-W05` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R03 evidence review | external-storage wrapper and canonical feasibility test only | rejected | `8a98f73`; receipt below | Shared DerivedData path works, but its identity is not pinned and the canonical fixture is non-green. |
+| `DV-P0B-STORAGE-W05-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05@8a98f73` | read-only exact two-path repair commit | rejected | receipt below | Pin DerivedData uid/mode/dev/inode and repair the canonical lifecycle fixture. |
+| `DV-P0B-STORAGE-W05-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W05 review | external-storage wrapper and canonical feasibility test only | accepted_with_residual | `b172bfd`; receipt below | Exact DerivedData identity pin and serial fixture repair accepted; runtime evidence remains. |
+| `DV-P0B-STORAGE-W05-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-W05-R1@b172bfd` | read-only exact two-path repair commit | accepted_with_residual | receipt below | One final serialized protected-scope runtime is dependency-ready. |
+| `DV-P0B-STORAGE-R04` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted W05 review R1; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R04 QA root only | accepted_evidence / mandatory_guard_stop | `9e2a3ee`; receipt below | Truthful pre-functional stop accepted; exact-root authority remained unexercised. |
+| `DV-P0B-STORAGE-R04-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R04@9e2a3ee` | read-only exact seven-file evidence and accepted W05-R1 provenance | accepted_with_residual | receipt below | Use one noninteractive single-shot controller for the final runtime. |
+| `DV-P0B-STORAGE-R05` | `/root/dv_p0b_storage_r02` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted R04 evidence review; prior exact-root authorization | two exact authorized mount roots; fresh scratch and one redacted R05 QA root only | accepted_evidence / protected-scope-fail | `bec6751`; receipt below | SSD mechanics/confinement accepted; protected dependency and guard-proof residual carry to P0B review. |
+| `DV-P0B-STORAGE-R05-REVIEW` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-R05@bec6751` | read-only exact seven-file evidence plus accepted W05-R1 provenance | accepted_with_residual | receipt below | Storage runtime lane terminal; no rerun under existing authority. |
+| `DV-P0B-UI-SKILL-E01` | `/root/dv_g0_registry_review` | `DV-DRAFT-4@2f3266a`; UI gate unchanged | current unavailable-skill residual | read-only Codex skill/package availability and repository references | blocked | receipt below | Exact skill is neither installed nor in the official current catalog; user must supply its package identity or authorize a gate change. |
+| `DV-P0B-UI-SKILL-R01` | `/root` | `DV-DRAFT-4@2f3266a` | current environment exposes the exact required skill | registry only | accepted | receipt below | Exact skill and relevant desktop references were read; the historical E01 blocker is resolved without changing the product contract. |
+| `DV-P0B-UI-E02` | `/root/dv_p0b_ui_map` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-SKILL-R01` | read-only exact macOS scene/window/menu/camera-preview/platform evidence | accepted_with_residual | receipt below | Pure SwiftUI frame rendering is feasible; runtime cadence/orientation/release remain evidence-needed. |
+| `DV-P0B-UI-E02-REVIEW` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-E02` receipt | read-only exact authority/source/platform/envelope review | accepted_with_residual | receipt below | Corrected seven-path W01 envelope accepted; no AppKit, project, plist, entitlement, script, or product path. |
+| `DV-P0B-UI-W01` | `/root/dv_p0b_ui_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-E02-REVIEW` | exact Debug preview route/session/view; two focused tests; one W01 summary | accepted_with_residual | `085fa26`; receipt below | Fake/build implementation accepted; real preview behavior remains. |
+| `DV-P0B-UI-W01-REVIEW` | `/root/dv_p0b_ui_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-W01@085fa26` | read-only exact seven-path commit and current artifact evidence | accepted_with_residual | receipt below | No blocker; one controlled Camera/Computer Use runtime is dependency-ready. |
+| `DV-P0B-UI-R01` | `/root/dv_p0b_ui_runtime` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-UI-W01-REVIEW`; user reports Camera permission granted | one redacted ui-preview-r01 QA root; no source paths | accepted_with_residual | `771b309`; receipt below | Terminal not_available: exact selection/Start passed, but app-scoped Camera was notDetermined and live preview evidence remains unavailable. |
+| `DV-P0B-UI` | `/root/dv_p0b_ui_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-UI-R01@771b309` | read-only exact runtime evidence | accepted_with_residual | receipt below | E05 may close as terminal not_available; no blind retry or live-preview pass claim. |
+| `DV-P0B-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | terminal capture/media, UI, storage evidence and reviews | read-only | rejected_for_phase0c | receipt below | Phase 0B terminal evidence has functional/protected blockers; explicit user disposition required. |
+| `DV-P0B-E07-E01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-REVIEW`; resumed evidence cycle | read-only exact dictation/capture ownership, fake/sanitized route, paired-action matrix, and future writable envelope | rejected | receipt below | Canonical test-only route is feasible; durable observer/evidence/review contract is incomplete. |
+| `DV-P0B-E07-E01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01` terminal receipt | read-only exact authority/design review | rejected | receipt below | Return registry-only observer/barrier/schema repair; W01 remains blocked. |
+| `DV-P0B-E07-E01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 E01 review | registry design receipt only; read-only source confirmation | rejected | `d14a927`; receipt below | Canonical design is sound, but three internal contradictions require registry-only R2. |
+| `DV-P0B-E07-E01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R1@d14a927` | read-only exact design review | rejected | receipt below | Repair continuation storage, observable cleanup evidence and protocol-overload wording. |
+| `DV-P0B-E07-E01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R1 | registry design receipt only | rejected | `1616247`; receipt below | Cleanup/overload repaired; slow-gate race contract still inconsistent. |
+| `DV-P0B-E07-E01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R2@1616247` | read-only exact design review | rejected | receipt below | Return minimal waiter-consumption and joined-cancellation R3. |
+| `DV-P0B-E07-E01-R3` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R2 | registry design receipt only | rejected | `c4e1b15`; receipt below | Prior races repaired; pre-install cancellation can still be lost. |
+| `DV-P0B-E07-E01-REVIEW-R3` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R3@c4e1b15` | read-only exact design review | rejected | receipt below | Add one existing-state cancellation registration handshake. |
+| `DV-P0B-E07-E01-R4` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected E07 Review-R3 | registry design receipt only | accepted | `c0001a9`; receipt below | Existing-state cancellation registration is implementable and accepted. |
+| `DV-P0B-E07-E01-REVIEW-R4` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-E01-R4@c0001a9` | read-only exact design review | accepted | receipt below | Exact ten-path fake-backed W01 is dependency-ready. |
+| `DV-P0B-E07-W01` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-E07-E01-REVIEW-R4` | exact paths from accepted E07 evidence envelope only | rejected | `0e3b3ad`; receipt below | Scope/provenance pass; cancellation, cleanup ordering and schema closure require narrow R1. |
+| `DV-P0B-E07-W01-REVIEW` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01@0e3b3ad` terminal receipt | read-only exact E07 artifact/provenance review | rejected | receipt below | Return exact two-test-path R1 to the original owner; runtime remains blocked. |
+| `DV-P0B-E07-W01-R1` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW` | two E07 Swift test paths plus manifest-only `environment.json` update | rejected | `8f21b2e`; receipt below | Cancellation, cleanup and metric order pass; pass/fail cross-schema remains open. |
+| `DV-P0B-E07-W01-REVIEW-R1` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R1@8f21b2e` | read-only exact repair review | rejected | receipt below | Return validator-only R2; E07/runtime remain blocked. |
+| `DV-P0B-E07-W01-R2` | `/root/dv_p0b_e07_e01` | `DV-DRAFT-4@2f3266a` | rejected `DV-P0B-E07-W01-REVIEW-R1` | two E07 Swift test paths plus manifest-only `environment.json` update | accepted | `719e995`; receipt below | Deterministic fake-backed E07 accepted; shipping audio lease and real runtime remain separate. |
+| `DV-P0B-E07-W01-REVIEW-R2` | `/root/dv_p0b_capture_w07_r2_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-E07-W01-R2@719e995` | read-only exact repair review | accepted | receipt below | E07 gate accepted; capture runtime may be admitted separately after current evidence repair wave. |
+| `DV-P0B-STORAGE-OBSERVER-E01` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected `DV-P0B-REVIEW`; accepted storage mechanics/confinement; resumed evidence cycle | read-only storage/protected-owner/controller observation design and exact future packet envelope only | rejected | receipt below | Phase split is sound, but the recorded artifact lacks an exact implementable schema/envelope. |
+| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01` terminal receipt | read-only exact design/authority review | rejected | receipt below | Return a design-only exact-schema/timeline repair to the same owner. |
+| `DV-P0B-STORAGE-OBSERVER-E01-R1` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer E01 review | registry design receipt only; read-only source confirmation | review | exact receipt below | Exact paths, schema, probe, mutation coverage, controller state machine and stop matrix recorded. |
+| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R1@8fe5645` | read-only exact design review | rejected | receipt below | High-level design is sound; five literal contract gaps require registry-only R2. |
+| `DV-P0B-STORAGE-OBSERVER-E01-R2` | `/root/dv_p0b_storage_r02_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected observer review R1 | registry design receipt only | accepted | `794b733`; receipt below | Five literal gaps repaired and independently accepted. |
+| `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-E01-R2@794b733` | read-only exact design review | accepted | receipt below | Exact ten-path implementation envelope is dependency-ready; runtime remains separately blocked. |
+| `DV-P0B-STORAGE-OBSERVER-W01` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | accepted `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2` | exact ten paths from accepted R2 design only | rejected | `8d1c48a`; receipt below | Observer/route are sound; production controller and summary require narrow R1. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01@8d1c48a` | read-only exact implementation review | rejected | receipt below | Repair event-derived parsing, bounds, pins, redaction and summary truthfulness. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R1` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 review | controller, controller tests and W01 summary only | rejected | `2a25dd3`; receipt below | Parser/pins pass; terminal evidence, cleanup, exact types, outer binding and summary remain open. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R1@2a25dd3` | read-only exact repair review | rejected | receipt below | Return bounded three-path R2; no observer runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R2` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R1 | controller, controller tests and W01 summary only | rejected | `84aec4d`; receipt below | Five prior defects pass; raw-event and write-failure evidence integrity require R3. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R2@84aec4d` | read-only exact repair review | rejected | receipt below | Return exact three-path evidence-integrity R3; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R3` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R2 | controller, controller tests and W01 summary only | rejected | `a9cd237`; receipt below | Raw events close; partial artifacts can still retain success-looking claims. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R3@a9cd237` | read-only exact repair review | rejected | receipt below | Return failure-safe partial-evidence R4; reviewer deviation recorded separately. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R4` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R3 | controller, controller tests and W01 summary only | rejected | `079fc03`; receipt below | Failure-safe init passes; sequential rollback and replacement identity remain unsafe. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R4@079fc03` | read-only exact repair review | rejected | receipt below | Return identity-bound atomic-commit R5; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R5` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R4 | controller, controller tests and W01 summary only | rejected | `0058993`; receipt below | Atomic swap exists; creation, cleanup, commit reconciliation and success truth remain unsafe. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R5@0058993` | read-only exact repair review | rejected | receipt below | Return syscall-boundary and terminal-truth R6; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R6` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R5 | controller, controller tests and W01 summary only | rejected | `cbbd9e0`; receipt below | Exclusive writes pass; post-swap reserve and partial-cleanup restoration remain unsafe. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R6@cbbd9e0` | read-only exact repair review | rejected | receipt below | Return exact three-path R7; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R7` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R6 | controller, controller tests and W01 summary only | rejected | `fc177df`; receipt below | Exported hooks and partial cleanup pass; post-swap recovery can still miss the reserve. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R7@fc177df` | read-only exact repair review | rejected | receipt below | Return exact three-path R8 invariant repair; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R8` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R7 | controller, controller tests and W01 summary only | rejected | `8161d60`; receipt below | Publication ordering passes; final zf_mv primitive is not exclusive. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R8@8161d60` | read-only exact repair review | rejected | receipt below | Return exact three-path exclusive-rename R9; no runtime. |
+| `DV-P0B-STORAGE-OBSERVER-W01-R9` | `/root/dv_p0b_storage_w03` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | rejected W01 Review-R8 | controller, controller tests and W01 summary only | accepted_with_residual | `fec202a`; receipt below | Genuine exclusive rename and late-collision proof accepted; real observer result remains separate. |
+| `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9` | `/root/dv_p0b_storage_w03_review` | `DV-DRAFT-4@2f3266a`; storage clauses unchanged | `DV-P0B-STORAGE-OBSERVER-W01-R9@fec202a` | read-only exact repair review | accepted_with_residual | receipt below | Debug observer seam accepted; no runtime implied. |
+| `DV-P0B-CAPTURE-R07` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W07-R3 review; accepted E07 W01 Review-R2; accepted Storage Observer Review-R9 | one bounded explicit-device Continuity capture attempt; one redacted R07 evidence root; raw media in exact run-owned temporary root only | accepted_evidence / functional_fail | `603956c`; receipt below | One invalid_configuration terminal before attempt start; no authorization/handoff/media. |
+| `DV-P0B-CAPTURE-R07-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R07@603956c` | read-only exact runtime evidence and W07-R3 provenance | accepted_with_residual | receipt below | Evidence accepted; typed pre-attempt configuration diagnosis is the exact repair dependency. |
+| `DV-P0B-CAPTURE-W08` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R07-REVIEW` | exact Debug launch/event diagnostic, launch and handoff tests, spike script, W01 summary only if claim changes | rejected | `1387b64`; receipt below | Mapping mostly closes, but route/framing/replacement cleanup fail review. |
+| `DV-P0B-CAPTURE-W08-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08@1387b64` | read-only exact repair/provenance review | rejected | receipt below | Return exact five-path R1; no runtime. |
+| `DV-P0B-CAPTURE-W08-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 review | Launch, Launch tests, spike script, handoff tests, W01 summary only | rejected | `d1f5f5f`; receipt below | Code repair passes; summary misstated 115 instead of reproduced 117 tests. |
+| `DV-P0B-CAPTURE-W08-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R1@d1f5f5f` | read-only exact repair review | rejected | receipt below | Summary-only R2 and narrow provenance rereview; no runtime. |
+| `DV-P0B-CAPTURE-W08-R2` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W08 Review-R1 | W01 summary only | accepted_with_residual | `b418c08`; receipt below | Diagnostic repair accepted; R07 remains historical/unattributed. |
+| `DV-P0B-CAPTURE-W08-REVIEW-R2` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W08-R2@b418c08` | read-only summary/provenance review | accepted_with_residual | receipt below | One separately packetized hardware attempt is dependency-ready. |
+| `DV-P0B-CAPTURE-R08` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W08 Review-R2; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R08 QA root; exact internal temp media root only | accepted_evidence / functional_fail | `4581e31`; receipt below | Typed event_log_path_mismatch accepted; Launch normalization repair required. |
+| `DV-P0B-CAPTURE-R08-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R08@4581e31` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Three-path Launch normalization repair; no runtime. |
+| `DV-P0B-CAPTURE-W09` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R08-REVIEW` | Launch, Launch tests, W01 summary only | rejected | `20787c4`; receipt below | Parent normalization passes; canonical leaf symlink can escape. |
+| `DV-P0B-CAPTURE-W09-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09@20787c4` | read-only exact repair/provenance review | rejected | receipt below | Return exact three-path leaf no-follow repair; no runtime. |
+| `DV-P0B-CAPTURE-W09-R1` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | rejected W09 review | Launch, Launch tests, W01 summary only | accepted_with_residual | `7342f18`; receipt below | No-follow final-leaf repair accepted; Debug trust residual remains. |
+| `DV-P0B-CAPTURE-W09-REVIEW-R1` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W09-R1@7342f18` | read-only exact repair/provenance review | accepted_with_residual | receipt below | One separately admitted hardware attempt is dependency-ready. |
+| `DV-P0B-CAPTURE-R09` | `/root/dv_p0b_capture_runtime_r01` | `DV-DRAFT-4@2f3266a` | accepted W09 Review-R1; accepted W07-R3/E07-R2 | one explicit-device Continuity attempt; one redacted R09 QA root; exact internal temp media root only | accepted_evidence / functional_fail | `8c5ea02`; receipt below | Probes/passthrough pass; strict preservation reading_failed. |
+| `DV-P0B-CAPTURE-R09-REVIEW` | `/root/dv_p0b_capture_runtime_r01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-R09@8c5ea02` | read-only exact runtime evidence/provenance | accepted_with_residual | receipt below | Closed operation/side diagnostic repair before any retry. |
+| `DV-P0B-CAPTURE-W10` | `/root/dv_p0b_capture_w01` | `DV-DRAFT-4@2f3266a` | accepted `DV-P0B-CAPTURE-R09-REVIEW` | Debug preservation/event/launch/script/test owners and W01 summary only | support_complete_with_residual | `b539487`; receipt below | Six closed mappings implemented and self-verified; no further Debug work or runtime without explicit user approval. |
+| `DV-P0B-CAPTURE-W10-REVIEW` | `/root/dv_p0b_capture_w01_review` | `DV-DRAFT-4@2f3266a` | `DV-P0B-CAPTURE-W10@b539487` | read-only exact repair/provenance review | stopped_environment_nonblocking | no verdict; reviewer usage limit | Supporting review did not complete. It is retained as a residual and does not block the Release UI/setup vertical slice. |
+| `DV-P0C-CONTRACT` | unassigned | accepted P0A revision | user economic disposition plus current terminal Phase 0B evidence/residuals | named specs and acceptance map | queued | — | One bounded reconciliation checkpoint; activate only the capability slices supported by current evidence and preserve explicit capture/storage/measurement residuals. |
+| `DV-P0C-REVIEW` | unassigned reviewer | proposed `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | read-only | queued | — | Independent contract and epoch acceptance. |
+| `DV-P1-SETUP` | unassigned | `DV-ACTIVE-1` | `DV-P0C-REVIEW` | assigned foundation/setup paths | queued | — | Foundation and setup vertical slice. |
+| `DV-P2-CAPTURE` | unassigned | current Active epoch | accepted Phase 1 | assigned capture paths | queued | — | One-clip slice without dictation regression. |
+| `DV-P3-LIBRARY` | unassigned | current Active epoch | accepted Phase 2 | assigned archive/library paths | queued | — | Library, review, exclusion, and exact deletion. |
+| `DV-P4-BUILD` | unassigned | current Active epoch | accepted Phase 3 | assigned build/export/share paths | queued | — | Deterministic local Build, Export, and Share. |
+| `DV-FINAL-QA` | unassigned reviewers | final Active epoch | accepted Phase 4 | read-only plus controlled runtime evidence | queued | — | Build/tests, signed camera/storage/runtime, SwiftUI QA, and protected-domain verification. |
+
+## Current Coordination State
+
+- The 2026-08-10 outcome-first reset supersedes the old support-only dispatch
+  chain. No new Phase 0B Debug, tooling, observer, permission, preview, storage,
+  or hardware-runtime packet may start without explicit user cost approval.
+- User capability currently available in Release: none. Debug feasibility,
+  tests, evidence, and closed packets must not be reported as partial product
+  delivery.
+- `DV-P0B-CAPTURE-W10@b539487` is supporting work complete with a truthful
+  unreviewed residual after its reviewer hit a usage limit before verdict. It
+  is not a dependency for the Release UI/setup slice and receives no automatic
+  replacement reviewer or repair chain.
+- The next admitted sequence is exactly one bounded `DV-P0C-CONTRACT` packet,
+  one proportional contract review, then a `shipping_product` Phase 1 vertical
+  slice. The first product slice must add the Release-path `Dev Vlogs…` entry,
+  separate SwiftUI window, and truthful Off/Setup state. It may not be replaced
+  by more models, evidence, tooling, or Debug harness work.
+- Capture strict-preservation `reading_failed`, quantitative measurements,
+  live-preview proof, and storage protected-domain attribution remain explicit
+  residuals. They may gate the specific shipping capability that depends on
+  them, but they do not justify delaying unrelated Release UI/setup work.
+- The 2026-08-09 pause is historical. The user explicitly resumed after Codex
+  restart and on 2026-08-10 replaced the support-heavy execution strategy with
+  the outcome-first policy above.
+- Accepted E01 evidence supports bounded Debug-only capture and test-only
+  storage spikes without a shipping dependency.
+- Repaired capture packet `ff70155` is accepted_with_residual after independent
+  review. The original `9d9efec` rejection remains recorded below.
+- Accepted evidence is limited to Debug/fake/build feasibility. It does not
+  establish camera/TCC/device/media measurements, E07 dictation non-regression,
+  or the shipping shared-audio lease.
+- Repaired storage packet `69b2d16` is accepted_with_residual after independent
+  review. The original `2486b56` rejection remains recorded below.
+- Accepted storage evidence is limited to fake/internal APFS bookmark,
+  capacity, exclusive-promotion, redaction, and cleanup mechanics. External
+  drives, true-stale/remount, interruption, and representative media remain.
+- Capture runtime preflight `f698fcb` is accepted_with_residual. Built-in and
+  USB are unavailable; the connected iPhone did not enumerate as Continuity
+  Camera. No capture, TCC, media, or quantitative claim exists.
+- A bounded capture retry waits for an explicit camera uniqueID. Independent
+  storage external/runtime evidence may proceed serially after this cleanup.
+- `DV-P0B-STORAGE-E02` is accepted_with_residual: the current harness is
+  internal-only, and a two-test-file plus one-wrapper seam is dependency-ready.
+  External writes still require exact mount-root authorization after review.
+- `DV-P0B-CAPTURE-R02@0e21972` evidence is accepted but its functional cell is
+  fail/debug-spike defect. Typed camera-start category and bounded termination
+  repair is the next serialized writable packet; no hardware retry precedes it.
+- Repaired capture packet through `f141be6` is accepted_with_residual. The
+  rejected intermediate reviews remain recorded below.
+- No runtime packet is running. `DV-P0B-CAPTURE-R04` was retired before
+  dispatch when the user superseded the fixed 720p/30 source-quality rule.
+- Source-only `DV-DRAFT-4@2f3266a` is accepted_with_residual for evidence work.
+  `DV-P0B-CAPTURE-E03` accepted a bounded Apple-native repair design. The
+  Debug-only `DV-P0B-CAPTURE-W02@f7ff6bf` repair is accepted_with_residual
+  after independent review. `DV-P0B-CAPTURE-R05@11cb9a2` selected one
+  Continuity Camera but failed at `camera_permission_required` before camera
+  start. Independent review accepted the evidence and found no Debug defect;
+  Debug-only permission seam `5b3ed20` is accepted. One bounded genuine
+  same-identity Camera authorization request timed out without an actionable
+  prompt. Evidence facts and cleanup passed review, but one summary-only TCC
+  truthfulness repair `308a191` is accepted. A bounded Computer Use action is
+  accepted after finding the HoldType Camera row absent; no switch or TCC
+  action occurred. Three-path Debug activation repair `f35ac7f` is accepted
+  after corrected-SHA review. One active same-signed permission runtime
+  returned closed unknown before a prompt. Evidence is accepted, but stage
+  collapse is a Debug-spike defect. Diagnostic repair `1ae703f` was rejected
+  for one activation-order regression; repair `0e9f032` is accepted. One
+  repaired permission-only runtime proved activation rejection before
+  authorization. Review accepted the facts and identified activation semantics
+  plus natural cleanup defects. Read-only E04 accepted a bounded six-path
+  repair. W04 activation/termination passed review, and script repair
+  `48c0d5c` is accepted after proving one absolute deadline across permission
+  supervision and identity-safe cleanup. One same-signed permission-only
+  runtime ended at `camera_authorization_activation_timed_out` before
+  authorization status or requestAccess. Its direct app PID exited naturally,
+  but a second same-launch Debug process required exact cleanup TERM. Review
+  accepted the runtime facts and classified that additional lifetime as a
+  Debug-spike launch/supervision defect. Read-only ownership exploration found
+  the exact creator unrecoverable from retained evidence and accepted a
+  script-only, run-marker-bound multi-process supervision design. Repair
+  `b071056` is in independent review after 17/17 supervisor fakes and 59/59
+  Phase 0B tests passed and independent review accepted the repair. One
+  diagnostic permission-only runtime retained one direct marker-owned process,
+  zero additional identities, and clean natural exit, but again timed out at
+  activation_requested before authorization. Review accepted the evidence and
+  classified the remaining failure as a platform activation dependency rather
+  than signing/TCC proof or a new demonstrated Debug defect. Read-only
+  activation/LaunchServices exploration proposed exact-URL NSWorkspace launch
+  through a bounded non-requesting helper plus target ownership acknowledgment.
+  Independent design review accepted a corrected 12-path Debug-only envelope:
+  no explicit helper signing, stronger atomic handshake, and structure-safe
+  source extraction. Repair `169e895` compiled and passed tests but review
+  rejected its real parser, deadline, result-file, cancellation, and behavioral
+  coverage guarantees. Focused repair `daac571` passes 20/20 focused and 66/66
+  full Phase 0B tests but repeat review found cleanup outside the global
+  deadline and a test hook affecting build-only/hardware modes. Three-path R2
+  repair `10804b6` passes 68 Phase 0B tests and closes hook isolation, but
+  repeat review found TERM-ignoring cleanup can outlive the deadline and root
+  replacement can escape exact ownership. Three-path R3 repair `68b9bc3`
+  closes direct TERM→KILL bounds but review found untimed pipeline consumers
+  and pathname deletion races for sensitive artifacts, recursive children,
+  and the final tombstone. Focused R4 repair `f989aa8` puts whole pipelines
+  inside the hard timeout group and adds exclusive quarantine plus identity
+  revalidation at destructive boundaries, but repeat review found every final
+  unlink/rmdir still consumes a mutable pathname after validation. Read-only
+  Darwin cleanup API exploration proved macOS exposes no supported exact-fd
+  delete for files or directories. A narrow protocol-authority decision is
+  required before a fail-closed retained-root permission lane; capture remains
+  blocked through that lane. On 2026-08-09 the user reported enabling Camera
+  permission. `DV-P0B-CAPTURE-E08` accepted one direct controlled hardware
+  capture through the separately accepted hardware supervisor, without
+  invoking or relaxing the blocked permission-only cleanup path. `DV-P0B-
+  CAPTURE-R06` completed one no-retry Continuity 10-second cell. Camera
+  authorization was reached as authorized; camera-only and final media probes
+  were playable and passthrough completed, but the strict stored-sample
+  comparator failed and the watcher missed detailed event/media metrics. Raw
+  media and run-owned processes were cleaned. Independent review accepted the
+  functional fail but rejected watcher-only causal wording: the current failure
+  route also collapses typed preservation errors and omits probe evidence. A
+  three-path evidence-only repair `323844e` is accepted_with_residual. The
+  exact mismatch and realized metrics remain unavailable from R06. Debug-only
+  diagnostic/handoff repair W07 `fc514a7` was rejected only for handoff
+  ownership/schema defects: the copy was deleted at EXIT, nested evidence was
+  not closed, and ancestor replacement could escape the run root. Preservation
+  mappings/stage evidence passed. Three-path W07-R1 repair is running; camera,
+  finalizer, probe, comparator, and accepted Swift diagnostic blobs remain
+  protected. W07-R1 repair `eede551` was rejected after review proved the
+  retained snapshot still lacks immutable post-exit identity/exact cleanup and
+  the schema admits impossible partial evidence. Exact cleanup again reaches
+  the Darwin same-UID platform limit already established by E07; W07-R2 is
+  unblocked by the user's narrow Debug-only trust-boundary decision. W07-R2
+  must keep detected mismatches fail-closed, must not claim resistance to a
+  malicious same-UID namespace actor, and must receive independent review
+  before any hardware retry. W07-R2 `b34dc16` established digest-bound
+  publication and one-shot consumption, but independent review rejected it:
+  several detected schema/ownership mismatches deleted the implicated residual,
+  and the validator rejected leading `-`/`_` case IDs plus legitimate nominal
+  FPS zero with positive derived cadence. Exact three-path R3 repair `a90f888`
+  retains every implicated publisher/consumer residual, aligns both protected
+  emitter forms, and adds publisher/consumer TERM/INT proof. Independent review
+  accepted the lane with only the expected real-hardware residual; W07 handoff
+  evidence is no longer a Phase 0B blocker.
+  The
+  final Build fallback remains separate and does not block source evidence.
+- `DV-P0B-STORAGE-W02` through repair `a50026a` is accepted_with_residual.
+  The test-only seam is fail-closed and bounded; no external I/O was performed.
+  The user has now authorized bounded runtime under only the two exact roots
+  recorded above, and only inside newly created run-owned scratch directories.
+  The accepted seam remains unaffected by the quality delta. No physical
+  unplug/remount or write/delete outside those scratch directories is
+  authorized. `DV-P0B-STORAGE-R01@f7bbc9d` completed both exact cells with
+  functional pass and zero external scratch/process residue. Packet-level
+  scope is rejected because one pre-existing TranscriptionRecovery artifact
+  received a new mtime during the HDD test-host window while count/path-set
+  stayed unchanged. Independent review accepted both mechanics cells and
+  proved the deterministic exposure: the app-hosted storage test selected
+  normal `HoldTypeApp` lifecycle and could construct the live recovery owner.
+  Debug-only inert test-host W03 proves outer routing and wrapper injection,
+  but review rejected one private-value lifetime: the inert app state retained
+  the validated full volume root. Two-path value-free-marker repair W03-R1
+  removed all raw configuration lifetime and is independently accepted. One
+  bounded R02 rerun used one session guard and metadata-only protected
+  before/after proof. It again passed both storage mechanics cells and cleaned
+  all scratch/processes,
+  but the same protected recovery file was atomically replaced during the
+  session despite accepted inert-host routing. Independent review accepts both
+  mechanics cells and rejects packet scope: the hosted test bundle still
+  inherits live HOME, so W03's router/value isolation cannot protect the live
+  Foundation user-domain path. Wrapper-owned private-HOME repair `03fac5c`
+  proves confinement but was rejected because cleanup can delete a pathname
+  replacement after its identity check. Wrapper-only R1 repair `029f836` is
+  independently accepted. Final protected-scope runtime R03 stopped after its
+  sole SSD invocation: build-for-testing passed, but private HOME changed the
+  default DerivedData lookup and the hosted test could not launch; HDD was not
+  run. Evidence is accepted as a truthful functional fail. Two-path explicit
+  DerivedData repair `8a98f73` proved shared path routing and hosted
+  confinement, but independent review rejected it because the directory
+  identity was not pinned and the canonical lifecycle fixture passed only
+  18/19. W05-R1 `b172bfd` now pins uid/mode/dev/inode before both Xcode phases,
+  retains all implicated objects on replacement, and reports a clean 19/19
+  serial canonical suite. Independent review accepted the repair. One final
+  serialized protected-scope runtime R04 stopped before baseline or volume
+  preflight when its one guard lost parent identity after the persistent PTY
+  closed. No cell, wrapper, Xcode, hosted test, or external I/O occurred. Its
+  exact evidence review accepted the fail-closed stop and confirmed that the
+  existing exact-root authority remained unexercised. R05 used one
+  noninteractive controller and completed the SSD mechanics/private-HOME/
+  DerivedData path, but the immediate protected metadata comparison changed;
+  HDD was not invoked. Independent review accepts the SSD mechanics and hosted
+  confinement but keeps packet protected scope failed with unknown cause and
+  an exact guard-reap evidence residual. The storage runtime lane is terminal
+  for Phase 0B; no equivalent rerun or restorative action is authorized.
+- Integrated `DV-P0B-REVIEW` rejects advancement to Phase 0C. E02 strict
+  preservation failed with zero Ready clips; E03/E08 protected storage scope
+  failed; E04 is incomplete; E05 is terminal not_available; E07 paired
+  dictation independence is not exercised; and E06 lacks the representative
+  quantitative dataset. Deterministic Debug seams remain accepted, but they do
+  not replace runtime gates. Explicit user disposition is required before any
+  new evidence cycle or contract-direction change.
+- The user resumed the persistent goal on 2026-08-09. `/root` proceeds with the
+  recommended evidence cycle without changing `DV-DRAFT-4`: first paired E07
+  dictation non-regression and a read-only storage observer design, each with
+  independent review; then at most one serialized W07-R3-equipped Continuity
+  capture attempt. This continuation does not authorize a causal storage
+  runtime, protected-content access, restoration, attribution, or a broader
+  external-volume action. Any later storage runtime still requires an accepted
+  observer design, a separate finite packet, and explicit authority.
+- Product implementation is gated until `DV-P0C-REVIEW` accepts
+  `DV-ACTIVE-1`.
+- Storage Observer R9 `fec202a` is accepted_with_residual after independent
+  Review-R9. The Debug seam now closes exclusive publication and terminal
+  evidence integrity; actual non-run-owned writer classification remains a
+  separately authorized runtime residual. The one already queued serialized
+  `DV-P0B-CAPTURE-R07` is now admitted; no storage-observer runtime is implied.
+- Capture R07 `603956c` evidence is independently accepted while its functional
+  result remains fail. One explicit Continuity invocation terminated
+  invalid_configuration before attempt start; authorization, capture, media,
+  preservation and measurements remain unavailable. No retry is authorized
+  until the typed pre-attempt configuration diagnostic repair W08 is accepted.
+- Capture W08 `1387b64` was rejected: the real router bypasses one declared
+  stage, FD3 framing is not exact, and identity-mismatched diagnostic evidence
+  can be pathname-deleted. Five-path R1 is running; no hardware retry is
+  implied.
+- Capture W08-R1 `d1f5f5f` repairs the exact route, LF framing and identity
+  retention findings, but Review-R1 rejected its summary count: the exact
+  14-suite run is 117/117, not 115/115. Summary-only R2 corrected that claim.
+- Capture W08-R2 `b418c08` and Review-R2 are accepted_with_residual. Closed
+  pre-attempt diagnosis is ready; one serialized explicit-device Continuity
+  R08 is admitted. No storage-observer runtime or retry beyond that packet is
+  implied.
+- Capture R08 `4581e31` executed exactly once and failed before attempt start
+  with the validated stage event_log_path_mismatch. No authorization, media or
+  preservation was reached. Review accepts the evidence and assigns the defect
+  to Launch path normalization. Three-path W09 `20787c4` implemented symmetric
+  parent canonicalization but review rejected its leaf-symlink escape. Exact
+  three-path R1 `7342f18` adds no-follow final-leaf validation and is accepted
+  with the existing Debug trust residual. One serialized no-retry R09 hardware
+  attempt completed: probes and passthrough passed, strict preservation failed
+  at reading_failed, and Ready remained zero. Review accepts the evidence and
+  functional fail but cannot classify the low-level reader operation or asset
+  side. Debug-only W10 `b539487` implements six closed operation/side mappings
+  and is in independent review; no runtime is implied.
+- The connected iPhone is reserved for the later dependency-ready Continuity
+  Camera runtime gate.
+- E01 observed writable external SSD and HDD classes. A fresh bounded read-only
+  inventory confirmed currently mounted writable candidates in both classes.
+  The user explicitly authorized `/Volumes/TB4-Movies-Archive` and
+  `/Volumes/Movie_Archive`, limited to new run-owned scratch directories with
+  no write/delete outside them. Both R01 and R02 mechanics cells are accepted;
+  packet-level closure awaits the R02 protected-owner review.
+- The exact `build-macos-apps:swiftui-patterns` skill is now exposed by the
+  current Build macOS Apps package and has been read together with its
+  windowing, settings, split-view, menu-bar, and commands references. The
+  historical unavailable-skill receipt remains valid for its earlier
+  environment, but the gate is now resolved. Read-only `DV-P0B-UI-E02`
+  returned a pure SwiftUI frame-rendering candidate and exact bounded spike
+  envelope. Independent `DV-P0B-UI-E02-REVIEW` accepted the corrected
+  seven-path packet with runtime residuals. `DV-P0B-UI-W01@085fa26` completed
+  the isolated SwiftUI frame spike with focused/full fake tests and Debug/
+  Release isolation. Independent `DV-P0B-UI-W01-REVIEW` accepted the exact
+  implementation with runtime residuals. Controlled `DV-P0B-UI-R01@771b309`
+  launched the isolated SwiftUI preview, selected the sole explicit external
+  camera, and exercised Start through Computer Use. The app reported its own
+  Camera status as notDetermined and correctly made no permission request,
+  capture, media, or retry; live frames, Stop, mirroring, release, and
+  reacquisition remain unavailable. Exact cleanup completed. Independent
+  review accepted E05 as terminal not_available with an environment/signing
+  residual; no blind retry or live-preview pass claim is authorized.
+- Direct publication is outside the goal and must never be dispatched.
+
+## Accepted Receipts
+
+### `DV-G0-REGISTRY`
+
+```text
+packet_id: DV-G0-REGISTRY
+status: done
+
+outcome: Persistent goal scope, restart gate, epochs, packet graph, and blocker
+policy recorded.
+authority_used: User-created goal; governing plan; DV-DRAFT-2;
+root-orchestration.md; product-truth-governance.md.
+changed_paths: docs/dev-vlogs-execution-registry.md;
+docs/dev-vlogs-implementation-plan.md
+reused_owners: Existing Dev Vlogs plan and specification system.
+checks_run: Documentation diff hygiene before checkpoint acceptance.
+scope_check: Coordination-only; no product behavior or source change.
+deviations: none
+residual: DV-D01-D13 require specification integration and review.
+next_dependency: DV-P0A-SPEC
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01`
+
+```text
+packet_id: DV-P0B-E07-W01
+status: implementation_complete_pending_independent_review
+commit: 0e3b3ada836dc8a3c037b45001aa1dbfae774df8
+actual_parent: b1160fd26e76e5135b14da69c67b0367eefbbe40
+dispatch_parent: 24f4a601087322c6a3ac80e637e808a684deb9b4
+
+outcome: Deterministic fake-backed E07 implementation and retained evidence
+completed in the exact ten-path accepted envelope. Structure, focused paired
+E07 cases, adjacent controller/launch suites, signed Debug build, target
+membership, schema/order/redaction, protected blobs and diff hygiene passed.
+No app, camera, microphone, storage, provider, Keychain, media or visual
+runtime action occurred.
+
+scope: Two new DEBUG-only Swift test files and exactly eight QA files under
+docs/qa/runs/dev-vlogs-phase-0b-dictation-w01. No product, Debug harness,
+script, project, existing-test, specification or registry path changed in the
+worker commit. Source manifest is
+79938c979c2631cef9e1c202a550cc7c25e13766f32771f88f81bc3331f8d249.
+
+coordination_parent_revalidation: The dispatch parent remains the authority
+recorded by the evidence. Before the worker checkpoint, master advanced only
+by b1160fd, an independent registry-only coordination commit recording the
+rejected Storage Observer review. Git ancestry is
+24f4a60 -> b1160fd -> 0e3b3ad, and the worker diff against its actual parent
+contains exactly the ten allowlisted E07 paths. History was not rewritten.
+This nonsemantic parent drift is accepted solely for admission to independent
+review; it is not E07 acceptance.
+
+deviation: Synchronization.Mutex requires macOS 15; the test-only gate and pair
+harness are availability-scoped and executed on macOS 26.6. Shipping deployment
+and project settings remain unchanged.
+
+residual: Fake-backed E07 only; shipping shared-audio lease and real
+hardware/media/storage/provider behavior remain unproven.
+next_dependency: DV-P0B-E07-W01-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### DV-P0B-E07-E01-R2
+
+~~~text
+packet_id: DV-P0B-E07-E01-R2
+status: design_complete_pending_independent_review
+outcome: Exactly the three Review-R1 contradictions are repaired. The R1
+ten-path envelope, two DEBUG <=500-line test files, ten cases and paired
+sequences, observer/completed-artifact/token boundary, eight QA schemas,
+provenance, dispatch-parent equality, bounded commands, redaction and
+deterministic fake-only residual remain unchanged.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance; agent
+onboarding; specification README/index; full DV-DRAFT-4@2f3266a; full Dev Vlogs
+implementation plan and Phase 0B protocol; current registry header/scope/
+decisions/epoch/table/coordination plus E07 R1 and rejected Review-R1; SWIFT;
+agent tooling; active microphone-input and recording-durability contracts.
+root-orchestration was not read because this is a finite design owner.
+
+expected: Discover-only E02/E07/E08 design repair with no specification delta.
+Canonical DictationSessionController and the sole AudioRecorderService remain
+authoritative. Every baseline/spike equality, cancel/provider/output rule,
+observer access rule, evidence schema and protected boundary remains R1-exact.
+
+repair_1_slow_gate_continuations:
+- R3 replaces only this slow-gate slice. The actor owns one nonisolated
+  Synchronization.Mutex tuple containing the two named optional continuations,
+  entryWaitOpen, resolutionWaitOpen, cancellationRequested and isClosed.
+- waitUntilEntered is idempotent after entry; duplicateEntry applies only to a
+  concurrent second pre-entry waiter or second enterAndWaitForResolution.
+- Cancellation handlers synchronously take/clear and resume outside the mutex;
+  no relay Task exists. Both methods recheck Task.isCancelled after resumption
+  and close their open state before terminal return/throw.
+- GateSnapshot is the original four scalars plus pendingContinuationCount,
+  openSuspendingMethodCount and isClosed. Pre-resolution is
+  1/0/1/false/1/1/false; terminal is 1/1/0/true/0/0/true.
+- The full exact actor/mutex transition contract, hard stops and review checks
+  are recorded in DV-P0B-E07-E01-R3; no other R2 clause changes.
+
+repair_2_observable_action_resource_closure:
+- Remove the rejected R1 private-session counter entirely from
+  DictationSnapshot, expected values, stop conditions and review checks.
+- Add exactly
+  terminalActionCompletedWithObservedResourcesClosed:Bool.
+- It becomes true only after the awaited public finish/cancel action returns,
+  the public controller action state is success/idle respectively, duration
+  monitor start/stop counts match, journal/recovery/provider outstanding counts
+  are zero and all harness-owned continuations/tasks have been awaited and
+  report outstanding zero. It remains false before convergence.
+- This field does not observe, infer or count private finishSession,
+  activeSessionID or any private canonical cleanup. A harness-maintained
+  canonical-cleanup counter is forbidden. Success and cancel both require the
+  Boolean true at comparison.
+
+repair_3_protocol_overloads:
+- No overload is allowed beyond exact production protocol witnesses.
+- DevVlogsPhase0BE07RecorderSpy implements exactly both production
+  AudioRecorderService startRecording witnesses and no additional
+  startRecording overload.
+- Global functions, extensions, extra/nested helper types and custom overloads
+  remain forbidden. Exact protocol witnesses are required rather than
+  prohibited.
+
+hard_stops:
+- Gate lacks the exact Mutex tuple/state/projection in R3; post-entry wait is
+  non-idempotent; duplicateEntry rejects an idempotent call; a handler creates a
+  Task; post-resume cancellation is not rechecked/closed; or a terminal
+  snapshot is not continuation/open counts zero and isClosed true: reject or
+  functional fail.
+- terminalActionCompletedWithObservedResourcesClosed is false, absent or
+  fabricated from a harness counter/private-session inference rather than the
+  named public/injected evidence: functional fail and reject cleanup evidence.
+- RecorderSpy lacks either production startRecording witness or adds any
+  overload beyond exact protocol witnesses: structural stop.
+- Every unchanged R1 stop condition remains binding.
+
+independent_review_matrix: Review-R3 checks the exact R3 slow-gate delta and
+unchanged R1/R2 envelope; idempotent post-entry wait; exact Mutex tuple and
+seven-field snapshot; synchronous clear-before-resume cancellation; post-resume
+recheck; zero/zero/closed terminal projection; observable Boolean
+derivation with no private-session/fabricated-cleanup claim; exact two
+startRecording witnesses and no extra overload; all prior case/snapshot/
+schema/provenance/timeout/redaction/dirty-state checks. Any hard stop rejects.
+
+scope_check: Edited only docs/dev-vlogs-execution-registry.md. Unrelated storage
+implementation paths were preserved and excluded. No spec, product, source,
+test, script or QA implementation; build/test/runtime/process; microphone,
+camera, storage, provider, Keychain, permission, media or UI action occurred.
+
+deviations: none. No design expansion beyond the three rejected contradictions.
+residual: Accepted R2 would still prove only deterministic fake-backed E07.
+Shipping shared-audio lease and real hardware/media/storage/provider behavior
+remain unproven. DV-P0B-E07-W01 remains blocked.
+next_dependency: DV-P0B-E07-E01-REVIEW-R2
+runtime_or_visual_handoff: none
+~~~
+
+### `DV-G0-REGISTRY-REVIEW`
+
+```text
+packet_id: DV-G0-REGISTRY-REVIEW
+status: done
+
+outcome: accept
+authority_used: User-created persistent goal; AGENTS.md; governing plan;
+DV-DRAFT-2@8081c10.
+changed_paths: none
+reused_owners: Existing Dev Vlogs plan and specification system.
+checks_run: Exact two-path diff inspection; tracked and untracked diff hygiene;
+plan/spec linkage; packet graph and scope gates.
+scope_check: Scope guard, Phase 0 dependency order, UI skill gate, and exclusion
+of direct publication are coherent.
+deviations: none
+residual: Registry awaits the coordinator's scoped checkpoint commit.
+next_dependency: DV-P0A-SPEC
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0A-SPEC`
+
+```text
+packet_id: DV-P0A-SPEC
+status: done
+
+outcome: Integrated DV-D01-D13 into decision-complete DV-DRAFT-3 and added a
+bounded Phase 0B feasibility and measurement protocol.
+authority_used: User acceptance; DV-DRAFT-2@8081c10; governing plan and
+registry; product-truth governance.
+changed_paths: docs/specs/features/dev-vlogs.md;
+docs/qa/dev-vlogs-phase-0b-feasibility-and-measurement-protocol.md
+reused_owners: Existing Dev Vlogs specification and QA evidence layers.
+checks_run: Staged diff hygiene, complete staged-diff inspection, post-commit
+path audit.
+scope_check: Only authorized documentation paths changed.
+deviations: none
+residual: Numeric latency/storage evidence awaits Phase 0B; UI preview waits
+for build-macos-apps:swiftui-patterns.
+next_dependency: DV-P0A-REVIEW
+runtime_or_visual_handoff: none
+commit: ed108fa69fe54781dbe09285c3dac59d3d4f1b35
+```
+
+### `DV-P0A-REVIEW`
+
+```text
+packet_id: DV-P0A-REVIEW
+status: done
+
+outcome: accept_with_residual
+authority_used: Pinned pre-change authority, user decisions, DV-DRAFT-3 and
+Phase 0B protocol at ed108fa.
+changed_paths: none
+reused_owners: Dev Vlogs specification, plan, registry, and QA evidence layer.
+checks_run: Full authority reading; exact commit review; path and diff hygiene;
+pre/post comparison; stale-reference check; DV-D01-D13 mapping.
+scope_check: Clean; no adjacent spec or source change.
+deviations: none
+residual: Phase 0B must provide quantitative capture/storage evidence. UI
+preview feasibility remains gated on build-macos-apps:swiftui-patterns.
+next_dependency: DV-P0B-CAPTURE and DV-P0B-STORAGE
+runtime_or_visual_handoff: none
+```
+
+### `DV-REGISTRY-P0A-UPDATE-REVIEW`
+
+```text
+packet_id: DV-REGISTRY-P0A-UPDATE-REVIEW
+status: done
+
+outcome: accept after repair of two stale revision/status statements
+authority_used: DV-DRAFT-3@ed108fa; accepted DV-P0A-SPEC and DV-P0A-REVIEW
+receipts; governing plan and goal scope.
+changed_paths: none
+reused_owners: Persistent-goal registry and governing plan.
+checks_run: Exact coordination diff review and diff hygiene.
+scope_check: Current epoch, accepted decisions, dependency-ready packets, and
+UI skill gate are coherent.
+deviations: none
+residual: Phase 0B capture/storage evidence remains required; UI remains
+skill-gated.
+next_dependency: DV-P0B-CAPTURE and DV-P0B-STORAGE
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-E01`
+
+```text
+packet_id: DV-P0B-CAPTURE-E01
+status: done
+
+outcome: Apple-native Debug-only camera/audio/mux spike is feasible with one
+existing microphone owner and no shipping dependency.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; active microphone,
+durability, and privacy contracts; exact recorder/controller/project source;
+official Apple AVFoundation/CoreMedia documentation.
+changed_paths: none
+reused_owners: AVFoundationAudioRecorderService, AudioRecorderEngine,
+RecordingCaptureJournal, and existing exact-once artifact finalization.
+checks_run: Read-only source, project, SDK-header, and official-platform review.
+scope_check: Capture feasibility only; no storage, UI, or product change.
+deviations: none
+residual: Shipping shared-audio lease is not implemented or authorized;
+camera/TCC/signing/device/codec/latency/sync/fragment evidence remains.
+next_dependency: DV-P0B-E01-REVIEW
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-E01`
+
+```text
+packet_id: DV-P0B-STORAGE-E01
+status: done
+
+outcome: Apple-native test-only destination/bookmark/capacity/promotion spike
+is feasible with a separate Dev Vlogs owner.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; active storage/privacy/
+durability/distribution contracts; exact storage owners; official Apple APIs.
+changed_paths: none
+reused_owners: Existing app distribution and file-system platform boundaries;
+protected Cache, History, and recovery owners remain separate.
+checks_run: Read-only source/project/platform review and redacted disk inventory.
+scope_check: Storage feasibility only; no write, mount, unmount, or user-data
+mutation.
+deviations: none
+residual: Real bookmark/remount/capacity/promotion/interruption evidence and
+physical disconnect/read-only-media cells remain.
+next_dependency: DV-P0B-E01-REVIEW
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E01-REVIEW`
+
+```text
+packet_id: DV-P0B-E01-REVIEW
+status: done
+
+outcome: capture accept_with_residual; storage accept_with_residual
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; governing plan/registry;
+exact source/project ownership; official Apple documentation.
+changed_paths: none
+reused_owners: Existing recorder/journal and protected storage owners.
+checks_run: Pinned-contract comparison; lifecycle/startup/project/storage/API
+inspection; read-only environment classification.
+scope_check: Clean; explorers made no changes.
+deviations: none
+residual: Capture shipping lease and runtime evidence remain; storage real
+filesystem/interruption evidence remains; quantitative data is evidence-only.
+next_dependency: Repair stale plan references, checkpoint receipts, then
+DV-P0B-CAPTURE-W01 followed by serialized storage work.
+runtime_or_visual_handoff: none
+```
+
+### `DV-REGISTRY-E01-UPDATE-REVIEW`
+
+```text
+packet_id: DV-REGISTRY-E01-UPDATE-REVIEW
+status: done
+
+outcome: accept
+authority_used: Accepted capture/storage E01 maps and E01 review; governing
+plan, registry, and DV-DRAFT-3@ed108fa.
+changed_paths: none
+reused_owners: Persistent-goal registry and governing plan.
+checks_run: Exact coordination diff review and diff hygiene.
+scope_check: E01 residuals, serialized writable order, UI skill gate, and Phase
+5 exclusion are coherent.
+deviations: none
+residual: Capture W01 is dependency-ready; storage and UI remain gated.
+next_dependency: DV-P0B-CAPTURE-W01
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W01`
+
+```text
+packet_id: DV-P0B-CAPTURE-W01
+status: done
+
+outcome: Built and fake-verified the isolated Debug-only camera/audio/mux
+harness; repair ff70155 closed all four findings from the rejected base.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; accepted E01 evidence;
+bounded W01 and R1 packets.
+changed_paths: Fifteen original authorized paths plus nine path-bounded repair
+changes; commits 9d9efec and ff70155.
+reused_owners: Existing AVFoundationAudioRecorderService and AudioRecorderEngine;
+no shipping shared-audio lease.
+checks_run: Structure; 21 focused fake tests; Debug build-only; bounded Release
+compile; Debug/Release settings and artifact isolation; script checks; path audit.
+scope_check: Debug-only harness and exact integration paths; protected product
+owners, Release camera declarations, UI, iOS, dependencies, and publication
+unchanged.
+deviations: Initial commit was rejected and repaired by the original owner.
+residual: Real camera/microphone/TCC/Continuity, device/media/codec/timing/
+resource evidence, E07, and the shipping shared-audio lease remain.
+next_dependency: DV-P0B-CAPTURE-W01-REVIEW-R1
+runtime_or_visual_handoff: none
+accepted_repair_commit: ff70155aa0559678487eacb67bc16a62ce199b75
+```
+
+### `DV-P0B-CAPTURE-W01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W01-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: Repair closes harness-only scene routing, steady-error exact-once
+cleanup, bounded terminate-later cleanup, and callback-independent export/script
+timeouts. Debug/fake/build feasibility is accepted.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; original W01 packet;
+rejected review; repair ff70155; protected adjacent contracts.
+changed_paths: none
+checks_run: Exact nine-path diff; structure; 21 focused tests; bounded Release
+build; Debug/Release settings and artifacts; Debug guards; one-mic/no-fallback
+scan; script and QA-claim audit.
+scope_check: Clean; Release retains original plist/entitlements and contains no
+Dev Vlogs symbols. No app, hardware, TCC, UI, provider, Keychain, or storage run.
+deviations: none
+residual: Hardware/runtime/media measurements, E07, and shipping audio lease
+remain outside this acceptance.
+next_dependency: DV-P0B-STORAGE-W01 or separately controlled hardware runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: ff70155aa0559678487eacb67bc16a62ce199b75
+```
+
+### `DV-P0B-STORAGE-W01`
+
+```text
+packet_id: DV-P0B-STORAGE-W01
+status: done
+
+outcome: Test-only storage harness verifies marker-owned roots, ordinary
+bookmark rename-following, injected capacity/destination states, synchronized
+writes, APFS exclusive no-overwrite promotion, truthful partial classification,
+redaction, and exact cleanup. Repair 69b2d16 hardens cleanup ancestry identity.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B E03/E08; accepted E01 map;
+bounded W01 and R1 packets.
+changed_paths: Two storage test files and one redacted QA summary; commits
+2486b56 and 69b2d16.
+reused_owners: Internal FileManager temporary directory and ordinary unsandboxed
+Foundation bookmarks only; no protected storage owner.
+checks_run: Structure; 19 focused tests; redirected-prefix survival; bounded
+Debug build; diff/path and zero-residue/process audits.
+scope_check: Internal marker-owned temp roots only; no product source, project,
+entitlement, UserDefaults, external volume, user archive, media, UI, or hardware.
+deviations: Initial commit was rejected and repaired by the original owner.
+residual: True-stale/external bookmark recovery, SSD/HDD, read-only/remount/
+disconnect, representative media, and numeric Phase 0C inputs remain.
+next_dependency: DV-P0B-STORAGE-W01-REVIEW-R1
+runtime_or_visual_handoff: none
+accepted_repair_commit: 69b2d163a696b4a13fab3e58475ad3065b57269f
+```
+
+### `DV-P0B-STORAGE-W01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W01-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: Cleanup prefix/root identity and stale-claim repairs close both prior
+findings; internal XCTest/storage feasibility is accepted.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B E03/E08; original packet; rejected
+review; repair 69b2d16.
+changed_paths: none
+checks_run: Exact three-path diff; ancestry/prefix/root/attack-fixture review;
+structure; 19 cases; bounded Debug build; zero-residue and process audit.
+scope_check: Clean; no product, external-volume, app, hardware, UI, provider,
+Keychain, or representative-media access.
+deviations: none
+residual: External/read-only/remount/interruption/bookmark/media and numeric
+threshold evidence remain.
+next_dependency: Separately controlled external/runtime storage evidence.
+runtime_or_visual_handoff: none
+reviewed_commit: 69b2d163a696b4a13fab3e58475ad3065b57269f
+```
+
+### `DV-P0B-CAPTURE-R01`
+
+```text
+packet_id: DV-P0B-CAPTURE-R01
+status: done
+
+outcome: Bounded Debug/signing/internal-capacity preflight found zero built-in,
+USB, Continuity, or other external cameras. No capture started.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; accepted capture and
+storage harness repairs; finite R01 packet.
+changed_paths: Twelve redacted files under
+docs/qa/runs/dev-vlogs-phase-0b-capture-r01/; commit f698fcb.
+checks_run: Debug build; signing/Release isolation; bounded bundled enumeration;
+capacity; JSON/CSV/redaction/path checks; cleanup audit.
+scope_check: Evidence-only; no source, TCC, UI, provider, Keychain, iOS,
+external-storage, or protected-owner change.
+deviations: Initial detached idle guard exited early; enumeration repeated once
+under a verified same-shell guard.
+residual: No camera uniqueID; functional capture/media/TCC and all quantitative
+evidence remain unqualified.
+next_dependency: DV-P0B-CAPTURE-R01-REVIEW
+runtime_or_visual_handoff: none
+commit: f698fcb55e2d5b993947daf35bb41aecef075c6d
+```
+
+### `DV-P0B-CAPTURE-R01-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R01-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Evidence supports terminal not_available classification for built-in,
+USB, and Continuity cells; it makes no functional capture or media claim.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B E02/E04/E06/E08; exact R01
+evidence and accepted harness authority.
+changed_paths: none
+checks_run: Exact commit and twelve-blob audit; JSON/CSV parsing; redaction and
+media scans; cleanup/process/caffeinate zero-residue snapshot.
+scope_check: Clean; no source, spec, project, TCC, UI, Keychain, provider,
+external storage, or protected-owner change.
+deviations: Initial guard deviation was disclosed and corrected by guarded
+repeat.
+residual: Only enumeration/signing preflight is accepted. E02 functional media
+and E06 measurements wait for an explicit camera identity.
+next_dependency: Controlled retry after camera hardware enumerates.
+runtime_or_visual_handoff: none
+reviewed_commit: f698fcb55e2d5b993947daf35bb41aecef075c6d
+```
+
+### `DV-P0B-CAPTURE-R03`
+
+```text
+packet_id: DV-P0B-CAPTURE-R03
+status: done
+
+outcome: Debug harness now preserves closed redacted camera categories through
+actual start/first-frame/observer/stop routes and exits boundedly without
+self-await. Script bounds hardware mode at duration plus 300 seconds and cleans
+only exact run-owned children.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted R02 failure evidence;
+bounded R03 repairs and reviews.
+changed_paths: Authorized Debug camera/launch/event, focused tests, script, and
+W01 summary across commits 8b0b263, 1276283, ba058f8, and f141be6.
+checks_run: Structure; final 35-test Phase 0B suite; Debug build-only; bounded
+Release build; Debug/Release isolation; script and redaction/path audits.
+scope_check: Debug/test/evidence only; no product, TCC, UI, storage, iOS,
+provider, Keychain, dependency, or Release camera behavior.
+deviations: Three rejected intermediate reviews drove bounded repairs by the
+original owner.
+residual: Hardware/media/codec/timing/resource evidence and shipping audio
+lease remain.
+next_dependency: DV-P0B-CAPTURE-R03-REVIEW-R3
+runtime_or_visual_handoff: none
+accepted_repair_commit: f141be6da26ffc04a20f5fcbcb92ee614afd84f8
+```
+
+### `DV-P0B-CAPTURE-R03-REVIEW-R3`
+
+```text
+packet_id: DV-P0B-CAPTURE-R03-REVIEW-R3
+status: done
+verdict: accept_with_residual
+
+outcome: Explicit-stop context repair closes the final known propagation
+defect; concrete service test covers disconnect/runtime, cleanup, and duplicate.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; R02/R03 reviews; repair f141be6.
+changed_paths: none
+checks_run: Exact three-path diff; concrete route trace; 12 camera and 35 full
+tests; structure; Debug/Release isolation; accepted-owner comparison.
+scope_check: Clean; no hardware, TCC, storage, product, or protected-owner run.
+deviations: none
+residual: Real device/media measurements and shipping audio lease remain.
+next_dependency: One separately authorized Continuity runtime retry.
+runtime_or_visual_handoff: none
+reviewed_commit: f141be6da26ffc04a20f5fcbcb92ee614afd84f8
+```
+
+## Reviewed Runtime And Seam Evidence
+
+### `DV-P0B-CAPTURE-R02`
+
+```text
+packet_id: DV-P0B-CAPTURE-R02
+status: failed
+
+outcome: One explicit candidate-capable Continuity Camera enumerated and was
+selected with no fallback. Camera start failed before first frame; termination
+then exceeded the accepted cleanup window.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted harness; user-authorized
+Continuity retry.
+changed_paths: Eight redacted files under
+docs/qa/runs/dev-vlogs-phase-0b-capture-r02/; commit 0e21972.
+checks_run: Guarded enumeration and 10-second invocation; exact-once event and
+artifact probes; bounded Computer Use attempt; cleanup/redaction/path audits.
+scope_check: Evidence-only; no source, TCC, UI, provider, Keychain, iOS, or
+external-storage change.
+deviations: Exact run-owned TERM was required after cleanup overrun; Computer
+Use could not attach to the non-activating harness.
+residual: Underlying camera-start category is not logged; termination hangs
+after the terminal failure; TCC state remains uncertain. No media gate passed.
+next_dependency: DV-P0B-CAPTURE-R02-REVIEW
+runtime_or_visual_handoff: none
+commit: 0e21972071d76eff1dd53a67a0b397d7bc32518e
+```
+
+### `DV-P0B-STORAGE-E02`
+
+```text
+packet_id: DV-P0B-STORAGE-E02
+status: done
+
+outcome: Existing storage harness cannot accept an external base. A minimal
+test-only seam is feasible in two storage test files plus one wrapper script.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B E03/E04/E06/E08; accepted W01;
+current test scheme/tooling and read-only external inventory.
+changed_paths: none
+checks_run: Read-only harness/scheme/tooling and redacted disk metadata review.
+scope_check: No file, volume, app, camera, UI, or external-content mutation.
+deviations: none
+residual: External actual I/O, representative media, unplug/remount, and
+read-only media remain; each runtime mount root needs explicit authorization.
+next_dependency: DV-P0B-STORAGE-E02-REVIEW
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R02-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R02-REVIEW
+status: done
+verdict: accept_with_residual
+functional_cell: fail
+
+outcome: Evidence truthfully establishes one explicitly selected Continuity
+attempt failing during camera start, followed by a termination-cleanup overrun.
+Evidence acceptance does not accept capture functionality.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted harness; R02 evidence.
+changed_paths: none
+checks_run: Exact eight-file commit/blob audit; structured-data consistency;
+redaction/media scans; chronology; narrow harness mapping; zero-residue snapshot.
+scope_check: Clean; no source, TCC, UI, Keychain, provider, external storage,
+or protected-owner mutation.
+deviations: Exact run-owned TERM and bounded failed Computer Use attachment are
+preserved in the evidence.
+residual: Camera-start error category and TCC state remain unknown; termination
+is not runtime-safe after this failure; no media gate passed.
+next_dependency: Original Debug harness owner repairs category and termination,
+then independent review precedes another Continuity retry.
+runtime_or_visual_handoff: none
+reviewed_commit: 0e21972071d76eff1dd53a67a0b397d7bc32518e
+```
+
+### `DV-P0B-STORAGE-E02-REVIEW`
+
+```text
+packet_id: DV-P0B-STORAGE-E02-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Proposed external-storage seam is necessary, minimal, and feasible;
+it authorizes no external write or success by itself.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted storage harness; current
+test scheme/project/distribution evidence.
+changed_paths: none
+checks_run: Harness/test authority review; scheme and synchronized-membership;
+unsandboxed test-host settings; wrapper patterns; structure/diff hygiene.
+scope_check: Read-only; no external write, app, project, entitlement, dependency,
+or product-source change.
+deviations: none
+residual: Seam implementation/review, exact-root authorization, actual SSD/HDD
+I/O, read-only/remount/interruption/media/numeric evidence remain.
+next_dependency: DV-P0B-STORAGE-W02 after the serialized capture repair.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-W02`
+
+```text
+packet_id: DV-P0B-STORAGE-W02
+status: done
+
+outcome: Implemented a fail-closed test-only explicit external-root authority
+seam and bounded runtime wrapper. Fake/internal evidence covers closed
+configuration, exact root/device/inode/marker validation, a 64 KiB cap,
+exclusive promotion, collision preservation, and pending cleanup. No external
+runtime I/O occurred.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+accepted E02 map and review.
+changed_paths: Two storage test files and one test-only wrapper; commit e6b3a13.
+reused_owners: Accepted W01 bookmark, RENAME_EXCL, ancestry/marker, redaction,
+cleanup, capacity, and classification owners; no shipping owner.
+checks_run: 24 unique focused XCTest cells; structure; bounded Debug build;
+wrapper syntax/help and nine fail-closed negative cases; exact-path, mode,
+protected-owner, redaction, residue, and process audits.
+scope_check: Exact three-path test/tooling scope; no product, project,
+entitlement, plist, settings, protected storage, UI, media, hardware,
+external-volume, or dependency change.
+deviations: Seven tiny internal /tmp outputs from an early negative command and
+four empty marker-owned failed-test roots were precisely validated and removed;
+no user or external content was touched. Final residue and process counts zero.
+residual: Actual SSD/HDD I/O, exact authorized roots, genuine read-only media,
+unplug/reconnect/remount, representative media, and true bookmark stale remain.
+next_dependency: DV-P0B-STORAGE-W02-REVIEW
+runtime_or_visual_handoff: none
+commit: e6b3a13f046a6e0ac703643c87ee869e222ead6f
+```
+
+### `DV-P0B-STORAGE-W02-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-R1
+status: done
+
+outcome: Direct XCTest authority now independently validates an exact
+non-broad mounted external root and physical SSD/HDD class using Disk
+Arbitration, IOKit, statfs, destination state, and no-follow ancestry. Wrapper
+metadata and process cleanup are bounded and identity/process-group scoped.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+W02 packet and rejected review recorded at a551c12.
+changed_paths: Same two storage test files and one test-only wrapper; repair
+commit 986af6c.
+reused_owners: Accepted W01/W02 identity, marker, bookmark, promotion,
+redaction, capacity, and cleanup owners.
+checks_run: Structure; 24 focused W01 cases and disabled opt-in runtime cell;
+bounded Debug build; wrapper syntax/help and five fail-closed arguments; normal,
+timeout, trap TERM-to-KILL, and caffeinate cleanup fixtures; diff, exact-path,
+mode, redaction, protected-owner, residue, and process audits.
+scope_check: Exact three-path test/tooling repair; zero external-volume I/O and
+no product, project, entitlement, spec, registry, QA artifact, media, settings,
+or protected-owner change.
+deviations: none
+residual: Real SSD/HDD Disk Arbitration/IOKit evidence remains for a separately
+authorized external runtime packet.
+next_dependency: DV-P0B-STORAGE-W02-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: 986af6ca85147c8236075b30d5fef200f73dec74
+```
+
+### `DV-P0B-STORAGE-W02-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-R2
+status: done
+
+outcome: Probe status 1 alone means empty; timeout/error remain uncertain.
+External metadata runs inside one 15-second watchdog subprocess. Harness and
+wrapper categorically reject root, home, and home ancestors; injected evidence
+tests cover the accepted and negative authority matrix.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E06/E08;
+REVIEW-R1 reject recorded at 4d63fb8.
+changed_paths: Same two storage test files and one test-only wrapper; repair
+commit 767edd9.
+reused_owners: Accepted W01/W02 identity, marker, bookmark, promotion,
+redaction, capacity, and cleanup owners.
+checks_run: Structure; 25 focused invocations; wrapper syntax/help and six
+argument negatives; four probe-status, two preflight-failure, and four process
+cleanup fixtures; bounded Debug build; diff, path, mode, redaction,
+protected-owner, process, and residue audits.
+scope_check: Exact three-path test/tooling repair; zero external-volume I/O and
+no product, project, entitlement, spec, registry, QA artifact, media, settings,
+UI, or protected-owner change.
+deviations: none
+residual: Actual external SSD/HDD evidence remains for a separately authorized
+runtime packet.
+next_dependency: DV-P0B-STORAGE-W02-REVIEW-R2
+runtime_or_visual_handoff: none
+commit: 767edd9eb717f2a5324a79a3aa37dc3086657427
+```
+
+### `DV-P0B-STORAGE-W02-R3`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-R3
+status: done
+
+outcome: Wrapper process-group identities are captured atomically, bounded
+probe status survives EXIT traps, and exact member-set plus every identity is
+revalidated immediately before the sole group-signal path. Uncertainty emits
+no group signal; escalation uses revalidated exact PIDs.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+prior W02 repairs and REVIEW-R2 reject recorded at 88336d9.
+changed_paths: Test-only external-storage wrapper only; repair commit d0c9ce5.
+reused_owners: Existing explicit opt-in, preflight and process bounds,
+no-auto-selection, exact scratch, redaction, and W01/W02 Swift owners.
+checks_run: Syntax/help; nine argument negatives; seven identity-set no-signal,
+one partial-identity no-signal, five group-probe status, two preflight-failure,
+and five lifecycle cells; 29 shell matrix cells total; structural, diff, path,
+mode, redaction, protected-owner, process, and residue audits.
+scope_check: Exact one-wrapper-path repair; zero external-volume I/O and no
+enabled external invocation, diskutil/df, Swift, product, project, spec,
+registry, media, hardware, UI, or protected-owner change.
+deviations: none
+residual: Actual external SSD/HDD evidence remains separately authorized.
+next_dependency: DV-P0B-STORAGE-W02-REVIEW-R3
+runtime_or_visual_handoff: none
+commit: d0c9ce529f8b43234575ce9db2e51a0b007bb484
+```
+
+### `DV-P0B-STORAGE-W02-R4`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-R4
+status: done
+
+outcome: Caffeinate KILL now requires a fresh exact identity match after the
+bounded TERM wait. Missing, changed, timed-out, or failed identity evidence
+emits no KILL and forces cleanup failure, including through EXIT traps.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+W02 repair chain and REVIEW-R3 reject recorded at 9186352.
+changed_paths: Test-only external-storage wrapper only; repair commit a50026a.
+reused_owners: Accepted supervisor identity/signaling, preflight, opt-in,
+timeouts, exact scratch, redaction, and Swift owners.
+checks_run: Syntax/help; five argument negatives; seven direct and six EXIT-trap
+caffeinate cells; seven supervisor identity, five group-probe, and four actual
+lifecycle cells; 29 cleanup/process cells total; structural, diff, exact-path,
+mode, redaction, protected-owner, process, and residue audits.
+scope_check: Exact one-wrapper-path repair; zero external-volume I/O and no
+enabled external invocation, disk probes, Swift, product, project, spec,
+registry, media, UI, or protected-owner change.
+deviations: none
+residual: Actual external SSD/HDD evidence remains separately authorized.
+next_dependency: DV-P0B-STORAGE-W02-REVIEW-R4
+runtime_or_visual_handoff: none
+commit: a50026aa53d93c0808ac84259f05759073434fdb
+```
+
+### `DV-P0B-STORAGE-W02-REVIEW-R4`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-REVIEW-R4
+status: done
+verdict: accept_with_residual
+
+outcome: Fresh caffeinate pre-KILL identity, no-KILL uncertainty behavior,
+EXIT-trap false-success prevention, bounded reap, and supervisor group cleanup
+are accepted. The complete W02 test-only external-storage seam is accepted;
+this verdict accepts no external runtime evidence.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+accepted W01/E02 evidence and the complete W02 repair chain.
+changed_paths: none
+checks_run: Exact wrapper repair audit; syntax/help; seven direct and seven
+EXIT-trap caffeinate cases; supervisor lifecycle/regression fixtures; nine
+wrapper negatives; structural TERM/KILL/wait/identity, redaction,
+protected-owner, process, and residue audits. No external I/O.
+scope_check: Exact wrapper-only repair; Swift blobs unchanged from 767edd9 and
+no product, project, protected-owner, media, quality, or threshold change.
+deviations: none
+residual: Actual authorized SSD/HDD I/O, genuine read-only media,
+unplug/reconnect/remount, representative media, true bookmark staleness, and
+quantitative evidence remain separately authorized.
+next_dependency: Separately authorize an exact-root external runtime packet.
+runtime_or_visual_handoff: none
+reviewed_commit: a50026aa53d93c0808ac84259f05759073434fdb
+```
+
+### `DV-P0B-STORAGE-INVENTORY-R01`
+
+```text
+packet_id: DV-P0B-STORAGE-INVENTORY-R01
+status: done
+verdict: accepted_with_residual
+
+outcome: A bounded read-only inventory found four currently mounted local
+external physical volume roots. One external SSD and two external HDD roots
+currently pass non-writing directory-access checks; one additional external
+APFS root is mounted but not directory-writable. Exact roots were returned
+privately to `/root` only and are not persisted here.
+specified_expectation: Inventory may identify candidates but must not select,
+authorize, write, create bookmarks, mount, eject, traverse user content, or
+claim numeric capacity suitability.
+observed_evidence: Candidate roots are real directories rather than symlinks.
+Filesystem, local/external, mount read-only, directory-access, media class, and
+available-capacity metadata were collected with bounded read-only system
+queries. No threshold was inferred.
+authority_used: DV-DRAFT-4@2f3266a storage clauses; Phase 0B E03/E04/E08;
+accepted STORAGE-E02/W02/REVIEW-R4 seam.
+changed_paths: none
+checks_run: Bounded diskutil, mount, df, stat, and directory-access metadata;
+internal/system and simulator mounts excluded; clean worktree verification.
+scope_check: Read-only volume metadata only. No file traversal, write, create,
+mount, eject, process retention, app, camera, TCC, source, spec, or registry
+action by the worker.
+deviations: none
+residual: Observation is not runtime authorization. Exact SSD/HDD roots and
+run-owned scratch boundaries require explicit user approval before any write.
+next_dependency: User authorizes each exact selected mount root; then dispatch
+one bounded external-storage runtime and independent review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0A-QUALITY-SPEC`
+
+```text
+packet_id: DV-P0A-QUALITY-SPEC
+status: done
+
+outcome: Proposed DV-DRAFT-4 preserves camera/macOS-negotiated source video
+without HoldType downsampling or additional source-video encoding, requires a
+proven passthrough source-finalization path, removes capture-quality controls,
+reframes capacity evidence, and isolates the unresolved Build fallback.
+authority_used: Explicit user native-source decision; prior DV-DRAFT-3;
+governing plan, protocol, registry, and product-truth governance.
+changed_paths: Dev Vlogs spec, Phase 0B protocol, and implementation plan;
+commit 2f3266a.
+reused_owners: Existing Draft, QA protocol, and plan; protected product owners
+unchanged.
+checks_run: Exact three-path and cached diff inspection; diff hygiene; revision,
+clause, link, and stale-term searches; post-commit path audit.
+scope_check: Documentation-only source-quality evolution; no code, runtime,
+Build fallback choice, adjacent contract, UI, iOS, or publication change.
+deviations: none
+residual: DV-BUILD-6 remains a user decision; independent DV-DRAFT-4 review is
+required before capture/media packet revalidation.
+next_dependency: DV-P0A-QUALITY-REVIEW
+runtime_or_visual_handoff: none
+commit: 2f3266a
+```
+
+### `DV-P0A-QUALITY-REVIEW`
+
+```text
+packet_id: DV-P0A-QUALITY-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: DV-DRAFT-4 coherently preserves camera/macOS-negotiated source
+dimensions and frame rate without a HoldType selector, downsample, or extra
+source-video encode; native negotiated 1080p is not a promised preset or RAW.
+Source finalization fails truthfully when proven passthrough is unavailable.
+authority_used: Explicit user native-source decision; DV-DRAFT-3@ed108fa;
+product-truth governance; exact DV-DRAFT-4 three-path commit.
+changed_paths: none
+checks_run: Exact parent/path/blob and diff review; stale-term, clause,
+revision, link, and plan/protocol/spec consistency checks.
+scope_check: Draft-only source evolution; protected domains, UI skill gate,
+publication exclusion, and product implementation gate unchanged.
+deviations: none
+residual: DV-BUILD-6 remains a user decision between one final
+no-downscale/no-nominal-FPS-reduction encode and failing an incompatible Build.
+next_dependency: Revalidate affected capture/media packets against DV-DRAFT-4.
+runtime_or_visual_handoff: none
+reviewed_commit: 2f3266a12643251f890f5347dc9f1ca09d47516d
+```
+
+### `DV-P0B-CAPTURE-E03`
+
+```text
+packet_id: DV-P0B-CAPTURE-E03
+status: done
+
+outcome: Accepted harness lifecycle remains reusable, but its media path is
+stale under DV-DRAFT-4. A bounded Apple-native Debug repair is feasible using
+default high negotiation, no format/FPS override, passthrough composition,
+transform propagation, and pre/post encoded-sample comparison.
+authority_used: DV-DRAFT-4@2f3266a; revised Phase 0B E02/E04/E06; accepted
+W01/R03 lifecycle and review evidence; Apple SDK headers and primary docs.
+changed_paths: none
+checks_run: Exact Debug harness/test/script/QA and Debug/Release isolation
+inspection; SDK/API verification; scoped Git/diff checks. No build or runtime.
+scope_check: Read-only; no product, dictation, storage, UI, iOS, Build,
+publication, project, entitlement, or dependency change.
+deviations: none
+residual: Realized default-high camera format, passthrough compatibility,
+sample preservation, orientation, VFR, timing, resource, and byte-rate evidence
+remain hardware-dependent. DV-BUILD-6 remains separate.
+next_dependency: DV-P0B-CAPTURE-W02 Debug-only native-source repair.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W02`
+
+```text
+packet_id: DV-P0B-CAPTURE-W02
+status: done
+
+outcome: Debug-only native-source repair leaves format, frame-rate, and codec
+negotiation to macOS; finalization is QuickTime passthrough-only with full
+tracks and preferred-transform preservation; camera/final probes and stored-
+sample preservation gate Ready.
+authority_used: DV-DRAFT-4@2f3266a; revised Phase 0B protocol and plan;
+accepted E03 and W01/R03 owners.
+changed_paths: Thirteen exact Debug source, test, and evidence paths; commit
+f7ff6bf.
+reused_owners: Existing video-only capture, one run-owned microphone, R03
+lifecycle, event, termination, and run-root owners.
+checks_run: Structure; 45/45 focused tests; Debug build-only; bounded unsigned
+Release; Debug/Release settings and artifact isolation; stale-token,
+redaction, path, diff, and residue audits.
+scope_check: Debug, test, and evidence only; no product, script, project,
+plist, entitlement, spec, registry, UI, storage, iOS, Build, or runtime change.
+deviations: none
+residual: Real device, codec, passthrough, Continuity Camera, TCC, and
+quantitative evidence remain.
+next_dependency: DV-P0B-CAPTURE-W02-REVIEW
+runtime_or_visual_handoff: none
+commit: f7ff6bfd445dee1857514d21b5898ab85e59cb66
+```
+
+### `DV-P0B-CAPTURE-W02-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-W02-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Independent review accepts the thirteen-path Debug-only native-source
+repair: macOS-negotiated video is preserved through passthrough-only source
+finalization and robust stored-sample proof before Ready.
+authority_used: DV-DRAFT-4@2f3266a; revised Phase 0B protocol and plan; E03,
+W01/R03, W02, and current registry evidence.
+reviewed_commit_and_parent: f7ff6bfd445dee1857514d21b5898ab85e59cb66;
+a385caabb6e6c4df17cb4d3ffa89405e754dcc1c.
+changed_paths: Read-only review of exactly thirteen authorized paths; no
+reviewer changes.
+checks_run: Exact scope/diff; structure; 45 selected and passed focused tests;
+Debug build-only; bounded unsigned Release; Debug/Release settings and artifact
+isolation; forbidden-override/fallback scans; plist, process, temp-root, and
+worktree audits.
+findings_closed_or_open: No source preset, format, frame-rate, codec, quality,
+downsample, transcode, or fallback path; passthrough compatibility, full-track
+insertion, transform, probes, encoded samples, timing, format, dimensions, and
+Ready gating accepted. No repair finding remains.
+scope_check: Debug/test/evidence only; protected product, Release, Build,
+storage, UI, iOS, and publication behavior unchanged.
+deviations: Successful independent tests used sanitized HOME with command-line
+ad-hoc signing after two certificate-only pre-test setup failures.
+residual: Real camera, microphone, TCC, Continuity, negotiated formats,
+passthrough/playability, timing, resources, byte rate, and storage measurements
+remain; shipping audio lease and DV-BUILD-6 are outside this acceptance.
+next_dependency: Separately authorized DV-DRAFT-4 controlled hardware/runtime
+evidence.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R05`
+
+```text
+packet_id: DV-P0B-CAPTURE-R05
+status: failed
+functional_result: fail
+
+outcome: Exactly one Continuity Camera enumerated and was selected without
+fallback. One functional attempt terminated before camera start with
+camera_permission_required; no prompt, media, or Ready clip existed.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; accepted W02
+harness; finite R05 packet.
+changed_paths: Eight redacted capture-R05 evidence files; commit 11cb9a2.
+hardware_selection: Connected non-suspended Continuity Camera with stable
+private identity retained only in memory; built-in and USB unavailable.
+functional_results: Explicit selection/no fallback passed. One audio owner
+started once and cancelled at the permission gate. Camera, probes, passthrough,
+preservation, transform, and Ready were not exercised.
+realized_media: none
+measurements_disposition: All media, timing, sample, resource, byte-rate,
+sync/drift, and finalization fields unavailable and evidence_only.
+checks_run: Bounded enumeration and invocation; signed Debug build; structured
+evidence, redaction, media, path, diff, process, protected-path, and cleanup
+audits.
+cleanup_receipt: Raw/private roots, scoped caffeinate, and all run-owned
+processes removed; pre-existing HoldType preserved; protected paths unchanged.
+scope_check: Evidence-only; no source, spec, project, TCC, UI, Keychain,
+provider, external-storage, iOS, or protected-owner change.
+deviations: One pre-functional invocation failed invalid_configuration because
+of redirected TMPDIR and created no attempt or media; the corrected invocation
+was the sole functional attempt. No capture retry occurred.
+residual: Environment or signing residual: this signed Debug identity had no
+ordinary Camera authorization surface during the run.
+next_dependency: DV-P0B-CAPTURE-R05-REVIEW
+runtime_or_visual_handoff: No Computer Use action because no prompt appeared.
+commit: 11cb9a253896e98c2c5c29f6df82ce48dafd0fb0
+```
+
+### `DV-P0B-CAPTURE-R05-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R05-REVIEW
+status: done
+verdict: accept_with_residual
+functional_cell: fail — camera_permission_required
+
+outcome: Evidence truthfully establishes one explicitly selected Continuity
+Camera, one functional permission-gated attempt, zero camera starts, and zero
+Ready clips. No Debug-harness defect is implicated.
+authority_used: DV-DRAFT-4@2f3266a; revised Phase 0B protocol and plan; accepted
+E03/W02/R01/R02 evidence; current registry.
+reviewed_commit_and_parent: 11cb9a253896e98c2c5c29f6df82ce48dafd0fb0;
+c298cdc23af686e014fef8059857914a4df99fd4.
+changed_paths_reviewed: Exactly eight redacted capture-R05 files; no reviewer
+changes.
+checks_run: Exact commit/path/blob audit; structured-data and semantic checks;
+redaction/media/digest scans; accepted category provenance; process, guard,
+run-root, protected-path, and current-blob audits.
+classification_review: Explicit selection/no fallback passed. AVCaptureDevice
+authorization was notDetermined and mapped correctly to the closed permission
+category. Functional result remains fail with environment/signing residual.
+cleanup_review: Sound; no media/digest, run root, process, guard, or protected-
+path residue; pre-existing HoldType preserved; no external I/O.
+scope_check: Evidence-only; protected product and TCC state unchanged.
+deviations: Redirected-TMPDIR pre-functional failure was separate from the one
+functional attempt; terminal monotonic time was unavailable and not claimed.
+residual: The same signed Debug identity lacks an ordinary Camera authorization
+decision; all media and quantitative evidence remain unavailable/evidence_only.
+next_dependency: One bounded genuine AVCaptureDevice.requestAccess action for
+the same signed Debug identity, then a separately authorized Continuity retry.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W01`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W01
+status: done
+
+outcome: Added an explicit Debug-only Camera authorization mode for the same
+early-isolated signed HoldType identity. It requests video access exactly once
+only from notDetermined, returns closed redacted bounded results, writes one
+terminal event, and constructs no capture, audio, media, or product owner.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted
+E03/W01/R03/W02/R05 evidence and reviews; Apple AVFoundation API.
+changed_paths: New Debug authorization source and tests; Debug launch and event
+integration; existing spike script; W01 QA summary; commit 5b3ed20. Six paths.
+reused_owners: Existing pre-product Debug entry/isolation, R03 termination,
+JSONL event owner, signed Debug plist/entitlements, and exact script supervisor.
+checks_run: Structure; 8/8 authorization and 53/53 full Phase 0B logical tests;
+signed Debug build-only; bounded Release scheme compile; Debug/Release settings
+and artifact isolation; script help/negative/build-only/structural checks;
+redaction, owner, path, wrapper, diff, process, and residue audits.
+behavior_verified: All authorization statuses; exact-one request and terminal;
+grant/deny/restrict, timeout, cancellation, late/duplicate callback; early
+route isolation; no capture/audio/product construction.
+scope_check: Exact six-path Debug/test/script/evidence commit; no project,
+plist, entitlement, product, Release, iOS, storage, or media-owner change; no
+hardware, TCC, app/UI, provider/Keychain, Computer Use, or external I/O.
+deviations: A non-authoritative direct-target Release experiment hit existing
+local-package module resolution; authoritative Release scheme checks passed.
+residual: Genuine prompt/authorization remains a separate runtime action; R05
+is not retroactively relabeled and all camera/media evidence remains open.
+next_dependency: DV-P0B-CAMERA-AUTH-W01-REVIEW
+runtime_or_visual_handoff: none
+commit: 5b3ed205a4e1669379accda43811755c09b5a2b6
+```
+
+### `DV-P0B-CAMERA-AUTH-W01-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W01-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: The same-signed-identity Debug Camera authorization seam is accepted
+as early-isolated, exact-once, bounded, redacted, and free of capture, audio,
+media, or product-owner construction.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted
+E03/W01/R03/W02/R05 evidence; exact authorization packet and receipt.
+reviewed_commit_and_parent: 5b3ed205a4e1669379accda43811755c09b5a2b6;
+ca1f117e33139f1e28bec45c7ba7e933c777c798.
+changed_paths_reviewed: Exactly six authorized paths; no reviewer changes.
+checks_run: Exact diff/path/mode/blob and structure; 8/8 authorization and
+53/53 full Phase 0B tests; script syntax/help/negatives/build-only; bounded
+Release; Debug/Release settings and artifact isolation; owner, redaction,
+process, temp-root, and worktree audits.
+findings_closed_or_open: Explicit routing and signed identity; notDetermined-
+only exact request; all closed statuses; independent callback timeout/cancel;
+exact-one redacted terminal; no forbidden owners; script and Release isolation.
+No repair remains.
+scope_check: Debug/test/script/evidence only; product, project, plist,
+entitlement, signing, bundle, Release, UI, storage, iOS, Build, and publication
+unchanged.
+deviations: Fake tests used ad-hoc signing under sanitized HOME; repository
+build-only retained the established Apple Development identity.
+residual: Genuine Camera prompt/decision and all capture/media/quantitative
+evidence remain open; R05 remains unchanged.
+next_dependency: One bounded same-signed-identity permission invocation, then
+evidence review before capture retry.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-R01`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R01
+status: done
+authorization_result: timeout
+
+outcome: The accepted same-signed Debug Camera authorization mode was invoked
+exactly once and closed naturally as camera_authorization_timed_out. Camera
+capture and Microphone were not run; no retry occurred.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission and cleanup boundaries;
+accepted W01 seam/review, R05 review, and R03 lifecycle.
+changed_paths: Seven redacted capture-auth-R01 evidence files; commit 4f0efb5.
+identity_evidence: Existing Debug bundle and Apple Development signing class,
+Camera purpose, and Camera/audio-input entitlements preserved; no private
+signing material retained.
+prompt_and_action: Computer Use skill used. One bounded attach to the exact
+Debug identity timed out; no prompt action, alternate surface, System Settings,
+TCC reset, or second request.
+event_results: Exactly one request start and one terminal timeout; monotonic
+values unavailable and not fabricated.
+checks_run: Structured evidence and count checks; redaction/media/path/diff;
+post-commit process, root, guard, and protected-path audits.
+cleanup_receipt: Script exited naturally; no temp root, run-owned process, or
+guard remains; pre-existing HoldType and protected paths preserved; no
+external/remote I/O.
+scope_check: Evidence-only; no source, spec, project, signing, TCC, product,
+UI, camera, mic, media, provider, Keychain, storage, or iOS change.
+deviations: Auxiliary private watcher missed its glob and retained no raw
+event; normalized evidence used the accepted closed operator summary. Computer
+Use could not attach to the activation-prohibited Debug identity.
+residual: Final Camera authorization state remains unknown; timeout is neither
+grant nor denial and authorizes no capture retry.
+next_dependency: DV-P0B-CAMERA-AUTH-R01-REVIEW
+runtime_or_visual_handoff: none
+commit: 4f0efb557ab4502b16bac8881e731319c6ff16ad
+```
+
+### `DV-P0B-CAMERA-AUTH-R01-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R01-R1
+status: done
+
+outcome: Repaired the summary-only contradiction: certainty is limited to no
+tccutil reset or direct database operation, while final authorization and any
+system-managed TCC state after requestAccess remain explicitly unknown.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; rejected AUTH-R01 review.
+changed_paths: capture-auth-R01/summary.md only; commit 308a191.
+checks_run: Exact one-path and unchanged-evidence audit; contradiction scan;
+structured-evidence unchanged; redaction, diff, and worktree checks.
+scope_check: Documentation repair only; no runtime, TCC, UI, source, build,
+test, or other evidence action.
+deviations: none
+residual: Authorization and system-managed TCC state remain unknown; timeout
+remains neither grant nor denial.
+next_dependency: DV-P0B-CAMERA-AUTH-R01-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: 308a191a55de44971f036352561a9e3b8664fa15
+```
+
+### `DV-P0B-CAMERA-AUTH-R01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R01-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: The summary-only repair closes the TCC contradiction. Evidence now
+truthfully supports one same-signed request, one terminal timeout, zero retries,
+and no capture, microphone, media, or product owner.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; prior rejection; accepted
+authorization seam and review; exact repair.
+reviewed_commit_and_parent: 308a191a55de44971f036352561a9e3b8664fa15;
+2d0d6e4bcb3372051a0ed09ec898b9a94879a0a9.
+changed_paths_reviewed: capture-auth-R01/summary.md only; other six evidence
+blobs unchanged.
+checks_run: Exact commit/path/blob and diff; contradiction/required-wording;
+structured-evidence spot checks; redaction/media and zero-residue snapshot.
+claim_repair_review: Broad unchanged-TCC claims are gone; only no tccutil reset
+or direct database operation is claimed, and final authorization/system state
+remains unknown.
+scope_check: Documentation-only repair; no source, runtime, UI, TCC, signing,
+media, or other evidence change.
+deviations: Original watcher and Computer Use limitations remain disclosed.
+residual: Authorization remains timed out; prompt and final state are unknown.
+user_action_required: Enable HoldType under System Settings > Privacy &
+Security > Camera and verify On; if absent, stop. No reset or blind retry.
+next_dependency: Verify the switch On, then separately authorize Continuity
+capture without another blind permission request.
+runtime_or_visual_handoff: Exact Camera settings action only.
+```
+
+### `DV-P0B-CAMERA-AUTH-R02`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R02
+status: done
+permission_state: holdtype_row_absent
+
+outcome: Computer Use opened System Settings > Privacy & Security > Camera and
+found no HoldType row, so no switch existed and no setting changed.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission/cleanup boundary;
+accepted AUTH-R01 repair/review.
+changed_paths: Seven redacted capture-auth-R02 evidence files; commit 36445d2.
+computer_use_actions: Opened System Settings, navigated to Camera privacy,
+inspected HoldType row presence, and closed the packet-opened window. No switch,
+unrelated-row, or authentication action.
+verification: HoldType row absent; On/Off and authorization state unavailable;
+no screenshot retained.
+checks_run: Structured evidence and counts; unrelated-name/private-token/media/
+MIME/screenshot scans; exact path/diff; process/root/guard/protected audits.
+cleanup_receipt: Packet-opened window closed; exact lingering System Settings
+PID identity-validated and TERM-cleaned; scoped guard stopped; pre-existing
+HoldType and protected paths preserved.
+scope_check: Evidence-only; no requestAccess, camera, mic, media, TCC reset/DB,
+source, project, signing, product, provider, Keychain, external, or iOS action.
+deviations: System Settings required exact run-owned TERM after UI quit left it
+resident.
+residual: Row absence establishes neither grant nor denial and exposes no
+operator switch.
+next_dependency: DV-P0B-CAMERA-AUTH-R02-REVIEW
+runtime_or_visual_handoff: Exact Camera pane only; no screenshot or capture.
+commit: 36445d2fb0a9fd6ad9bc7b95831c4fa867596481
+```
+
+### `DV-P0B-CAMERA-AUTH-R02-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R02-REVIEW
+status: done
+verdict: accept_with_residual
+permission_cell: not_available — holdtype_row_absent
+
+outcome: Computer Use evidence supports that the Camera pane had no visible
+HoldType row and no setting changed. Row absence establishes neither grant nor
+denial and provides no manual switch.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted
+AUTH-R01 repair/review; exact R02 evidence.
+reviewed_commit_and_parent: 36445d2fb0a9fd6ad9bc7b95831c4fa867596481;
+04134352f932381268afff74a55e4b86e5906640.
+changed_paths_reviewed: Exactly seven redacted evidence files; no changes.
+checks_run: Exact diff/path/blob; structured chronology; Computer Use and
+no-action checks; redaction/media/path scans; process, guard, run-root, and
+protected-path snapshot.
+classification_review: Camera pane open, HoldType row unavailable, terminal
+closure; zero switch/unrelated/auth/request/capture/mic/media/TCC actions.
+cleanup_review: Exact lingering System Settings process was identity-validated
+and boundedly terminated; no residue and pre-existing HoldType preserved.
+scope_check: Exact evidence-only scope; no product, signing, TCC, storage, or
+iOS change.
+deviations: Packet-opened System Settings remained resident after UI quit and
+required exact TERM cleanup.
+residual: Authorization remains unknown; no manual switch or capture retry.
+next_dependency: Debug-only activation-before-request repair limited to Launch,
+authorization tests, and W01 summary, then review and one permission runtime.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W02`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W02
+status: done
+
+outcome: Explicit Debug Camera-authorization mode makes the same signed process
+regular/active and boundedly confirms activation before the existing
+authorization harness. Activation failure returns closed unknown without an
+authorization call; normal Debug and hardware routes remain unchanged.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted AUTH
+W01/R01/R02 reviews and R03 lifecycle.
+changed_paths: Debug Launch, authorization tests, and W01 summary; commit
+f35ac7f.
+reused_owners: Early Debug route/isolation, signed app identity, authorization
+owner/categories/120s bound, R03 termination, script, Debug plist/entitlements.
+checks_run: Structure; 11/11 authorization and 56/56 full Phase 0B tests;
+signed Debug build-only; bounded unsigned Release; Debug/Release settings and
+artifact isolation; route, redaction, path, diff, process, and residue audits.
+behavior_verified: Auth-only policy then activation then status/request order;
+both activation failures prevent authorization; normal/hardware routes do not
+activate or authorize; existing authorization cases preserved.
+scope_check: Exact three Debug/test/evidence paths; no script, project, plist,
+entitlement, product, capture, audio, media, storage, UI, iOS, or Release
+semantic change; no TCC/runtime/Computer Use.
+deviations: Initial test helper/token issues were repaired before green suites;
+existing unrelated Release warnings remain.
+residual: Genuine same-identity permission runtime and review remain; no
+prompt, grant, row, capture, media, or TCC-state claim.
+next_dependency: DV-P0B-CAMERA-AUTH-W02-REVIEW
+runtime_or_visual_handoff: none
+commit: f35ac7f3659f660e14d596ff0e2e6eb6fa1695be
+```
+
+### `DV-P0B-CAMERA-AUTH-W02-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W02-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: Debug-only activation-before-authorization is accepted. Explicit mode
+establishes regular/active process state before the unchanged authorization
+seam; failure closes redacted without request. No product/hardware/Release
+regression found.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted AUTH
+W01/R01/R02 and R03 lifecycle; corrected exact commit.
+reviewed_commit_and_parent: f35ac7f3659f660e14d596ff0e2e6eb6fa1695be;
+f8e0cc00e6e90294d477a1a4e63fbae9cdd3f2ef.
+changed_paths_reviewed: Debug Launch, authorization tests, and W01 summary;
+current blobs exact.
+checks_run: Exact diff/path/blob; structure; 11/11 authorization and 56/56
+full tests; signed Debug build-only; bounded Release; Debug/Release settings,
+plist, entitlement, binary isolation; owner/redaction/process/root audits.
+findings_closed_or_open: Explicit-route-only activation; MainActor policy then
+activation then bounded confirmation then authorization; both failures skip
+request; no window/product/capture/audio/media owner; behavioral tests and
+truthful fake/build-only claims accepted. No repair remains.
+scope_check: Exact three-path Debug/test/evidence scope; protected owners,
+script, configuration, signing, Release, storage, UI, iOS, Build unchanged.
+deviations: Sanitized tests used ad-hoc signing; Release evidence is compile/
+settings/plist/binary isolation, not signing qualification.
+residual: Genuine active permission prompt/decision, Camera row, capture/media,
+and quantitative evidence remain.
+next_dependency: One bounded active same-signed authorization runtime, then
+review before capture.
+runtime_or_visual_handoff: Explicit permission mode only; no capture.
+```
+
+### `DV-P0B-CAMERA-AUTH-R03`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R03
+status: failed
+authorization_result: unknown
+
+outcome: The accepted active same-signed permission route ran exactly once and
+closed naturally as camera_authorization_unknown. Capture and microphone were
+not run; active-state confirmation and requestAccess start are not established.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission/cleanup; accepted AUTH
+W02/review and prior AUTH evidence.
+changed_paths: Seven redacted capture-auth-R03 evidence files; commit 744f313.
+identity_evidence: Accepted activation blobs and Debug identity/configuration
+were verified without retaining private identity.
+computer_use_actions: Bounded post-terminal observation; process already exited,
+no prompt, click, System Settings, or screenshot.
+event_results: One route start and one closed unknown terminal. Authorization
+harness/requestAccess start is not claimed because activation may have failed.
+checks_run: Ancestry/blob/config/artifact; bounded route; structured data,
+redaction/media/path/diff; process/root/guard/protected cleanup.
+cleanup_receipt: No run-owned process/root/media/guard; pre-existing HoldType and
+protected paths preserved; no external I/O.
+scope_check: Evidence-only; no source, configuration, product UI, capture, mic,
+media, provider, storage, iOS, Build, publication, or direct TCC change.
+deviations: Route exited before Computer Use could observe it; no retry/fallback.
+residual: Unknown does not distinguish pre-harness activation failure from an
+unknown post-activation status and authorizes no capture.
+next_dependency: DV-P0B-CAMERA-AUTH-R03-REVIEW
+runtime_or_visual_handoff: none
+commit: 744f313e1d1aa24e91e0be9ed7b11a96e3baeb67
+```
+
+### `DV-P0B-CAMERA-AUTH-R03-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R03-REVIEW
+status: done
+verdict: accept_with_residual
+authorization_cell: fail — Debug-spike diagnostic defect
+
+outcome: Evidence truthfully records one route invocation and one unknown
+terminal, but environment/signing is not accepted: the Debug seam collapses
+multiple internal stages into the same category.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted AUTH
+W02/review; exact R03 evidence and narrow source trace.
+reviewed_commit_and_parent: 744f313e1d1aa24e91e0be9ed7b11a96e3baeb67;
+6681497a4e074e142a28ab3d628293444ff88e12.
+paths: Exactly seven redacted evidence files; no changes.
+checks: Exact diff/path/blob; structured semantics; configuration provenance;
+activation/authorization trace; Computer Use timing; redaction/media/path and
+zero-residue audits.
+classification: Unknown may mean policy failure, activation reject/cancel/
+timeout, harness setup failure, or unknown AVFoundation status. Activation,
+harness entry, and requestAccess start are unproven; no prompt/grant/denial.
+cleanup: Sound; no run-owned residue and pre-existing HoldType preserved.
+scope: Evidence-only; accepted source/configuration and protected domains
+unchanged.
+deviations: Process exited before Computer Use observation; no retry/fallback.
+residual: Authorization remains unknown and capture blocked.
+next_dependency: Original Debug authorization owner adds closed stage/result
+categories and furthest-stage evidence in five named paths, then review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W03`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W03
+status: done
+
+outcome: Replaced catch-all authorization unknown with closed activation-policy,
+activation-rejection, activation-timeout, activation-cancel, harness-unavailable,
+and post-activation status-unknown outcomes; terminal evidence carries one
+compact monotonic furthest_stage.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted AUTH
+W01/W02/R03 receipts and reviews.
+changed_paths: Debug authorization, event, and launch; authorization tests; W01
+summary; commit 1ae703f.
+reused_owners: Same-signed Debug route, exact-one request/120s bridge, R03
+termination, event log, Debug configuration, and script supervisor.
+checks_run: Structure; 14/14 auth and 59/59 full Phase 0B tests; signed Debug
+build-only; bounded unsigned Release; Debug/Release settings/artifact isolation;
+redaction, route, wrapper, path, diff, process, and residue audits.
+behavior_verified: Closed pre/status/request stages; monotonic frozen terminal;
+late callback/cancel safety; no authorization after prior failure; normal and
+hardware routes have no authorization activity.
+scope_check: Exact five Debug/test/evidence paths; all Swift DEBUG and <=500;
+no script, project, configuration, product, capture/audio/media, storage, iOS,
+Release, runtime, TCC, or UI change.
+deviations: One audit shell shadowed PATH with zsh special variable and was
+corrected/rerun green; no product impact.
+residual: Historical R03 remains unknown; a new permission runtime and review
+remain before capture.
+next_dependency: DV-P0B-CAMERA-AUTH-W03-REVIEW
+runtime_or_visual_handoff: none
+commit: 1ae703fa0a4ced0cea0b73ef8ffeee85adb2ac13
+```
+
+### `DV-P0B-CAMERA-AUTH-W03-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W03-R1
+status: done
+
+outcome: Live activation calls are independently injected; a false process
+activation returns activation_rejected before the second activation, polling,
+authorization status, or requestAccess.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; exact W03 rejection.
+changed_paths: CameraAuthorization source and authorization tests; commit
+0e9f032. Summary unchanged.
+reused_owners: W03 categories/stages/exact-one, request bridge, W02 activation,
+R03 termination, script, and Debug/Release configuration.
+checks_run: Structure; 14/14 auth and 59/59 full tests; signed Debug build-only;
+bounded Release/isolation; diff, wrapper, redaction, path, process, root audits.
+behavior_verified: First rejection makes one process activation and zero app
+activation/status/request calls; exact category/stage and one terminal. Success
+order and active timeout/cancel remain green.
+scope_check: Exact two Debug/test paths; no other source, script, configuration,
+product, capture/audio/media, Release, runtime, TCC, or UI change.
+deviations: none
+residual: Historical R03 remains unknown; permission runtime remains.
+next_dependency: DV-P0B-CAMERA-AUTH-W03-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: 0e9f032959876aa92b4eea2f32e60bf9c22194dd
+```
+
+### `DV-P0B-CAMERA-AUTH-W03-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W03-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: Repair closes activation rejection: false process activation suppresses
+secondary activation, polling, status, and requestAccess while emitting one
+truthful rejection terminal at activation_requested.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; prior W03
+rejection; exact repair.
+reviewed_commit_and_parent: 0e9f032959876aa92b4eea2f32e60bf9c22194dd;
+41f513e62cc0c8213b29402f796b15bfab3b2922.
+paths: CameraAuthorization source and authorization tests only.
+checks: Exact diff/path/blob; structure; 14/14 auth and 59/59 full tests;
+signed Debug build-only; bounded Release/isolation; redaction/owner/process/root.
+findings: Rejection stops after process activation; separate-call behavioral
+counts and exact category/stage/terminal pass. Success ordering, timeout/cancel,
+all W03 categories/stages, request bounds, late freeze, and protected routes
+remain intact.
+scope: Exact two-path Debug/test repair; no other source/configuration/product/
+runtime/TCC/UI/Release change.
+deviations: none
+residual: Genuine authorization and capture/media evidence remain.
+next_dependency: One bounded repaired permission runtime, then review.
+runtime_or_visual_handoff: Explicit permission mode only; no capture.
+```
+
+### `DV-P0B-CAMERA-AUTH-R04`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R04
+status: failed
+authorization_result: unknown
+furthest_stage: activation_requested
+
+outcome: One repaired same-signed permission route closed as
+camera_authorization_activation_rejected before authorization status or
+requestAccess; capture and microphone were not run.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission/cleanup; accepted W03
+repair/review; prior AUTH evidence.
+changed_paths: Seven redacted capture-auth-R04 evidence files; commit baafcb9.
+identity_evidence: Accepted repair/configuration and signed Debug class verified;
+no private identity retained.
+computer_use_actions: Exact Debug process observed, but bounded attachment could
+not reach its permission surface; no prompt, click, System Settings, screenshot.
+event_results: One route start and one terminal activation rejection at
+activation_requested; no authorization/request start.
+checks_run: Ancestry/config/artifact; bounded route/process observation;
+structured data, redaction/media/path/diff; cleanup audits.
+cleanup_receipt: One exact Debug process outlived script terminal and required
+fresh identity-validated TERM; all run-owned process/root/guard residue zero;
+pre-existing HoldType and protected paths preserved.
+scope_check: Evidence-only; no source/configuration/product/capture/mic/media/
+TCC/System Settings/provider/storage/iOS/Build/publication change.
+deviations: Computer Use attachment unavailable; post-terminal Debug process
+lifetime required exact cleanup.
+residual: Activation rejected before authorization; cleanup lifetime requires
+review classification. No capture authority.
+next_dependency: DV-P0B-CAMERA-AUTH-R04-REVIEW
+runtime_or_visual_handoff: none
+commit: baafcb9d46ba8b33a1830ffcd0d7b38eacf4d4e6
+```
+
+### `DV-P0B-CAMERA-AUTH-R04-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R04-REVIEW
+status: done
+verdict: accept_with_residual
+authorization_cell: fail — activation-semantics and natural-cleanup defects
+
+outcome: Evidence truthfully proves immediate process-activation false and no
+authorization, but environment/signing is rejected: Boolean semantics and a
+surviving post-terminal Debug process are Debug-spike defects.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; accepted W03 repair/review; exact
+R04 evidence; installed AppKit SDK headers.
+reviewed_commit_and_parent: baafcb9d46ba8b33a1830ffcd0d7b38eacf4d4e6;
+75ecba85a1a234babf9b98e216c09b7f2d53cbe3.
+paths: Exactly seven redacted evidence files.
+checks: Exact diff/path/blob; structured semantics; source termination and
+activation trace; SDK headers; Computer Use; redaction/media/path/residue.
+classification: NSRunningApplication Boolean reports only whether that request
+was sent, not overall activation. Use NSApplication.activate once and bounded
+isActive observation. Post-terminal process survival violates accepted natural
+termination/supervision ownership.
+cleanup: External exact TERM was safe and residue is zero, but does not close
+the natural-exit defect.
+scope: Evidence-only; protected owners unchanged.
+deviations: Computer Use could not attach; one run-owned Debug PID required TERM.
+residual: Permission unknown; no request or capture authority.
+next_dependency: Read-only activation/termination/script/SDK exploration, then
+bounded repair and independent review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-E04`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-E04
+status: done
+
+outcome: A bounded repair is supported: one NSApplication.activate request plus
+bounded isActive observation, next-main-turn natural termination, and exact
+direct-app-PID permission-script supervision/reap.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; accepted AUTH/R03 evidence;
+installed AppKit headers and primary Apple docs.
+changed_paths: none
+checks_run: Read-only source, test, script, evidence, configuration, SDK-header,
+and primary-documentation inspection.
+activation_api: Set regular policy, call NSApplication.activate once, poll
+isActive under existing bound; timeout/cancel remain closed at activation_requested.
+termination_trace: Completion is MainActor and delegate returns terminateNow;
+exact R04 AppKit failure point is unproven. Defer terminate to next main turn.
+script_repair: Permission mode must own/reap direct app PID, require bounded
+natural exit after terminal, identity-check before TERM/KILL fallback, and fail
+the run when fallback is needed. Hardware supervisor remains unchanged.
+scope_check: Debug authorization/termination/permission supervisor only;
+product, hardware capture, audio/media/storage/UI/iOS/Build/Release protected.
+deviations: none
+residual: Real natural exit and Camera permission remain evidence-needed.
+next_dependency: Six-path W04 repair, independent review, then one permission
+runtime.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W04`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W04
+status: done
+
+outcome: Repaired authorization to one NSApplication activation with bounded
+isActive, deferred natural termination one main turn, and direct signed-app-PID
+supervision/reap under one 420-second permission bound.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted R04
+review and E04 evidence.
+changed_paths: Authorization and Launch source/tests, permission script, W01
+summary; commit b2a2abf.
+reused_owners: W03 categories/stages/request bridge, R03 termination, same
+Debug identity/configuration, unchanged hardware supervisor.
+checks_run: Structure; 59 logical tests; signed Debug build-only; bounded
+Release/isolation; script syntax/help/negatives and natural/stuck/mismatch/trap
+supervisor fakes; diff/redaction/path/process/root audits.
+behavior_verified: One activate then bounded active observation; normal/hardware
+no auth; terminal/task-clear/completed then deferred terminate; external-quit
+race; direct PID identity, terminal observation, natural reap or exact bounded
+TERM/KILL failure. Hardware path unchanged.
+scope_check: Exact six Debug/test/script/evidence paths; no product, capture,
+mic, media, TCC/runtime UI, configuration/signing, Release, storage, iOS,
+Build, publication, or dependency change.
+deviations: Non-authoritative fake path spelling was canonicalized and rerun.
+residual: Genuine permission and natural-exit runtime remain.
+next_dependency: DV-P0B-CAMERA-AUTH-W04-REVIEW
+runtime_or_visual_handoff: none
+commit: b2a2abfe6e466d32b9b43b6bb43f629a03966101
+```
+
+### `DV-P0B-CAMERA-AUTH-W04-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W04-R1
+status: done
+
+outcome: Permission direct-PID supervision uses one absolute monotonic deadline
+from immediately before launch through identity, terminal, exit, signals, reap,
+and trap cleanup; expiry fails without signaling an unproven identity.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; exact W04 rejection.
+changed_paths: Permission script and W01 summary; commit 48c0d5c.
+reused_owners: Accepted W04 activation/termination/direct-PID identity; hardware
+supervisor unchanged.
+checks_run: Script syntax/help/negatives/build-only; natural/stuck/mismatch/trap/
+slow-identity fakes; deadline injection; structural remaining-budget audit;
+hardware-tail, redaction, path, diff, process, root audits.
+behavior_verified: One <=420s post-launch bound; natural reap; exact fallback
+failure; mismatch/expiry no signal; trap shares deadline. Slow fake exited in
+2.041s under 2s injected deadline and no-signal, within 2.25s wall bound.
+scope_check: Exact two script/evidence paths; no Swift, product, runtime, TCC,
+hardware, or configuration change.
+deviations: none material
+residual: Genuine permission runtime remains.
+next_dependency: DV-P0B-CAMERA-AUTH-W04-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: 48c0d5cd34e9b208ade6b1ae61498fa8f77ee254
+```
+
+### `DV-P0B-CAMERA-AUTH-W04-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W04-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: One absolute elapsed-time deadline now bounds permission supervision,
+including identity and terminal probes, sleeps, natural exit, revalidation,
+TERM/KILL, reap, and trap cleanup. Expiry refuses uncertain signaling.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; prior W04
+rejection; exact repair 48c0d5c.
+changed_paths: none
+checks_run: Exact two-path diff; remaining-budget trace; independent natural,
+stuck, identity-mismatch, trap, and slow-identity fakes; script syntax/help and
+negatives; signed Debug build-only; hardware-tail identity; redaction, process,
+root, and worktree audits.
+scope_check: Exact repair review only; no Swift, product, Release, hardware,
+TCC, signing, capture, audio, media, storage, UI, or configuration change.
+deviations: none material
+residual: Genuine same-signed Camera permission runtime remains unexecuted.
+next_dependency: One bounded permission-only runtime, followed by evidence
+review before any capture retry.
+runtime_or_visual_handoff: Permission runtime only; no capture or microphone.
+reviewed_commit: 48c0d5cd34e9b208ade6b1ae61498fa8f77ee254
+```
+
+### `DV-P0B-CAMERA-AUTH-R05`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R05
+status: failed
+
+outcome: Exactly one accepted same-signed Debug permission route closed before
+authorization status or requestAccess; no retry, capture, or microphone run.
+category: camera_authorization_activation_timed_out
+furthest_stage: activation_requested
+prompt_action: Computer Use could not attach to the exact Debug bundle in its
+bounded attempt; no genuine Camera prompt was seen and no click occurred.
+natural_exit_vs_fallback: The supervised direct app PID exited naturally within
+the global deadline and needed no supervisor signal. A distinct same-launch
+Debug process outlived script exit and required one freshly identity-validated
+exact TERM cleanup.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission and cleanup boundaries;
+accepted W04-R1 repair/review.
+changed_paths: Seven redacted files under
+docs/qa/runs/dev-vlogs-phase-0b-capture-auth-r05/; commit 4101f74.
+checks_run: Accepted ancestry/config/signing; exact route/start/terminal counts;
+structured-data, redaction, media-absence, scope, diff, process, root, guard,
+and protected-path audits.
+cleanup_receipt: Guard and all run-owned Debug processes/roots removed;
+pre-existing HoldType preserved; protected paths unchanged.
+scope_check: Evidence-only; no source, specification, configuration, signing,
+TCC, System Settings, camera, microphone, media, product, provider, Keychain,
+external-storage, or iOS change.
+deviations: Computer Use attachment unavailable; one additional same-launch
+Debug process required exact bounded cleanup TERM.
+residual: Environment/signing residual at activation_requested; independent
+review must classify the additional-process lifetime as evidence or defect.
+next_dependency: DV-P0B-CAMERA-AUTH-R05-REVIEW
+runtime_or_visual_handoff: none
+commit: 4101f7439cae82dd630c746d802ea2cc62179176
+```
+
+### `DV-P0B-CAMERA-AUTH-R05-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R05-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Evidence truthfully establishes one same-signed Debug permission
+route terminating at activation timeout before authorization. The separate
+same-launch Debug process is a remaining launch/supervision defect, not an
+environment-only residual.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; governing plan;
+accepted W04/W04-R1 evidence and reviews.
+reviewed_commit_and_parent: 4101f7439cae82dd630c746d802ea2cc62179176;
+781d8c4161aa8acbd8a5c99e9f9c8d0c0624f0da.
+changed_paths: none
+checks_run: Exact seven-file commit/path/blob; structured-data cross-check;
+accepted category/termination trace; redaction, path, MIME, media, screenshot,
+private-identity, process, root, guard, protected-path, and worktree audits.
+category_and_stage: One route start and one
+camera_authorization_activation_timed_out terminal at activation_requested;
+authorization status/requestAccess, prompt, capture, microphone, and media were
+not reached.
+direct_pid: The directly launched supervised PID exited naturally and was
+reaped inside the absolute deadline without supervisor signal.
+additional_process: A distinct run-owned Debug executable survived script exit
+and required one exact identity-validated TERM. Its creation mechanism remains
+unproven and is a Debug-spike launch/supervision defect.
+cleanup: Exact cleanup was safe; no run-owned residue; pre-existing HoldType and
+protected storage preserved.
+scope_check: Evidence-only; no product, source, configuration, TCC, camera,
+microphone, media, storage, UI, iOS, Build, or publication change.
+deviations: Bounded Computer Use attachment failed and performed no action;
+additional process required exact TERM.
+residual: Permission remains not reached; no permission or capture retry is
+authorized before ownership repair and review.
+next_dependency: Bounded read-only launch/process-ownership exploration, then
+the smallest proven repair and independent review.
+runtime_or_visual_handoff: none
+reviewed_commit: 4101f7439cae82dd630c746d802ea2cc62179176
+```
+
+### `DV-P0B-CAMERA-AUTH-E05`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-E05
+status: done
+
+outcome: The exact creator of the second R05 process is not recoverable from
+retained evidence. A script-only fail-closed multi-process ownership repair can
+capture the missing topology and supervise every proven run-owned process.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted
+W04/W04-R1 and R05 evidence/review; repository Swift/tooling rules; installed
+ps and lsof documentation.
+changed_paths: none
+evidence_inspected: Exact Debug app entry, authorization, launch, permission
+script, focused tests, W01 summary, all R05 files, and narrow Git history.
+process_ownership: Permission mode launches one direct env-exec child; build
+work finishes before launch; inspected Swift contains no explicit process or
+relaunch path. Current scalar supervision loses visibility after its direct
+child exits. R05 retained no second PID, PPID, command, start time, or marker.
+minimal_repair: Script baselines the exact Debug executable, proves new
+run-owned identities with exact executable/start/command plus the unique run-
+root environment marker, supervises all proven identities under one deadline,
+signals only after fresh proof, fails without signaling uncertainty, and keeps
+the hardware block byte-identical. Update only the stale script-structure test
+and W01 summary with the fake matrix.
+checks_run: Read-only source/history/man-page and diff-hygiene inspection; no
+build, test, launch, signal, camera, microphone, or runtime action.
+scope_check: Debug permission launch/process ownership only; no product,
+configuration, TCC, capture, media, storage, UI, iOS, Build, or publication.
+deviations: none
+residual: A reparented process may keep creator unknown even when marker proves
+run ownership; an unmarked same-binary process must remain unsignaled and make
+the run inconclusive.
+next_dependency: Script/test/summary repair and independent review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W05`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W05
+status: done
+
+outcome: Implemented marker-bound multi-process permission supervision with
+exact executable identity, ownership registry, quiet rescan, and identity-safe
+cleanup under one absolute deadline.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; accepted E05 evidence.
+changed_paths: Permission spike script, authorization script-structure tests,
+and W01 summary; commit b071056.
+reused_owners: Accepted W04 deadline, direct-child reap ownership, sanitized
+permission launch, and hardware supervisor.
+checks_run: Structure; 14/14 authorization and 59/59 full Phase 0B tests;
+17/17 deterministic supervisor fakes; signed Debug build-only; bounded unsigned
+Release; Debug/Release settings and artifact isolation; syntax/help/negatives;
+redaction, diff, path, process, and residue audits.
+behavior_verified: Baseline protection; marked additional-process discovery;
+natural exit; truthful TERM/KILL fallback failure; unmarked/mismatched
+no-signal behavior; late quiet-rescan discovery; topology; traps; one deadline.
+hardware_tail_proof: Byte-identical to 48c0d5c.
+scope_check: Exact three-path Debug test/tooling/evidence repair; no product
+source, TCC, permission runtime, camera, microphone, media, hardware, storage,
+UI, iOS, Build, or publication action.
+deviations: One commit invocation used incorrect option ordering and made no
+change; corrected invocation succeeded.
+residual: Genuine same-identity permission runtime remains blocked pending
+independent review.
+next_dependency: DV-P0B-CAMERA-AUTH-W05-REVIEW
+runtime_or_visual_handoff: none
+commit: b07105647dce52de4f2a1659d60839bf79a36178
+```
+
+### `DV-P0B-CAMERA-AUTH-W05-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W05-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Marker-bound multi-process permission supervision is accepted.
+Ownership discovery, signaling, cleanup, and deadline behavior are bounded and
+fail closed without affecting hardware or product paths.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; accepted E05 map; exact W05
+repair; repository Swift/tooling rules.
+reviewed_commit_and_parent: b07105647dce52de4f2a1659d60839bf79a36178;
+f94705687235db834e12db2bf762741a36a97f30.
+changed_paths: none
+checks_run: Exact three-path commit; structure; 14/14 authorization and 59/59
+full Phase 0B tests; signed Debug build-only; bounded Release/isolation;
+syntax/help/negatives; static registry/marker/deadline/signal/redaction audit;
+independent process fakes; final process/root/worktree audit.
+findings_closed: Exact baseline and marker ownership; no signal to unmarked,
+mismatched, baseline, or different executable; fresh pre-signal proof; one
+deadline; quiet rescan; direct-child-only reap; traps and uncertainty fail
+closed.
+behavioral_fake_evidence: Direct/additional/late natural exits, pre-existing
+survival, unmarked and mismatch no-signal, stuck TERM/KILL truthful failure,
+identity change before KILL, slow deadline, TERM/INT traps all passed.
+hardware_preservation: Hardware tail and sanitized permission launch block are
+byte-identical to 48c0d5c.
+scope_check: Exact Debug test/tooling/evidence scope; no product source, TCC,
+camera, microphone, media, storage, UI, iOS, Build, publication, configuration,
+project, or dependency change.
+deviations: Release stabilization phase re-signed the artifact despite
+CODE_SIGNING_ALLOWED=NO; compile and isolation evidence remained valid.
+residual: Genuine same-signed Camera permission runtime remains unexecuted. A
+very fast natural exit may conservatively return inconclusive/root retention,
+but never signals uncertainty or reports false success.
+next_dependency: One bounded permission-only runtime and evidence review.
+runtime_or_visual_handoff: Permission route only; no capture or microphone.
+reviewed_commit: b07105647dce52de4f2a1659d60839bf79a36178
+```
+
+### `DV-P0B-CAMERA-AUTH-R06`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R06
+status: failed
+
+outcome: Exactly one accepted W05 same-signed Debug permission route closed
+before authorization status or requestAccess; no retry or capture.
+category: camera_authorization_activation_timed_out
+furthest_stage: activation_requested
+prompt_action: none; the route closed before safe exact-app attachment, and the
+protected installed HoldType surface was not operated.
+topology: One proven direct marker-owned identity with sanitized script-sibling
+topology; zero additional or uncertain identities; no retained root.
+process_disposition: Direct child exited naturally and was reaped; quiet rescan
+passed; every proven identity exited before script success; no TERM/KILL.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission/E08; accepted W05 and
+review.
+changed_paths: Seven redacted files under
+docs/qa/runs/dev-vlogs-phase-0b-capture-auth-r06/; commit a7f47a9.
+checks_run: Mandatory/spec/Computer Use gate; accepted ancestry/config/signing;
+structured-data and exact-count checks; topology/redaction/media/path/diff;
+post-commit process/root/guard/protected-path audits.
+cleanup_receipt: Run root and guard removed; run-owned processes zero;
+pre-existing HoldType and protected storage preserved.
+scope_check: Evidence-only; no source, specification, configuration, signing,
+TCC, System Settings, camera, microphone, media, product, provider, Keychain,
+external storage, or iOS change.
+deviations: Exact Debug UI attachment was unavailable before terminal; no
+generic-app fallback.
+residual: Environment/signing activation failure; authorization not reached.
+The R05 additional-process defect did not reproduce under W05 supervision.
+next_dependency: DV-P0B-CAMERA-AUTH-R06-REVIEW
+runtime_or_visual_handoff: none
+commit: a7f47a96661c60c7e00a092cc2220bc9e2298c52
+```
+
+### `DV-P0B-CAMERA-AUTH-R06-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R06-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Evidence is truthful and consistent. Authorization remains failed and
+not reached: one route timed out during application activation before status or
+requestAccess.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; accepted W05/review and
+R05/review; narrow authorization/launch/script source; installed AppKit headers.
+reviewed_commit_and_parent: a7f47a96661c60c7e00a092cc2220bc9e2298c52;
+c538ed1e84a53fbd5ee9e71fce2c5dad82f5b10c.
+changed_paths: none
+checks_run: Exact seven-file commit and current equality; structured-data
+cross-checks; category/topology provenance; AppKit activation contract;
+redaction/media/path/private-data scans; bounded process/root/guard/protected
+snapshot.
+category_stage: One route start and one activation_timed_out terminal at
+activation_requested; authorization, requestAccess, prompt, capture, microphone,
+media, provider, and product owners were not reached.
+topology_process: One exact marker-owned direct script-sibling exited naturally,
+was reaped, passed quiet rescan, and required no signal or retained root.
+r05_residual: W05 implementation/review closes supervision design; R06 proves
+the real direct-only path and truthfully records only non-reproduction of the
+additional process.
+cleanup: Sound; zero run-owned residue, protected owners preserved, no external
+I/O, no protected content inspected.
+scope_check: Evidence-only; no product/source/configuration/TCC/camera/mic/media/
+storage/UI/iOS/Build/publication change.
+deviations: Exact Debug UI attachment unavailable before terminal; no fallback.
+residual: NSApplication activation is not guaranteed. The failure is a platform
+activation dependency, not demonstrated signing/TCC causation or a proven new
+Debug defect.
+next_dependency: Bounded read-only activation/LaunchServices exploration before
+any repair or permission retry.
+runtime_or_visual_handoff: none
+reviewed_commit: a7f47a96661c60c7e00a092cc2220bc9e2298c52
+```
+
+### `DV-P0B-CAMERA-AUTH-E06`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-E06
+status: done
+
+outcome: Apple-supported exact-URL NSWorkspace.openApplication with a bounded
+run-root helper can launch the same signed Debug app, return typed process
+identity, preserve W05 ownership, and gate Camera work on an exact PID/token
+acknowledgment.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; accepted W05/R06 evidence;
+repository rules; installed AppKit SDK headers and Apple primary documentation.
+changed_paths: none
+api_findings: Direct Mach-O execution has no LaunchServices foreground request;
+regular policy plus NSApplication.activate is non-guaranteed. OpenConfiguration
+supports exact app URL, activates, new instance, no substitution/recent item,
+sanitized environment, and a returned NSRunningApplication identity.
+recommended_route: Compile/ad-hoc-sign a committed run-root helper that never
+imports AVFoundation; helper opens the exact Debug app and returns typed
+identity; script validates LaunchServices fields plus W05 marker proof; target
+cannot inspect status/requestAccess until an atomic PID/token acknowledgment and
+active-state confirmation; no second target-side activation request.
+minimal_paths: New helper source; permission spike script; Debug Launch,
+CameraAuthorization, EventLog; focused authorization/launch tests; W01 summary.
+No project, plist, entitlement, HoldTypeApp, normal product, or Release change.
+invariants: Same signed Debug HoldType is sole Camera requester; helper has no
+Camera capability; exact URL/new instance/no substitution; one deadline;
+marker/identity proof before acknowledgment or signal; normal/hardware/Release
+unchanged; no broad process action.
+checks_run: Read-only source/evidence/SDK/Apple-doc/test-map/diff/worktree review;
+no build, test, launch, TCC, Camera, microphone, media, UI, or process action.
+scope_check: Activation/LaunchServices evidence only.
+deviations: none
+residual: LaunchServices activation remains evidence-needed; helper tooling may
+be blocked by local compile/sign policy; Camera/TCC remains unproven.
+next_dependency: Independent design review, then a bounded writable repair if
+accepted.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-E06-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-E06-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Exact-URL LaunchServices architecture is viable without changing the
+signed Camera identity or product/Release behavior, after removing explicit
+helper signing, strengthening the PID/token handshake, and expanding paths for
+the 500-line structure limit.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; accepted W05/R06 evidence;
+repository Swift/tooling; AppKit SDK headers and Apple primary documentation.
+changed_paths: none
+api_findings: NSWorkspace exact-URL new-instance launch is supported on the
+deployment target; substitution is redundant under new-instance mode;
+LaunchServices may add environment; returned PID requires returned-object plus
+W05 executable/start/inode/marker proof.
+helper_decision: One standalone Swift helper under script, compiled into the
+run root with no explicit codesign step and no AVFoundation import. It opens
+only the exact app URL and publishes a redacted closed result.
+handshake: Script alone acknowledges after returned identity and W05 marker
+proof. Atomic no-follow mode/owner/type/size-checked PID-digest/token files under
+the mode-0700 run root gate target active/status/request work. All boundaries
+share one deadline; late/duplicate artifacts are ignored.
+lifecycle: Permission-only policy becomes regular in will-finish after strict
+preflight; hardware remains prohibited; did-finish waits for acknowledgment and
+target isActive; no target-side activate request; product isolation and R03
+termination remain.
+categories: Add only target acknowledgment invalid/timed-out/cancelled and one
+launch_identity_acknowledged stage; helper/script launch failures stay distinct
+and redacted; historical evidence is not reinterpreted.
+minimal_paths: Standalone helper; spike script; CameraAuthorization; new
+Handshake; Launch; new Termination extraction; EventLog; authorization and
+event tests; new LaunchServices and Lifecycle tests; W01 summary. All target
+Swift remains DEBUG; no project/plist/entitlement/HoldTypeApp change.
+checks_run: Read-only source/SDK/Apple-doc/test-map review; no build, runtime,
+TCC, Camera, microphone, media, UI, or process action.
+scope_check: Debug evidence/tooling only; protected owners unchanged.
+deviations: E06 explicit helper signing and literal substitution claim rejected;
+path envelope expanded for structure compliance.
+residual: LaunchServices foreground behavior, local helper execution, Camera
+prompt, and TCC remain runtime evidence. Unexpected Gatekeeper UI must fail.
+next_dependency: Corrected 12-path repair, independent review, then one bounded
+permission-only runtime.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W06`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06
+status: done
+
+outcome: Implemented exact-URL LaunchServices helper launch, marker-bound
+identity proof, exclusive atomic acknowledgment, and acknowledgment-gated Camera
+authorization lifecycle.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B permission/E08; accepted E06
+design review.
+changed_paths: Exact 12 authorized helper, script, Debug owner, test, and W01
+summary paths; commit 169e895.
+reused_owners: W05 multi-process supervision; authorization request bridge;
+R03 termination; Debug/Release isolation.
+checks_run: Structure; helper compile/injected self-test; 19/19 focused and
+63/63 full Phase 0B tests; signed Debug build-only; bounded unsigned Release;
+settings/artifact isolation; syntax/help/negatives; hardware-tail hash;
+redaction, path, diff, process, and root audits.
+behavior_verified: Exact LaunchServices config; no AVFoundation or explicit
+helper signing; bounded callback arbitration; token absent from argv/logs;
+returned identity plus W05 marker proof; no-follow acknowledgment; ack and
+target active before status/request; normal/hardware isolation; termination.
+hardware_preservation: Tail byte-identical to b071056 and 48c0d5c.
+scope_check: Exact Debug evidence/tooling; no project, plist, entitlement,
+product, capture, microphone, media, storage, UI, iOS, Build, or publication.
+deviations: W06-specific helper/handshake/lifecycle fakes ran; accepted W05
+17-case supervisor matrix was preserved/reused rather than reconstructed as a
+new persisted runner.
+residual: LaunchServices foreground behavior, Camera prompt, and TCC remain
+runtime evidence; no permission or hardware mode invoked.
+next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW
+runtime_or_visual_handoff: none
+commit: 169e89562f237484337ab4fed31b12cc0c8040e4
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-REVIEW`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-REVIEW
+status: done
+verdict: reject
+
+outcome: Helper and Release/product isolation compile and test, but the
+permission route aborts before identity proof and required deadline,
+result-handoff, cancellation, and behavioral guarantees are not met.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; accepted E06 design, W05
+supervision, and R03 lifecycle; repository rules.
+reviewed_commit_and_parent: 169e89562f237484337ab4fed31b12cc0c8040e4;
+75b75248eddf7965687bf7a026939a341999aade.
+changed_paths: none
+checks_run: Exact 12-path commit; structure/diff; helper self-test; 19/19
+focused and 63/63 full tests; syntax/help/negatives/build-only; signed Debug;
+bounded Release/isolation; hardware-tail hash; process/root cleanup.
+findings: Script stores category/process_digest but reads unset
+launch_category/returned_process_digest under set -u; helper compilation is
+outside the claimed 420-second deadline; helper result publication plus
+multi-pass path-based plutil parsing lacks descriptor-stable strict schema and
+immutability; cancellation is checked after isActive/authorizationStatus;
+tests do not traverse real result parsing and summary overclaims these points.
+closed: Exact URL/config/imports/no explicit signing; target acknowledgment
+reader; categories/stages/termination extraction; normal/hardware/Release
+isolation; hardware tail.
+scope_check: Exact Debug evidence/tooling; protected owners unchanged; no
+runtime/TCC/camera/microphone/media action.
+deviations: Accepted W05 matrix not rerun because real route aborts first.
+residual: LaunchServices foreground, Camera prompt/TCC, and hardware remain
+unproven.
+next_dependency: Seven-path parser/deadline/result/cancellation/test/summary
+repair and independent review.
+runtime_or_visual_handoff: none
+reviewed_commit: 169e89562f237484337ab4fed31b12cc0c8040e4
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-R1
+status: done
+
+outcome: Repaired strict helper-result parsing, descriptor-stable publication
+and verification, single 420-second deadline coverage, cancellation ordering,
+and behavioral evidence.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact W06 rejection.
+changed_paths: CameraAuthorization; LaunchServices and authorization tests;
+standalone helper; permission script; W01 summary. Six paths in commit daac571;
+the authorized lifecycle-test path required no change.
+checks_run: Structure; 20/20 focused, 66/66 full Phase 0B, and 7/7 final
+LaunchServices tests; actual valid/extra-key/wrong-digest parser fakes; helper
+self-test; syntax/help/negatives/build-only; signed Debug; bounded unsigned
+Release; settings/artifact isolation; hardware tail and W05 function hashes;
+diff/redaction/path/process/root audits.
+findings_closed: Normalized initialized parser fields; one deadline begins
+before compile; directory-relative exact-schema immutable descriptor snapshot;
+cancellation before active/status/request; executable verifier/parser/digest/
+ack tests; truthful summary wording.
+scope_check: Exact Debug evidence/tooling repair; no product, project, plist,
+entitlement, TCC, runtime, camera, microphone, media, storage, UI, iOS, Build,
+or publication change.
+deviations: Accepted W05 supervisor functions were proven hash-identical rather
+than reconstructing the prior ad-hoc multi-process runner.
+residual: LaunchServices foreground behavior, Camera prompt/TCC, and hardware
+remain runtime evidence.
+next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: daac5718750492f069b04369b98ca7852e2f389e
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-REVIEW-R1
+status: done
+verdict: reject
+
+outcome: R1 closes parser, descriptor-stable result, and cancellation defects,
+but permission EXIT cleanup is outside the deadline and the parser test hook
+changes protected build-only/hardware behavior.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact W06 reject and R1.
+reviewed_commit_and_parent: daac5718750492f069b04369b98ca7852e2f389e;
+368cd3a8e4465c4c8a7ad5a94fdad7a46fdede53.
+changed_paths: none
+checks_run: Exact six-path repair; actual parser valid/extra-key/wrong-digest;
+helper invalid/immutability matrix; 20/20 focused and 66/66 full Phase 0B;
+syntax/help/negatives/build-only; Debug/Release isolation; hardware/function
+hashes; process/root/worktree audit.
+closed: Initialized production parser; one immutable O_NOFOLLOW strict-schema
+snapshot; cancellation before active/status/request; genuine production parser
+tests; helper/process/Release/hardware preservation.
+findings: EXIT trap uses raw untimed rm operations outside the deadline and does
+not verify deletion before uncertainty retention. SCRIPT_RESULT_TEST is checked
+before mode isolation and changes build-only/hardware behavior; negative test is
+missing. Summary overclaims cleanup and isolation.
+scope_check: Exact Debug evidence/tooling; protected product/configuration/TCC/
+camera/microphone/media/storage/UI/iOS/Build/publication unchanged.
+deviations: W05 matrix not reconstructed because ownership functions remain
+byte-identical.
+residual: LaunchServices foreground, Camera prompt/TCC, and hardware unproven.
+next_dependency: Three-path bounded cleanup and hook-isolation repair, then
+repeat review.
+runtime_or_visual_handoff: none
+reviewed_commit: daac5718750492f069b04369b98ca7852e2f389e
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-R2`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-R2
+status: done
+
+outcome: Permission work now leaves an exact 11-second cleanup tail inside the
+original 420-second deadline; bounded verified scrub/root cleanup fails with 70
+on uncertainty. Parser test hook is permission-only.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact R1 rejection.
+changed_paths: Permission script, LaunchServices tests, W01 summary; commit
+10804b6.
+checks_run: Syntax/structure; actual parser fakes; cleanup fake matrix; hook
+mode parity including real build-only; 9 focused LaunchServices and 68 full
+Phase 0B tests; signed Debug build-only; settings isolation; hardware/W05
+hashes; diff/redaction/path/process/root audits.
+cleanup_deadline: Work cutoff reserves 6s process cleanup, 1s root verify, 1s
+sensitive scrub, 1s reverify, and 2s exact-root delete inside the global
+deadline. Uncertainty scrubs sensitive artifacts before retaining a verified
+private root; any unproven result returns 70.
+hook_isolation: SCRIPT_RESULT_TEST is reached only for explicit permission
+mode; help/default/errors/missing-camera hardware and build-only match ordinary
+dispatch.
+scope_check: Exact three-path Debug tooling/test/evidence repair; no app/helper/
+project/configuration/runtime/TCC/camera/microphone/media/storage/UI/iOS/Build/
+publication change.
+deviations: none
+residual: Real same-identity permission/TCC execution remains runtime evidence.
+next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW-R2
+runtime_or_visual_handoff: none
+commit: 10804b6f70d04ca1cc805c70355a4954f5229da9
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-REVIEW-R2
+status: done
+verdict: reject
+
+outcome: Hook isolation is repaired and nominal reserve arithmetic is coherent,
+but permission cleanup remains neither hard-bounded nor exact-target safe.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact R1 reject and R2.
+reviewed_commit_and_parent: 10804b6f70d04ca1cc805c70355a4954f5229da9;
+62017bdf92f1c73690908df3ae59d5c5336bca7b.
+changed_paths: none
+checks_run: Exact three paths; structure/syntax; 9/9 focused and 68/68 full
+tests; Debug/Release isolation; hardware hash; controlled TERM-ignoring timeout;
+process/root/worktree audit.
+closed: SCRIPT_RESULT_TEST permission-only isolation and ordinary behavior for
+help/default/errors/missing-camera/build-only; nominal 11-second reserve and
+status precedence otherwise coherent.
+findings: GNU timeout lacks kill-after, so TERM-ignoring cleanup can outlive the
+deadline. Run-root verification follows path owner/mode/type without original
+device/inode pin or no-follow ancestry and leaves a replacement/check-use race.
+Adversarial timeout/root-replacement fakes and summary truth are missing.
+scope_check: Exact Debug tooling/test/evidence; protected app/configuration/TCC/
+camera/microphone/media/storage/UI/product domains unchanged.
+deviations: No permission or hardware mode invoked.
+residual: LaunchServices foreground, Camera prompt/TCC, and hardware unproven.
+next_dependency: Three-path hard timeout escalation and pinned no-follow root
+identity repair, then independent review.
+runtime_or_visual_handoff: none
+reviewed_commit: 10804b6f70d04ca1cc805c70355a4954f5229da9
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-R3`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-R3
+status: done
+
+outcome: Permission cleanup hard-bounds cleanup subprocesses and sleeps through
+TERM then KILL and exact process-group disappearance inside the original
+420-second deadline. Canonical parent and run-root identity are pinned by
+device, inode, uid, and mode; sensitive scrub and exclusive quarantine/removal
+use no-follow directory descriptors and fail closed on replacement or type,
+link, ownership, name, or identity uncertainty.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact R2 rejection.
+changed_paths: Permission script, LaunchServices tests, and W01 summary; commit
+68b9bc3.
+checks_run: Structure; script syntax/help/negatives; deterministic production-
+hook hard-timeout and twenty cleanup adversarial cases; 68/68 full Phase 0B;
+signed Debug build-only; unsigned Release; settings/artifact isolation;
+hardware and W05/W06 ownership hashes; diff, redaction, path, process, root,
+and residue audits.
+hard_timeout_proof: A TERM-ignoring shell and child were proven alive, the
+wrapper returned closed timeout within the injected one-second cap, and the
+exact owned process group disappeared. Kill escalation is normalized to the
+truthful timeout result; insufficient remaining budget starts nothing.
+root_identity_proof: Fakes cover normal remove, same-inode uncertainty scrub,
+root symlink/different inode, parent replacement, post-open swap, exclusive
+tombstone collision and mismatch, sensitive symlink/hardlink/type, unknown
+name, scrub/remove timeout or failure, deadline, and INT/TERM cleanup.
+scope_check: Exact three Debug tooling/test/evidence paths; no helper, app,
+project, plist, entitlement, product, hardware, permission, TCC, camera,
+microphone, media, storage, UI, iOS, Build, or publication runtime change.
+deviations: none
+residual: Real same-identity LaunchServices Camera permission/TCC behavior
+remains separately authorized runtime evidence.
+next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW-R3
+runtime_or_visual_handoff: none
+commit: 68b9bc3482667f95c4faf638ca058b50c7128069
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-R4`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-R4
+status: done
+
+outcome: Entire cleanup identity pipelines now run inside one timeout-owned
+process group. Sensitive files, regular children, directories, and the root
+tombstone use descriptor-relative exclusive quarantine and identity
+revalidation before deletion; directories and the final tombstone receive a
+second exclusive quarantine while the verified descriptor remains open.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact R3 rejection.
+changed_paths: Permission script, LaunchServices tests, and W01 summary; commit
+f989aa8.
+checks_run: Structure; full 68/68 Phase 0B; production adversarial cleanup
+matrix; script syntax/help/negatives and actual parser routes; signed Debug
+build-only; unsigned Release; Debug/Release settings/artifact isolation;
+hardware/ownership hashes; diff, redaction, exact-path, process, root, and
+residue audits.
+hard_timeout_proof: A TERM-ignoring complete pipeline consumer plus child
+returns truthful 124 inside the injected bound, is reaped, and leaves no owned
+process-group survivor. Readiness is proven before mutation with separately
+hard-bounded attempts.
+destructive_boundary_proof: Same-type sensitive and regular replacements,
+directory replacement after open/validation, and final tombstone replacement
+all survive under preserved/quarantine names and force status 70. Root/parent
+swaps, symlink/hardlink/type mismatch, tombstone collision, unknown name,
+timeout/failure/deadline, and INT/TERM cases remain green.
+scope_check: Exact three Debug tooling/test/evidence paths; no fourth path,
+product owner, runtime, TCC, camera, microphone, media, storage, UI, iOS,
+Build, publication, project, plist, entitlement, helper, or app change.
+deviations: One initial parallel fixture lacked readiness proof; it was made
+deterministic before the final green suite without changing production bounds.
+residual: Real same-identity LaunchServices Camera permission/TCC behavior
+remains separately authorized runtime evidence.
+next_dependency: DV-P0B-CAMERA-AUTH-W06-REVIEW-R4
+runtime_or_visual_handoff: none
+commit: f989aa857be7505972b05d1077da32245c9428da
+```
+
+### `DV-P0B-CAMERA-AUTH-E07`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-E07
+status: done
+verdict: blocked
+
+outcome: macOS 14+ has no supported API that atomically deletes the exact
+regular-file or directory inode represented by an already-open descriptor.
+The R4 validation-to-mutable-pathname-delete race cannot be eliminated inside
+the existing same-UID, script-only boundary.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; R3/R4 reviews; installed
+macOS 26.5 SDK headers/manpages and Apple XNU/Libc primary sources.
+changed_paths: none
+api_evidence: unlinkat always accepts fd plus path; Darwin exposes no
+AT_EMPTY_PATH equivalent. removefileat is pathname-based and documents
+recursive races. renameatx_np atomically renames namespace entries but cannot
+conditionally delete against a proving fd. Advisory locks, mode 0700, random
+names, owner-clearable UF_IMMUTABLE, and open descriptors do not prevent a
+non-cooperating same-UID rename/unlink.
+controlled_probes: Empty-path unlinkat returned ENOENT/EINVAL for files and
+directories; an open directory could still be removed by parent/name;
+AT_NODELETEBUSY required closing the proving fd before delete; same-UID child
+ignored flock for namespace removal. Descriptor ftruncate neutralized only the
+exact opened inode while preserving a replacement, but is not deletion.
+cleanup_receipt: All exact marker-owned probe roots were removed; no probe
+process/root residue remained.
+platform_blocker: Darwin provides neither compare-and-unlink by device/inode
+nor supported pathless fd deletion for regular files or directories.
+narrowest_safe_alternative: Perform no pathname deletion after validation;
+retain the verified private run root and return status 70. Descriptor-bound
+ftruncate may neutralize only regular artifacts whose fd was pinned at
+creation. Current script does not pin every helper/app artifact and cannot
+claim complete neutralization or E08 closeout.
+scope_check: Read-only platform/evidence work; no source, spec, runtime, TCC,
+camera, microphone, media, UI, product, storage, iOS, Build, or publication.
+deviations: none
+residual: Real LaunchServices Camera authorization remains blocked behind
+cleanup semantics.
+next_dependency: User/protocol authority must choose a fail-closed retained-
+root residual for the permission-only evidence lane or a privileged/different-
+UID cleanup boundary. No further script-only exact-delete repair is supported.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W07-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-R1
+status: done
+
+outcome: Hardware handoff now publishes a retained, closed-schema snapshot that
+survives raw-root cleanup.
+changed_paths: Script, focused hardware handoff tests, and W01 summary; commit
+eede5512429fdac4cc3f5126f0b039337b1d9bf6.
+retained_lifecycle: Separate mode-0700 sibling handoff root and mode-0400
+snapshot survive script EXIT/raw-root removal. Only sanitized root token, fixed
+filename, and exact runtime-owner cleanup contract are exposed.
+descriptor_contract: No-follow dirfd walk pins trusted base, raw/source, and
+destination ancestry; source cardinality/identity revalidated; destination
+publication descriptor-relative and exclusive.
+schema_contract: Exactly one start and one terminal; recursive duplicate-key
+rejection; exact nested schemas, identifier grammar, closed categories/
+dimensions/device labels/metrics, semantic Ready/failure consistency, and
+262144-byte cap.
+checks_run: Focused 5/5 and full 73/73 Phase 0B tests; valid failure/Ready/
+cancelled snapshots; 54 ownership/race/schema/redaction/numeric adversarial
+cases fail closed; structure, syntax, help/negatives, Debug build-only, bounded
+Release, settings/artifact isolation, diff, redaction, path/process/root audits.
+protected_blob_proof: Nine accepted W07/media Swift blobs are hash-identical to
+fc514a7.
+scope_check: Exact three paths; no runtime/camera/microphone/TCC/permission/
+hardware execution; zero raw/handoff residue; pre-existing HoldType preserved.
+deviations: Old run-owned fixture roots from the interrupted earlier W07 attempt
+were exactly audited and removed; no contract deviation.
+residual: Real hardware snapshot consumption/cleanup awaits runtime after
+independent review.
+next_dependency: DV-P0B-CAPTURE-W07-REVIEW-R1
+```
+
+### `DV-P0B-CAPTURE-W07`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07
+status: done
+
+outcome: Debug failure evidence now propagates one closed preservation
+dimension, retains already-proven camera/final probe and passthrough/realized
+evidence on comparator failure, and hands exactly one validated hardware JSONL
+stream to a script-owned path before raw-root cleanup.
+changed_paths: Exact Debug EventLog/Launch/script, EventLog/Preservation/Launch/
+new handoff tests, and W01 summary; commit fc514a7.
+closed_dimensions: Fourteen mappings for existing typed preservation errors,
+plus unknown only for foreign errors.
+stage_evidence: One preservation-failure terminal retains pre-comparison
+camera_probe, passthrough, final_probe, closed media subtypes/summaries, and
+sanitized metrics; zero Ready/retry; late duplicates cannot replace terminal.
+handoff_contract: Exact predeclared JSONL path; descriptor-stable no-follow
+owner/mode/type/nlink/size snapshot; exact start+terminal schema/case/run/
+attempt validation; exclusive 0600 copy before cleanup. Valid plus fourteen
+invalid production-route cases pass fail-closed.
+checks_run: Structure; focused and full 70-test Phase 0B suite; script syntax/
+help/negatives/build-only; handoff matrix; Debug and bounded unsigned Release;
+settings/artifact isolation; protected hashes; diff, redaction, path, process,
+root, and residue audits.
+protected_blob_proof: CameraCapture, MediaFinalizer, MediaProbe, and
+VideoPreservation unchanged; no product/spec/project/plist/entitlement owner.
+scope_check: Exact eight paths; no runtime/TCC/camera/microphone/media/external
+storage action; clean worktree and zero run-owned residue.
+deviations: Coordinator interruption occurred after the full suite had already
+exited green; no cleanup was needed. Intentional reject-sentinel tokens were
+reviewed at serialization sites.
+residual: R06 historical failure remains generic; independent review required
+before one new hardware attempt.
+next_dependency: DV-P0B-CAPTURE-W07-REVIEW
+commit: fc514a7d0e7e5336faeb18770518f1fd137ec1e6
+```
+
+### `DV-P0B-CAPTURE-R06-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-R06-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: The three-path evidence repair is truthful and closes the prior
+rejection. R06 remains a supported functional failure, not acceptance.
+findings_closed: Collapsed failed-terminal diagnostics now own mismatch/probe-
+metric loss; watcher loss is limited to raw event timing/path evidence. No
+comparator, finalizer, platform, or durable TCC cause is inferred. Functional
+facts remain unchanged.
+evidence_integrity: Exact 323844e/parent and three mode-100644 paths verified;
+five other R06 blobs unchanged; all current blobs match. Structured parsing,
+semantic, contradiction, MIME, redaction, path, private-token, media, and diff
+checks pass. All quantitative fields remain blank/evidence_only.
+remaining_residual: Exact preservation dimension and realized metrics are
+permanently unavailable from R06; watcher wrong-glob versus cleanup race is
+also unobservable.
+next_dependency: Independently reviewed Debug-only diagnostic/handoff repair:
+closed redacted preservation dimension, preceding probe/passthrough evidence on
+failure, exactly one validated event stream before cleanup, and fail-closed
+zero/multiple/symlink/malformed/oversize handling. Camera/finalizer/probe/
+comparator semantics remain protected.
+scope_check: Read-only; no runtime or repository change.
+deviations: none
+changed_paths: none
+```
+
+### `DV-P0B-CAPTURE-R06-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-R06-R1
+status: done
+
+outcome: Repaired only R06 watcher-only causal wording. Evidence now separates
+the generic preservation failure route, which omits exact mismatch and prior
+probe evidence, from the ad-hoc watcher loss of raw event timing/path evidence.
+changed_paths: R06 summary.md, residuals.md, and measurements.csv only; commit
+323844e.
+preserved_facts: One explicit/no-fallback/no-retry Continuity attempt;
+route-time authorized; camera-only 1V/0A probe pass; passthrough pass; final
+1V/1A probe pass; stored_sample_exact_v1 fail; zero Ready; one audio owner;
+cleanup; all quantitative fields null/evidence_only. No failure cause assigned.
+checks_run: Exact three-path and unchanged-five-blob audit; CSV structure and
+null fields; required/contradictory wording, redaction, private-token, path,
+media, diff, and clean-status checks.
+scope_check: Evidence wording only; no runtime/source/build/test/spec/registry/
+project/script/TCC/process/media action.
+deviations: none
+residual: Exact preservation dimension/realized metrics and raw watcher event
+timing/path evidence remain unavailable from R06.
+next_dependency: DV-P0B-CAPTURE-R06-REVIEW-R1
+```
+
+### `DV-P0B-CAPTURE-R06`
+
+```text
+packet_id: DV-P0B-CAPTURE-R06
+status: failed
+functional_result: fail
+authorization_result: authorized
+
+outcome: One freshly enumerated explicit eligible Continuity Camera was
+selected with no fallback. Exactly one ten-second hardware invocation reached a
+playable camera-only probe, passthrough-only finalization, and a playable final
+video/audio probe, then closed video_preservation_failed. No retry occurred.
+media_results: Camera-only 1 video/0 audio passed; final 1 video/1 audio passed;
+passthrough passed; stored_sample_exact_v1 failed. Ready clip count was zero.
+Realized dimensions, FPS, codecs, transform, sample/byte/duration details are
+unavailable because the watcher missed the run-owned event path and accepted
+cleanup removed raw media.
+measurements_disposition: evidence_only/unavailable; no sync/drift claim.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; E08; accepted
+W02 and R03 hardware owners.
+changed_paths: Exactly eight redacted files under
+docs/qa/runs/dev-vlogs-phase-0b-capture-r06/**; commit 7fbeab8.
+checks_run: Governing gate; ancestry/blob/tail/signing preflight; structured
+evidence parsing and cross-counts; redaction, media/MIME, exact-path, diff,
+process, root, and protected-count audits.
+cleanup_receipt: Scoped caffeinate stopped; zero run-owned process/root; raw
+media absent; pre-existing HoldType preserved; protected counts unchanged; no
+external or remote I/O.
+scope_check: Evidence only; no source, spec, project, script, TCC, UI, Keychain,
+provider, or external-storage change.
+deviations: Three bounded wrapper preflights ended before enumeration and were
+cleaned. The successful enumerator used a bundled Apple-native ad-hoc helper.
+The material evidence deviation is the watcher-path miss. No extra capture.
+residual: Debug-spike video-preservation failure and watcher-loss defect prevent
+exact mismatch and realized-metric diagnosis.
+next_dependency: DV-P0B-CAPTURE-R06-REVIEW
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-E08`
+
+```text
+packet_id: DV-P0B-CAPTURE-E08
+status: done
+verdict: ready
+
+outcome: One direct, no-retry Continuity 10-second hardware attempt is
+dependency-ready. The exact signed Debug app verifies Camera authorization
+status immediately before discovery/session setup; a non-authorized status
+terminates through the existing typed hardware result without requestAccess.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; accepted W02,
+R03, R05 evidence; preserved hardware supervisor; E07 blocker; Apple
+AVFoundation authorization APIs.
+observed_evidence: Current camera/finalizer/probe blobs match accepted W02 and
+the hardware script tail remains hash-identical through current HEAD. Hardware
+sets only the ordinary Phase 0B run environment, uses one explicit camera ID,
+and selects the capture harness after the permission-only route returns nil.
+mode_cleanup_separation: Permission mode alone creates LaunchServices token,
+acknowledgment, helper, and rejected root-guard ownership. Hardware mode creates
+none of those artifacts and uses accepted cleanup_nonpermission_mode.
+authorization_verification: Hardware calls authorizationStatus(.video);
+authorized continues, notDetermined returns camera_permission_required, and
+denied/restricted return camera_permission_denied. Hardware never calls
+requestAccess.
+runtime_packet: One freshly enumerated, explicit, non-suspended Continuity
+uniqueID; one 10-second attempt; no fallback, retry, prompt, permission route,
+TCC reset, or identity change. Retain only eight redacted QA files and remove
+raw media under the accepted hardware cleanup owner.
+cleanup_decision_disposition: DV-P0B-CAMERA-AUTH-CLEANUP-DECISION continues to
+block permission-only mode but does not invalidate the independently accepted
+hardware cleanup baseline or this attempt.
+checks_run: Full governing-document read; exact source/script/evidence,
+ancestry, blob, hash, dispatch, environment, and cleanup trace; clean diff and
+status. Read-only only.
+scope_check: No file edit, build, test, app, Camera/Microphone/TCC, process,
+media, UI, or external-storage action.
+deviations: one read-only hash command was retried after a zsh PATH-shadowing
+mistake; no persistent effect.
+residual: Signed Debug authorization and current Continuity availability remain
+unverified until the single runtime cell. Permission-only cleanup stays pending.
+next_dependency: DV-P0B-CAPTURE-R06, followed by independent evidence review.
+changed_paths: none
+```
+
+### `DV-P0B-UI-SKILL-E01`
+
+```text
+packet_id: DV-P0B-UI-SKILL-E01
+status: done
+verdict: blocked
+
+outcome: The repository-required build-macos-apps:swiftui-patterns skill is
+not installed, exposed, or available through a verified official current
+package/catalog identity in this environment.
+authority_used: AGENTS.md Mandatory UI Skill Gate; Dev Vlogs DV-CAMERA-7 and
+DV-ACC-UI-1; governing plan and current registry.
+changed_paths: none
+checks_run: Exact-name and manifest searches in active Codex skills/plugin
+cache/config/catalog roots; current exposed and recommended skill/plugin
+catalog inspection; official OpenAI documentation search.
+installed_state: No build-macos-apps package or swiftui-patterns skill exists
+on disk or in the current task exposure.
+official_package_identity: None established. The recommended plugin catalog
+contains no matching entry, and official documentation provides no package ID,
+alias, supersession, or installation path for this exact skill.
+equivalence_disposition: Similar available UI/design skills and cached web-app
+skills are not officially mapped substitutes and cannot satisfy the gate.
+activation_path: None in the current task. A supplied official package identity
+would require the supported user-controlled install flow and a fresh task skill
+exposure check.
+scope_check: Read-only skill/catalog/config/reference inspection; no install,
+repository edit, UI/source/runtime, or Computer Use.
+deviations: none
+residual: DV-P0B-E05 and all Dev Vlogs UI work remain blocked.
+next_dependency: User supplies the official skill package identity or
+explicitly authorizes changing the repository's exact UI-skill gate.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-UI-SKILL-R01`
+
+```text
+packet_id: DV-P0B-UI-SKILL-R01
+status: done
+verdict: accept
+
+outcome: The current environment exposes the exact repository-required
+build-macos-apps:swiftui-patterns skill. The coordinating /root read the full
+skill and its windowing, settings, split-view, menu-bar, and commands
+references, so the historical skill-availability blocker is resolved.
+authority_used: AGENTS.md Mandatory UI Skill Gate; Dev Vlogs DV-CAMERA-7,
+DV-UI-1 through DV-UI-8, and DV-ACC-UI-1; Phase 0B E05; Build macOS Apps
+package 0.1.4 skill at its current exposed filesystem identity.
+changed_paths: Registry only.
+checks_run: Current task skill catalog exposure; exact SKILL.md full read;
+complete directly relevant reference read; governing goal/spec/plan/protocol
+restart gate.
+skill_disposition: Dedicated on-demand SwiftUI Window, NavigationSplitView,
+explicit window-local state, concise menu entry, and SwiftUI-native visible
+content are the governing desktop patterns. AppKit visible UI is not allowed;
+any preview rendering adapter requires bounded platform evidence first.
+scope_check: Coordination evidence only; no source, UI, build, runtime,
+Camera, TCC, storage, or product implementation action.
+deviations: none
+residual: The UI source/platform ownership map and bounded E05 spike remain.
+next_dependency: DV-P0B-UI-E02, then independent review before E05 execution.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-UI-E02`
+
+```text
+packet_id: DV-P0B-UI-E02
+status: done
+verdict: ready_for_one_bounded_W01_spike
+
+outcome: Current macOS 14+ APIs support a SwiftUI-visible live preview without
+an AppKit view adapter: AVCaptureVideoDataOutput frames can be converted through
+CVPixelBuffer/CIImage/one reused CIContext to CGImage and rendered by SwiftUI
+Image. A dedicated Debug-only application/window can prove E05 without adding a
+normal menu item, product scene, media output, or capture-owner coupling.
+specified_expectation: Explicit Start/Stop only; mirror the SwiftUI preview
+only; write no media; release Camera before reporting stopped; all visible
+controls, state, layout, and feedback remain SwiftUI.
+observed_evidence: HoldTypeApp owns early Debug application routing and normal
+SwiftUI scenes; SettingsScene/SettingsView supply the later singleton-window
+and NavigationSplitView patterns; menu presentation owns dismiss/activate/
+openWindow sequencing; the accepted camera harness owns recording semantics and
+must remain untouched. Filesystem-synchronized app/test groups need no project
+edit. Debug alone has Camera purpose/entitlement; Release remains isolated.
+platform_evidence: AVCaptureVideoDataOutput, CIImage pixel-buffer conversion,
+CIContext CGImage creation, SwiftUI Image(CGImage), and off-main synchronous
+AVCaptureSession stop are supported before the macOS 14 deployment minimum.
+AVCaptureVideoPreviewLayer would require a visible NSView hosting boundary and
+is not technically necessary for this spike.
+proposed_writable_paths: HoldType/HoldTypeApp.swift; three new Debug preview
+files (Launch, Session, View); two new focused preview test files; one W01 QA
+summary. No project, plist, entitlement, script, Settings, MenuBar, dictation,
+recording/finalizer/probe/preservation, permission, storage, Release, or iOS
+path.
+required_checks: Router/isolation, explicit action, permission/device/no-
+fallback, frame conversion/coalescing, display-only mirroring, exact-once
+cleanup/reacquisition, deterministic SwiftUI previews/accessibility, structure,
+focused tests, Debug/unsigned Release isolation, then separately authorized
+Computer Use runtime with caffeinate and sanitized launch.
+scope_check: Read-only source/platform evidence only; no edit, build, runtime,
+Camera, TCC, Computer Use, process, media, or commit.
+deviations: none
+residual: Actual cadence, Continuity orientation, visual mirroring,
+responsiveness, and release remain runtime evidence after implementation review.
+next_dependency: DV-P0B-UI-E02-REVIEW, then one bounded W01 spike.
+runtime_or_visual_handoff: One controlled asymmetric non-sensitive marker;
+retain at most one redacted screenshot and no device ID, path, media, or speech.
+```
+
+### `DV-P0B-UI-E02-REVIEW`
+
+```text
+packet_id: DV-P0B-UI-E02-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: One corrected bounded Debug-only E05 implementation spike is
+authorized. Current macOS 14+ APIs support AVCaptureVideoDataOutput to
+CVPixelBuffer/CIImage/reused CIContext/CGImage and SwiftUI Image without a
+visible AppKit adapter, new dependency, project edit, or coupling to accepted
+recording owners.
+reviewed_evidence: HoldTypeApp owns the earliest Debug routing seam; a separate
+App.main does not instantiate HoldTypeApp or product owners. App/test groups
+are filesystem-synchronized; Debug alone has Camera purpose/entitlement;
+Release remains isolated. Apple documents synchronous stopRunning and supported
+frame delivery/conversion primitives predating the macOS 14 minimum.
+corrected_writable_paths: HoldType/HoldTypeApp.swift; new Debug PreviewLaunch,
+PreviewSession, and PreviewView; new PreviewLaunchTests and PreviewSessionTests;
+one docs/qa/runs/dev-vlogs-phase-0b-preview-w01/summary.md.
+required_constraints: Exact automation/Keychain-skip gated route before normal
+startup; malformed/conflicting input remains in a noncapturing preview error
+app; explicit exact-device selection with no fallback/requestAccess; one fresh
+session graph per acquisition; display-only SwiftUI mirroring; delegate and
+observer teardown before off-main synchronous stop; generation-checked late
+frame suppression; no file/audio/movie output or capture-format mutation.
+forbidden: Project/plist/entitlement/scheme/script, Settings, MenuBar,
+dictation, accepted capture/finalizer/probe/preservation, permission/W07,
+storage, Release, iOS, AppKit visible UI, NSViewRepresentable, preview layer,
+TCC/runtime/media.
+checks_run: Independent full authority/skill read; smallest source/project/
+configuration evidence; installed SDK and primary Apple API review. No build,
+test, runtime, Camera, TCC, Computer Use, edit, or process launch.
+scope_check: Read-only review; worktree unchanged.
+deviations: none
+residual: Real cadence, Continuity orientation, mirroring, responsiveness,
+camera-indicator release, and reacquisition require a later controlled runtime;
+E05 does not prove source-capture coexistence.
+next_dependency: DV-P0B-UI-W01, independent review, then one E05 runtime.
+runtime_or_visual_handoff: Separate packet only; one non-sensitive asymmetric
+marker, at most one redacted screenshot, no ID/path/media/speech/TCC mutation.
+```
+
+### `DV-P0B-UI-W01`
+
+```text
+packet_id: DV-P0B-UI-W01
+status: done
+
+outcome: Implemented and fake/build-verified the isolated Debug-only
+SwiftUI-first preview spike in exactly seven owned paths; commit 085fa26.
+specified_expectation: Exact automation/Keychain-gated early route; malformed
+or conflicting input stays noncapturing; explicit exact-device Start/Stop;
+no fallback, requestAccess, passive capture, or media; SwiftUI display-only
+mirror; bounded fresh graph and cleanup before Stopped; Release isolation.
+observed_evidence: Router precedes accepted harness. Valid mode composes only a
+WindowGroup preview. AVCaptureVideoDataOutput-only session uses default
+uncompressed frames, serial queues, one CIContext, a 30-second first-frame
+bound, generation-checked coalescing, and ordered delegate/observer/session/
+graph cleanup. SwiftUI exposes deterministic preview states and accessibility
+identifiers.
+changed_paths: HoldTypeApp.swift; new Debug PreviewLaunch, PreviewSession, and
+PreviewView; new PreviewLaunchTests and PreviewSessionTests; one preview-w01
+QA summary.
+checks_run: Structure pass; final 13 new XCTest plus 12 existing Launch tests;
+73 proportional Phase 0B Swift-Testing cases; Debug build; Release scheme and
+settings; direct genuinely unsigned Release target artifact; original Release
+plist/entitlements and no Camera key/preview symbols; forbidden API, diff,
+process, and temp-root audits.
+protected_proof: Project, plist, entitlement, scripts, product scenes/menu/
+Settings/dictation, and accepted capture/auth/finalizer/probe/preservation
+owners unchanged; existing Launch tests green; owned worktree clean.
+discrepancy_classification: A test continuation caused a Swift compiler SIL
+loop and was replaced with deterministic cancellable suspension. One
+cancel-before-graph-snapshot cleanup race was found in self-review and repaired
+before the final green checks. No contract discrepancy remains.
+scope_check: Exact seven-path Debug/test/evidence envelope; no app launch,
+Camera, TCC, Computer Use, media, permission, product, Release, iOS, script,
+project, spec, plan, or registry edit.
+deviations: Run-owned build/log roots moved to Trash; no process/temp residue;
+pre-existing installed HoldType preserved.
+residual: Real cadence, orientation, visual mirroring, camera indicator/release,
+and stop/reacquisition remain later runtime evidence; no source-capture
+coexistence claim.
+next_dependency: DV-P0B-UI-W01-REVIEW
+runtime_or_visual_handoff: none
+commit: 085fa26dc7040d91b9427a292aa62a9dbe0035c8
+parent: fc9001713097d835d7d7d762fa7c31770145d376
+```
+
+### `DV-P0B-UI-W01-REVIEW`
+
+```text
+packet_id: DV-P0B-UI-W01-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Commit 085fa26 satisfies the corrected seven-path Debug-only
+SwiftUI preview envelope. No blocking code, isolation, test, build, or claim
+finding remains.
+observed_evidence: Preview routing precedes the accepted harness; invalid or
+conflicting active configurations stay in a noncapturing error composition;
+valid composition instantiates no product or harness owner. Camera graph
+creation occurs only from explicit Start, authorization is status-only, exact
+device selection has no fallback, and the graph contains only video-data
+output. Frame conversion/coalescing, 30-second first-frame bound, generation
+checks, off-main synchronous stop, and cleanup-before-Stopped are coherent.
+SwiftUI owns all visible content and display-only mirroring.
+reviewed_commit_and_parent: 085fa26dc7040d91b9427a292aa62a9dbe0035c8;
+fc9001713097d835d7d7d762fa7c31770145d376. Exactly seven current blobs match.
+checks_run: Structure/diff; 13 preview XCTest plus 73 Phase 0B cases including
+12 existing Launch cases; Debug build; genuinely unsigned Release build and
+settings/artifact isolation; forbidden API and protected-blob comparisons;
+process/temp cleanup.
+protected_proof: Capture/auth/finalizer/probe/preservation/harness/script/
+project/plists/entitlements and every product/menu/Settings/dictation/storage/
+iOS owner remain byte-identical.
+scope_check: Read-only review; no edit, app runtime, Camera, TCC, Computer Use,
+screenshot, audio, video, or media action.
+deviations: One over-broad parallel test run contaminated the already-blocked
+permission-cleanup fixture; required serial proportional run passed. Exact
+run-owned roots were moved to Trash and processes exited; pre-existing HoldType
+was preserved.
+residual: Real cadence, camera orientation, visual mirroring, responsiveness,
+camera-indicator release, disappearance/failure/timeout release, and Stop→Start
+reacquisition remain controlled runtime evidence. No source-capture coexistence
+claim.
+next_dependency: DV-P0B-UI-R01 and independent evidence review.
+runtime_or_visual_handoff: Required later; none performed in review.
+```
+
+### `DV-P0B-UI-R01`
+
+```text
+packet_id: DV-P0B-UI-R01
+status: done
+functional_result: not_available
+
+outcome: The isolated Debug SwiftUI preview launched and remained passive until
+one explicit camera selection and Start action. The selected external camera
+was exact and had no fallback, but the isolated signed app identity reported
+Camera authorization notDetermined. The preview returned its typed
+authorizationRequired state without requestAccess, prompt, graph, frame,
+capture, media, retry, or Stop/reacquisition action.
+specified_expectation: Explicit selection and Start/Stop; no passive capture,
+permission request, fallback, or media; changing mirrored SwiftUI frames;
+release before Stopped; one Stop-to-Start reacquisition.
+observed_evidence: Computer Use operated the real SwiftUI Picker and Start
+button. Idle/released state and UI responsiveness were observed. Start reached
+one typed authorization terminal. Frame, mirroring, post-capture release,
+indicator, Stop, and reacquisition evidence are unavailable.
+discrepancy_classification: environment_or_signing_residual
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E04/E05/E06/E08; accepted
+UI-W01@085fa26 and its independent review; exact root clarification permitting
+one read-only Apple-native enumeration with the private device ID retained only
+in memory for the launch.
+changed_paths: Eight redacted evidence files only under
+docs/qa/runs/dev-vlogs-phase-0b-ui-preview-r01/**.
+checks_run: Accepted ancestry and blob proof; Debug/Release configuration,
+purpose, entitlement, and signing checks; fresh bounded Debug build; JSON,
+JSONL, CSV, redaction, no-media, exact-scope, diff, process, root, and cleanup
+audits.
+cleanup_receipt: Zero run-owned app, guard, helper, Computer Use, build, or
+temporary-root residue; pre-existing HoldType preserved; no raw media or
+screenshot created; protected storage count/size rows unchanged.
+scope_check: Evidence only; no source, spec, plan, registry, TCC, product,
+permission, W07, storage, Release, or iOS delta in the worker commit.
+deviations: Computer Use attachment delayed visual inspection, but the total UI
+session remained below five minutes. Window close left one windowless run-owned
+process, which was terminated only after fresh exact identity validation.
+residual: The isolated app identity remains Camera notDetermined. Live-frame,
+mirroring, indicator, release-after-capture, and reacquisition evidence is not
+available. Shared-preferences size/digest changed while a pre-existing HoldType
+process remained active, so attribution is explicitly unresolved.
+next_dependency: DV-P0B-UI-R01-REVIEW
+runtime_or_visual_handoff: Review only the committed redacted evidence; no
+further runtime is authorized by this packet.
+commit: 771b309b9feed0107af93957133fb62c624e39e6
+parent: 00e847594863a27bb641c85617f3e918b0fa0ba1
+```
+
+### `DV-P0B-UI-R01-REVIEW`
+
+```text
+packet_id: DV-P0B-UI-R01-REVIEW
+status: done
+verdict: accept_with_residual
+
+outcome: Commit 771b309 truthfully supports a terminal E05 result of
+not_available with an environment_or_signing_residual. It does not support an
+E05 pass or claims for live frames, mirroring, camera-indicator release, Stop,
+or reacquisition.
+specified_expectation: Isolated Debug-only SwiftUI preview; passive idle;
+explicit exact-device selection and Start/Stop; no permission request,
+fallback, product owner, or media; mirrored changing frames; release before
+Stopped; one reacquisition.
+observed_evidence: Exact eight-file evidence commit and current blobs agree on
+one selection, one Start request, and one typed authorizationRequired terminal.
+No frame, capture, Stop, retry, requestAccess, prompt, media, or screenshot
+event exists. Computer Use evidence supports idle state, Picker operation,
+Start, typed feedback, and bounded UI responsiveness only.
+source_provenance: All seven accepted W01 blobs match at the runtime parent.
+The source performs a status-only Camera authorization check and returns before
+graph creation on notDetermined; it contains no requestAccess and instantiates
+no normal product owners in the preview route. Debug purpose and entitlement
+presence do not themselves grant authorization.
+checks_run: Exact commit/parent/path/mode/current-blob audit; structured
+JSON/JSONL/CSV parsing and cross-check; minimum accepted W01/config provenance;
+redaction, media, screenshot, cleanup, current process, and temporary-root
+audits.
+redaction: No device unique ID, label, private path, PID, media, screenshot, or
+sensitive UI content is retained.
+cleanup: Evidence is coherent with exact identity-revalidated bounded TERM for
+the remaining run-owned app, preservation of the pre-existing HoldType, zero
+preview helpers or matching temporary roots, and no retained media. Aggregate
+counts are not upgraded into a byte-identical History claim.
+findings: No blocker. Shared-preferences size/digest changed during concurrent
+pre-existing HoldType activity; attribution remains ambiguous. The queued
+Phase 0B review must use DV-DRAFT-4 rather than the stale DV-DRAFT-3 label.
+scope_check: Read-only evidence and minimum provenance review; no edit, build,
+test, runtime, Camera/TCC, Computer Use, media, or cleanup mutation.
+residual: DV-EU-5 remains unresolved at runtime. Structural SwiftUI feasibility
+is accepted; supported live preview behavior is not proven.
+next_dependency: Close E05 for Phase 0B bookkeeping as terminal not_available
+and carry the residual to a DV-DRAFT-4-pinned DV-P0B-REVIEW. No blind retry is
+authorized. A later live proof would first require a separately authorized
+same-signed-identity Camera permission/status action.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W07-R2`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-R2
+status: done
+
+outcome: The Debug-only retained hardware handoff now binds one closed JSONL
+snapshot to descriptor-stable SHA-256 and explicit identity authority, survives
+raw EXIT cleanup, and supports one bounded post-exit consumer. Detected schema,
+identity, digest, ownership, or cleanup mismatch fails closed and retains the
+private token residual.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; accepted W07
+Swift diagnostics; rejected W07-R1 review; user-accepted narrow Debug trust
+boundary.
+changed_paths: script/dev_vlogs_phase_0b_spike.sh;
+HoldTypeTests/DevVlogsPhase0BHardwareEvidenceHandoffTests.swift;
+docs/qa/runs/dev-vlogs-phase-0b-capture-w01/summary.md.
+checks_run: Structure and syntax; production publisher/consumer/mutation hooks;
+focused 7/7, interacting 16/16, full Phase 0B 75/75; signed Debug build-only;
+bounded Release/settings/artifact isolation; protected 9/9 blob hashes; diff,
+redaction, exact-path, process, and root audits.
+scope_check: Exact three-path commit; no hardware, permission, TCC, media,
+external storage, product, project, plist, entitlement, UI, Release-semantic,
+or iOS change. Worktree and run-owned process/root state clean.
+deviations: Intermediate test defects were repaired before terminal checks.
+residual: The trusted Debug root does not claim resistance to a malicious
+same-UID namespace actor and does not weaken later product deletion/storage
+requirements. Real hardware evidence remains separate.
+next_dependency: DV-P0B-CAPTURE-W07-REVIEW-R2
+runtime_or_visual_handoff: none
+commit: b34dc16713961478c0f25db15666267695286ff4
+parent: c2a14f824d0333ed1270fdd35fd7e58421994108
+```
+
+### `DV-P0B-CAPTURE-W07-R3`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-R3
+status: done
+
+outcome: Every detected publisher mismatch now retains both implicated Debug
+roots, including malformed/schema cases and the same-size mutated raw source;
+every consumer mismatch retains the implicated handoff root/object. Protected
+leading dash/underscore IDs and nominal-zero with positive derived cadence are
+accepted. Publisher/consumer TERM and INT remain bounded and exact-owned.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E02/E04/E06/E08; user Debug trust
+decision; exact Review-R2 repair authority.
+changed_paths: script/dev_vlogs_phase_0b_spike.sh;
+HoldTypeTests/DevVlogsPhase0BHardwareEvidenceHandoffTests.swift;
+docs/qa/runs/dev-vlogs-phase-0b-capture-w01/summary.md.
+checks_run: Structure/syntax; production publisher/consumer hooks; focused 9/9;
+serial Phase 0B 77/77; help/default/negative/build-only; signed Debug; bounded
+Release/settings/artifact isolation; protected 9/9 hashes; diff, redaction,
+path, process, and root audits.
+scope_check: Exact three-path commit, clean worktree, zero run-owned residue; no
+hardware/permission/TCC/app runtime or protected-owner change.
+deviations: none material.
+residual: Debug trust boundary does not claim malicious same-UID resistance and
+does not weaken product storage/deletion rules. Real hardware remains separate.
+next_dependency: DV-P0B-CAPTURE-W07-REVIEW-R3
+runtime_or_visual_handoff: none
+commit: a90f88809b569aaf07151b58d40f8394ae81f330
+parent: 7bb8367848ea18afc6898a5463e7537d9e102c17
+```
+
+### `DV-P0B-CAPTURE-W07-REVIEW-R3`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-REVIEW-R3
+status: done
+verdict: accept_with_residual
+
+outcome: Review-R2 defects are closed. Universal implicated-residual retention,
+protected-emitter schema alignment, descriptor/digest publication, post-exit
+one-shot consumption, bounded publisher/consumer signal handling, trusted
+cleanup, and Debug/Release isolation all pass.
+checks_run: Exact commit/parent/three-path/current-blob review; structure and
+syntax; focused 9/9; full Phase 0B 77/77; signed Debug; bounded Release/settings/
+artifact isolation; protected 9/9 blobs; production identity/mutation/retention/
+signal probes; diff, redaction, process, and root audits.
+trusted_boundary: Accepted exactly as authorized. Random private mode-0700
+Debug namespace is trusted; no malicious same-UID resistance or product-level
+cleanup weakening is claimed.
+scope_check: Read-only; no repository/runtime/external-storage change and no
+review-owned residue.
+deviations: none material.
+residual: Real camera/media/TCC and quantitative hardware evidence remains
+separate and nonblocking for this deterministic repair.
+next_dependency: DV-P0B-STORAGE-R01
+runtime_or_visual_handoff: none
+reviewed_commit: a90f88809b569aaf07151b58d40f8394ae81f330
+```
+
+### `DV-P0B-STORAGE-R01`
+
+```text
+packet_id: DV-P0B-STORAGE-R01
+status: failed
+functional_result_by_cell: external_ssd_hfsplus=pass;
+external_hdd_apfs=pass
+
+outcome: Both bounded external-storage mechanics cells passed bookmark-after-
+rename, positive useful capacity, exclusive promotion/collision preservation,
+exact destination/no fallback, and exact scratch cleanup. Packet-level
+protected-scope check failed because an existing TranscriptionRecovery artifact
+received a new mtime during the HDD test-host window; cause is unattributed.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E03/E04/E08; accepted W02/R4
+seam; exact user authorization for the two recorded roots and new scratch only.
+changed_paths: Exactly seven redacted text files under
+docs/qa/runs/dev-vlogs-phase-0b-storage-r01/**.
+checks_run: Accepted wrapper provenance and syntax/help; exact-root bounded
+preflight; two serialized wrapper invocations; focused test results; artifact
+checksums/size cap; JSON/JSONL/CSV, redaction, no-media, path, diff, process,
+scratch, and commit audits.
+cleanup: Both external scratch prefixes absent; run-owned HoldType/xcodebuild/
+xctest/caffeinate zero; no cleanup outside owned scratch.
+deviations: First outer session guard exited with its shell, though the accepted
+wrapper guard covered SSD; a replacement outer guard covered HDD. Counts/path
+set stayed unchanged, but protected artifact/directory mtime changed during HDD.
+residual: Independent review must classify the protected artifact. Physical
+unplug/remount/read-only/true-stale/low-capacity/media remain not_available.
+next_dependency: DV-P0B-STORAGE-R01-REVIEW
+runtime_or_visual_handoff: none
+commit: f7bbc9d803e802e2564f3943cd7725cffe4bc5b1
+parent: ea8b92b4ea792b653f617bfe87dd61a5ef445f8f
+```
+
+### `DV-P0B-STORAGE-W03`
+
+```text
+packet_id: DV-P0B-STORAGE-W03
+status: done
+
+outcome: Added a complete outer Debug-only inert storage XCTest host before
+every existing Debug/product composition. Complete sanitized storage opt-in
+selects the inert host; missing, empty, malformed, or conflicting storage
+configuration remains typed/nonproduct and cannot construct normal, capture,
+authorization, preview, runtime, recovery, or filesystem owners. The accepted
+wrapper injects the exact host/automation/Keychain environment.
+changed_paths: HoldType/HoldTypeApp.swift; new Debug StorageTestHostLaunch;
+external-storage wrapper; new storage-host launch tests; canonical storage
+feasibility tests; storage W01 summary.
+checks_run: Structure/syntax/diff; signed Debug and build-for-testing; focused
+storage-host/wrapper and all accepted route/media suites; production wrapper
+function fake; help/default/invalid; unsigned Release/settings/artifact
+isolation; 21/21 protected blobs; redaction/process/temp/path audits.
+scope_check: Exact six paths, clean worktree; no external storage, app launch,
+live HOME, Recovery.json, camera/mic/TCC, product UI, project/plist/entitlement,
+dependency, or protected-artifact action.
+deviations: Signing required split build/test environments; one aggregate
+supervisor timed out after XCTest success and every group was rerun separately
+to exit 0. Task roots were moved to recoverable Trash.
+residual: Independent review only; no external runtime rerun authorized.
+next_dependency: DV-P0B-STORAGE-W03-REVIEW
+runtime_or_visual_handoff: none
+commit: 89127ccfa211b29d588bc09525ad17cabd7ffba8
+parent: 2492176ecb17cd9a8fad8b5f829de5cc8b5077ef
+```
+
+### `DV-P0B-STORAGE-W03-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W03-R1
+status: done
+
+outcome: Inert storage-host raw environment inputs now exist only as lexical-
+validation locals and immediately collapse to value-free `.validated` or a
+payload-free typed error. No route/runtime/product/spec behavior changed.
+changed_paths: Debug StorageTestHostLaunch source and its focused test only.
+checks_run: Structure/DEBUG/line limits; signed Debug build-for-testing;
+sanitized-HOME focused 11/11 and accepted route/storage tests; wrapper syntax/
+help/negative; signed Debug; bounded Release/settings/artifact isolation;
+protected 21/21 hashes; source/redaction/private-token/diff/path/process/temp
+audits.
+value_lifetime_proof: Configuration is a namespace with no stored instances;
+state/application retain only a value-free Result. String, reflection, dump,
+and Mirror tests prove valid and invalid raw sentinels are absent.
+scope_check: Exact two-path commit, clean worktree, no external/TCC/media/live-
+HOME/protected-artifact runtime.
+deviations: Signing build used normal environment while all host tests used
+sanitized HOME; task roots moved to recoverable Trash and verified absent.
+residual: Independent review only; no external rerun authorized.
+next_dependency: DV-P0B-STORAGE-W03-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: 7b1ba8deae6099ba7416751a894e0ca3ad1582fb
+parent: 877d2f00fbdc41352cf08e462bcefd11af2fe5cc
+```
+
+### `DV-P0B-STORAGE-W03-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W03-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: Raw storage environment values remain synchronous lexical-validation
+locals and collapse into value-free `.validated` or payload-free errors. No
+routing, wrapper, product, recovery, or Release behavior changed.
+checks_run: Exact two-path commit/current-blob audit; value-lifetime source and
+reflection trace; signed Debug build-for-testing; sanitized-HOME focused 11/11;
+signed Debug; unsigned Release/settings/artifact isolation; structure/diff;
+protected paths, process, temp, and worktree audits.
+protected_scope: Separate external runtime configuration remains the sole root
+consumer. No Recovery.json or external volume was accessed during review.
+scope_check: Read-only, exact two paths, no repository/runtime mutation.
+residual: Original historical protected-content delta remains unknowable and no
+restorative action is authorized. Acceptance adds no external runtime evidence.
+next_dependency: One bounded DV-P0B-STORAGE-R02 under prior exact-root authority.
+runtime_or_visual_handoff: none
+reviewed_commit: 7b1ba8deae6099ba7416751a894e0ca3ad1582fb
+```
+
+### `DV-P0B-STORAGE-R02`
+
+```text
+packet_id: DV-P0B-STORAGE-R02
+status: failed
+functional_result_by_cell: external_ssd_hfsplus=pass;
+external_hdd_apfs=pass
+packet_scope_result: fail / protected-domain dependency
+
+outcome: Both exact cells passed once through the accepted value-free inert
+host, but protected metadata changed again. No retry, attribution, restoration,
+or repair occurred.
+checks_run: Accepted ancestry/blob proof; one persistent guard with nine
+identity/liveness checks; exact read-only root preflights; two serialized
+wrapper invocations; scratch/process/protected metadata comparison; structured
+evidence, checksum/cap, redaction/no-media, exact seven-path/diff/commit audits.
+single_guard: One guard spanned baseline, both cells, final protected snapshot,
+and evidence capture; stopped/reaped exactly. No replacement.
+mechanics: Both cells pass bookmark-after-rename, positive capacity,
+RENAME_EXCL promotion, collision preservation, exact destination/no fallback,
+26-byte fixture, and cleanup. Measurements remain evidence_only.
+protected_scope: Count/path set remained stable, but the same recovery file was
+atomically replaced with unchanged size and its directory mtime changed.
+Contents were never opened/read/hashed; exact private delta is not persisted.
+cleanup: Both scratch prefixes absent; all run-owned app/test/wrapper/guard
+processes zero; pre-existing HoldType set remained empty.
+scope_check: Exact seven evidence paths; no source/spec/registry/project/
+product/TCC/media change or protected corrective action.
+residual: Causal protected-domain review required. Physical interruption,
+read-only, true stale, low capacity, and media remain not_available.
+next_dependency: DV-P0B-STORAGE-R02-REVIEW
+runtime_or_visual_handoff: none
+commit: 98b3b66bedab1191673848fbe874f0c339823067
+parent: e91b063efb918d39f7eca109aca84c75c9eb6011
+```
+
+### `DV-P0B-STORAGE-W04`
+
+```text
+packet_id: DV-P0B-STORAGE-W04
+status: done
+
+outcome: The external-storage wrapper now creates and identity-pins one fresh
+mode-0700 task HOME, injects HOME/CFFIXED_USER_HOME only into the hosted
+test-without-building route, and cleans that exact identity after supervised
+termination. The hosted runtime test fails before external scratch creation
+unless effective Foundation Application Support and default
+TranscriptionRecovery resolve as strict descendants of that HOME.
+changed_paths: External-storage wrapper and canonical storage feasibility test
+only; W01 summary unchanged.
+checks_run: Structure/syntax/diff; signed Debug build-for-testing; dedicated
+fresh-process hosted confinement cell; serial relevant Phase 0B 68/68;
+production wrapper env and cleanup fakes covering success, failure, timeout,
+INT, TERM, identity uncertainty, and sibling preservation; unsigned Release
+and artifact isolation; protected-blob, redaction, process, temp, and root
+audits.
+protected_scope: Accepted W02 process functions, W03 router/value-free state,
+recovery/product/project/plist/entitlement owners, Release, and ordinary modes
+remain unchanged. No external volume, live HOME, protected path, app, TCC,
+camera/audio, Keychain, media, or restorative runtime occurred.
+scope_check: Exact two-path master commit; clean worktree and zero run-owned
+residue.
+deviations: Test file was mechanically compacted below the 500-line ceiling;
+one local zsh audit variable shadowed PATH and the audit was rerun correctly.
+residual: Independent review only; no external runtime before acceptance.
+next_dependency: DV-P0B-STORAGE-W04-REVIEW
+runtime_or_visual_handoff: none
+commit: 03fac5cb7cfef202df1077e07645f5b08b4f4af1
+parent: 5a9a50a2e05939ca64736d2b054b7bd455f7ea63
+```
+
+### `DV-P0B-STORAGE-W04-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W04-R1
+status: done
+
+outcome: Task-HOME cleanup now runs as one bounded source-bound transaction:
+exclusive no-clobber rename to `.cleanup`, relocated uid/mode/dev/inode check
+against the pin, then immediate absolute deletion only on equality. Replacement
+or namespace uncertainty returns 70, retains objects/state, and cannot emit the
+final success line.
+changed_paths: External-storage wrapper and canonical storage feasibility test
+only.
+destructive_boundary_proof: Deterministic production-function fixture moves the
+pinned original aside, installs a valid-looking replacement, and preserves a
+sibling at the actual validation/transaction boundary. The replacement moves
+to quarantine, fails identity comparison, and survives with original/sibling;
+cleanup returns 70, state remains nonempty, and no cleanup-success claim emits.
+checks_run: Structure/syntax/diff; signed Debug build-for-testing; focused
+replacement and cleanup matrix including success/failure/124/130/143/identity
+uncertainty; fresh-process confinement; relevant route/storage 68/68; help/
+default/invalid; unsigned Release/artifact isolation; W02 function hashes;
+protected blobs, redaction, process, temp, and root audits.
+scope_check: Exact two-path master commit; no external volume/runtime, live
+HOME/protected artifact, product/spec/registry/project/summary, TCC/camera/
+audio/Keychain/media action; zero residue.
+residual: Independent review only; no external runtime before acceptance.
+next_dependency: DV-P0B-STORAGE-W04-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: 029f8364bb80b58c9f77cb49dbaea05869c989fb
+parent: b9182f90243eb982aa8d286f304335812672adad
+```
+
+### `DV-P0B-STORAGE-W04-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W04-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: The replacement-safe cleanup repair is accepted. The bounded child
+exclusively quarantines the current source, validates the relocated identity,
+executes absolute deletion only on equality, and outer success requires source
+and quarantine absence before clearing state or printing completion.
+checks_run: Exact commit/parent/two-path/current-blob audit; diff/structure/zsh;
+help/default/invalid; signed Debug build-for-testing; focused private-HOME
+hosted feasibility and production lifecycle/replacement fixture; redaction,
+protected-owner, process, task-root, and worktree audits. No external runtime.
+replacement_result: Pinned original, valid-looking replacement, and sibling
+survive the mismatch fixture; status 70, retained state, and no success claim.
+Quarantine collision leaves source present and fails without deletion.
+protected_scope: W04 confinement, W02 process owners, W03 routing/value state,
+product/recovery/Recording Cache/History/project/plist/entitlement/Release
+behavior are unchanged.
+scope_check: Read-only; no repository edit, external volume, live HOME,
+protected artifact, app, TCC, camera/audio, Keychain, media, or restorative
+action.
+residual: Acceptance adds no external evidence. One final bounded protected-
+scope runtime remains required.
+next_dependency: DV-P0B-STORAGE-R03
+runtime_or_visual_handoff: none
+reviewed_commit: 029f8364bb80b58c9f77cb49dbaea05869c989fb
+```
+
+### `DV-P0B-STORAGE-R03`
+
+```text
+packet_id: DV-P0B-STORAGE-R03
+status: failed
+functional_result_by_cell: external_ssd_hfsplus=fail;
+external_hdd_apfs=not_available
+packet_scope_result: pass_protected_metadata_unchanged, but not exercised by a
+launched hosted test
+
+outcome: One SSD wrapper invocation completed build-for-testing, then the
+private-HOME test-without-building phase resolved a new default DerivedData
+location and could not locate HoldType.app. Test execution failed with zero
+wrapper success terminals. No SSD retry and no HDD invocation occurred.
+protected_scope: One continuous exact guard spanned baseline, SSD boundary,
+final snapshot, evidence capture, and exact stop/reap. Protected path/count and
+all tracked metadata tuples were unchanged, but host confinement is not proven
+because the hosted test never launched.
+cleanup: Both external scratch prefixes, private task roots, and all run-owned
+app/build/test/wrapper/helper/guard processes are absent. No external deletion
+or protected corrective action occurred.
+changed_paths: Exactly seven redacted text files under
+docs/qa/runs/dev-vlogs-phase-0b-storage-r03/**.
+checks_run: Accepted ancestry/blob/syntax/help; exact SSD preflight and one
+bounded wrapper invocation; structured evidence, redaction/no-media,
+checksum/cap, exact path/mode/diff/commit, process/root/protected metadata
+audits; clean worktree.
+deviations: A private observer used zsh's readonly status variable and initially
+self-matched its process filter. Closed wrapper/build/test terminals establish
+the functional fail; exact non-self checks replaced the unusable process row.
+residual: Make build/test product lookup explicit while retaining the private
+Foundation HOME, then review before any further runtime.
+next_dependency: DV-P0B-STORAGE-R03-REVIEW
+runtime_or_visual_handoff: none
+commit: dc81960300bc0a48ce858e7e00cb71d09f6d13e1
+parent: 10c2a5a42027a12478c463d91b7d1e33a11a9bd0
+```
+
+### `DV-P0B-STORAGE-R03-REVIEW`
+
+```text
+packet_id: DV-P0B-STORAGE-R03-REVIEW
+status: done
+verdict: accept_with_residual
+functional_cell_verdicts: external_ssd_hfsplus=fail accepted as truthful;
+external_hdd_apfs=not_available accepted as truthful
+packet_scope_verdict: incomplete / not_proven
+
+outcome: R03 truthfully records a Debug-spike host-launch failure. Protected
+metadata remained unchanged, but hosted confinement was not exercised because
+HoldType.app never launched. Previously accepted mechanics remain unchanged.
+checks_run: Exact seven-file commit/parent/current-blob and structured evidence
+audit; guard, redaction, cleanup, protected metadata, accepted wrapper and
+project test-host provenance. No build, runtime, external, or protected access.
+causal_finding: Build runs under invoking HOME and hosted test under private
+HOME/CFFIXED_USER_HOME, while neither phase pins DerivedData. TEST_HOST depends
+on BUILT_PRODUCTS_DIR, matching the retained missing-prebuilt-host terminal.
+scope_check: Read-only; no repository edit, volume, live HOME/protected path,
+process, app, TCC, Keychain, media, or restorative action.
+residual: Hosted Foundation confinement remains not_proven.
+exact_next_dependency: Create one wrapper-owned DerivedData descendant and pass
+the identical explicit path to build-for-testing and test-without-building,
+while retaining private HOME only on hosted test; review before runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: dc81960300bc0a48ce858e7e00cb71d09f6d13e1
+```
+
+### `DV-P0B-STORAGE-W05`
+
+```text
+packet_id: DV-P0B-STORAGE-W05
+status: done
+
+outcome: The wrapper creates/pins its private task HOME before build, creates
+one canonical mode-0700 DerivedData child, validates it before both Xcode
+phases, and passes the identical explicit path to build-for-testing and
+test-without-building. Private HOME/CFFIXED_USER_HOME remain hosted-test only.
+observed_evidence: A real non-external split built under invoking HOME, then
+launched the inert hosted test under private HOME with the same DerivedData;
+Foundation Application Support and TranscriptionRecovery confinement passed
+before external I/O.
+changed_paths: External-storage wrapper and canonical storage feasibility test
+only.
+checks_run: Structure/zsh/help/default/invalid/diff; production argv/env/order
+fake; real split build/test; canonical feasibility and accepted Phase 0B route/
+auth/capture/media/handoff tests; signed Debug; unsigned Release/settings/
+artifact isolation; cleanup success/failure/124/130/143/identity/replacement/
+collision; protected hashes, redaction, process/temp/root audits.
+scope_check: Exact two-path master commit; no external volume, live protected
+path, app UI, TCC, Keychain, camera/audio/media, product/spec/registry/project,
+or restorative runtime; clean worktree and zero residue.
+deviations: Intermediate empty `.original/DerivedData` fixture residue was
+removed with exact rmdir and the focused split rerun proved zero residue.
+residual: Independent review only; no external runtime before acceptance.
+next_dependency: DV-P0B-STORAGE-W05-REVIEW
+runtime_or_visual_handoff: none
+commit: 8a98f7362a0c258f3fb653472bc338ac559de059
+parent: ecd17d6671a9bf79b682b641a9a2ab937be8745a
+```
+
+### `DV-P0B-STORAGE-W05-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W05-R1
+status: done
+
+outcome: DerivedData now has a creation-time uid/mode/device/inode pin. Both
+Xcode phases require exact identity equality, and task-HOME cleanup refuses
+deletion when the child identity is uncertain. Path and identity clear only
+after proven W04-R1 cleanup success.
+observed_evidence: Sanitized serial canonical feasibility passed 19/19 with
+clean terminal output. A real non-external same-path split launched the inert
+host and passed Foundation confinement. Accepted storage-host/launch regression
+passed 23/23.
+changed_paths: External-storage wrapper and canonical storage feasibility test
+only.
+identity_and_replacement_proof: A production-function fixture validates the
+original for build, replaces it with a valid-looking mode-0700 directory plus
+sibling, then proves test validation and cleanup both return 70. No bounded
+test command runs; original, replacement, sibling, task root, path, and identity
+survive; no test/cleanup success claim emits.
+checks_run: Structure/zsh/diff; help/default/invalid; production argv/env/order;
+real signed split build/test; canonical 19/19; accepted route 23/23; signed
+Debug; unsigned Release/settings/artifact isolation; protected function/blob,
+redaction, process, temp, root, and worktree audits.
+scope_check: Exact two-path master commit; no external volume metadata/I/O,
+live protected path, product/recovery/project/spec/registry, UI, TCC, Keychain,
+camera/audio/media, or restorative action; zero run-owned residue.
+deviations: Three empty pre-existing fixture roots from the rejected review
+were exact owner/mode/shape validated and removed with exact rmdir. The repaired
+serial fixture created no new residue.
+residual: Independent W05-R1 review only; no storage runtime before acceptance.
+next_dependency: DV-P0B-STORAGE-W05-REVIEW-R1
+runtime_or_visual_handoff: none
+commit: b172bfd69de8e4313e523f39386ade28a2eda8aa
+parent: b2a421d390b98f76a345977e38bffa121269395d
+```
+
+### `DV-P0B-STORAGE-W05-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-W05-REVIEW-R1
+status: done
+verdict: accept_with_residual
+
+outcome: W05-R1 closes both rejected findings. DerivedData has one creation-
+time uid/mode/device/inode pin, both Xcode phases require exact equality without
+repinning, replacement blocks test execution and task-HOME cleanup, and state
+clears only after W04-R1 cleanup proves source and quarantine absent. The
+canonical lifecycle suite is clean.
+identity_review: Creation pins the normalized identity once; canonical child,
+task-HOME identity, symlink, owner, mode, device and inode are checked before
+both phases. No recreate/repin path exists. Missing/replaced/wrong-mode state
+returns 70. All state clears only after exact deletion and absence proof.
+fixture_review: Production functions validate the original for build, move it
+aside, install a valid-looking replacement and sibling, then return 70 from
+test validation and cleanup. No test or cleanup-success marker emits; original,
+replacement, sibling, task root and original identity survive until explicit
+fixture teardown.
+checks_run: Exact commit/parent/two-path/current-blob/worktree; structure/zsh/
+diff/help/default/invalid/redaction; identical DerivedData argv and hosted-only
+private HOME; sanitized unsigned split build/test and Foundation confinement;
+canonical 19/19; route regression 23/23; protected owner/process/root audits.
+scope_check: Read-only; no edit, commit, external volume, live HOME, protected
+path, process signaling, app UI, TCC, Keychain, camera/audio/media, or
+restorative action.
+residual: Acceptance adds no external evidence. One final serialized protected-
+scope runtime remains under prior exact-root authority.
+next_dependency: DV-P0B-STORAGE-R04
+runtime_or_visual_handoff: none
+reviewed_commit: b172bfd69de8e4313e523f39386ade28a2eda8aa
+parent: b2a421d390b98f76a345977e38bffa121269395d
+```
+
+### `DV-P0B-STORAGE-R04`
+
+```text
+packet_id: DV-P0B-STORAGE-R04
+status: failed / mandatory guard stop
+functional_result_by_cell: external_ssd_hfsplus=not_invoked_guard_stop;
+external_hdd_apfs=not_invoked_guard_stop
+packet_scope_result: fail / protected metadata not_proven
+
+outcome: Accepted provenance passed, but the persistent PTY corrupted the
+private baseline command and closed after the one guard passed two exact
+checks. The guard became orphaned and changed parent identity. The packet
+stopped before protected baseline, volume preflight, cell/wrapper/Xcode/hosted
+test, retry, or replacement guard.
+observed_evidence: Accepted a50026a/7b1ba8d/029f836/b172bfd ancestry and blobs,
+wrapper syntax/help/default, and clean start passed. Both external scratch
+prefixes remained absent and zero cell processes were observed.
+single_guard_proof: One caffeinate guard started before baseline and passed two
+identity checks. PPID changed after its parent closed, so continuity=false and
+the mandatory stop fired. It was never replaced; its exact PID/start/command
+were verified before TERM and confirmed absent.
+protected_metadata_result: not_proven; baseline incomplete, no final snapshot,
+and no unchanged/change claim. Protected contents were not opened, read,
+hashed, parsed, restored, or attributed.
+cleanup: Both external scratch prefixes and wrapper task homes absent; private
+observer/helper absent; HoldType/HoldTypeTests/xcodebuild/xctest/caffeinate
+counts zero; no external deletion.
+scope_check: Exact seven redacted R04 evidence paths only; no source/script/
+spec/registry/project/product/TCC/Keychain/capture/media/UI/iOS/Release or
+protected corrective action.
+residual: Neither mechanics cell nor hosted protected-scope closure was
+exercised. Review must disposition the mandatory stop before any new runtime.
+next_dependency: DV-P0B-STORAGE-R04-REVIEW
+runtime_or_visual_handoff: none
+commit: 9e2a3eeee5c8c1004c6e396e740cf345c158c26c
+parent: 6bf645044c48d23dcd40e86e4a60eb91c94a9393
+```
+
+### `DV-P0B-STORAGE-R04-REVIEW`
+
+```text
+packet_id: DV-P0B-STORAGE-R04-REVIEW
+status: done
+verdict: accept_with_residual
+functional_cell_verdicts: SSD and HDD accepted as truthful
+not_invoked_guard_stop
+packet_scope_verdict: fail / protected metadata not_proven, accepted as
+truthful
+
+outcome: R04 is accepted as a truthful mandatory pre-baseline guard stop. No
+storage cell or protected-scope execution occurred. Cleanup is sufficient;
+prior mechanics remain accepted but were not re-proven.
+structured_evidence: Exact seven-file commit/current blobs; three packet-scope
+events with one terminal; zero matrix/measurement/artifact rows; no pass,
+capacity, fixture, private-HOME, DerivedData, or confinement claim.
+single_guard_review: One guard passed two checks, lost parent continuity, and
+triggered immediate stop without replacement or retry. Exact PID/start/command
+identity was revalidated before TERM and confirmed absent.
+classification: Environment/tooling transport residual; no W05-R1, wrapper,
+product, or protocol defect. The fail-closed protocol operated as specified.
+scope_check: Read-only; no repository edit, external volume/write, live HOME,
+protected path, process beyond exact guard cleanup, app/TCC/Keychain/camera/
+audio/media, Release, or restorative action.
+residual: Hosted confinement and protected-scope closure remain unexercised.
+Existing exact-root authority was not used and supports one separately
+packetized final runtime.
+exact_next_dependency: One prevalidated noninteractive single-shot controller
+must remain the guard's stable parent from creation through baseline, preflight,
+serialized cells, final snapshot, evidence and exact guard cleanup. Poll only;
+no incremental PTY injection, replacement, retry, or broader authority.
+runtime_or_visual_handoff: none
+reviewed_commit: 9e2a3eeee5c8c1004c6e396e740cf345c158c26c
+parent: 6bf645044c48d23dcd40e86e4a60eb91c94a9393
+```
+
+### `DV-P0B-STORAGE-R05`
+
+```text
+packet_id: DV-P0B-STORAGE-R05
+status: failed / protected-domain dependency
+functional_result_by_cell: external_ssd_hfsplus=pass;
+external_hdd_apfs=not_invoked_protected_stop
+packet_scope_result: fail / protected_metadata=changed
+
+outcome: One SSD invocation passed accepted mechanics, private-HOME
+confinement, shared identity-pinned DerivedData, and wrapper cleanup. Immediate
+metadata-only protected comparison differed from baseline, so the single
+controller stopped and HDD remained uninvoked. No retry, replacement,
+attribution, or restoration occurred.
+observed_evidence: Accepted provenance exact; one noninteractive controller and
+one direct-child guard; baseline/SSD preflight pass; wrapper exit 0; build and
+hosted test pass; one wrapper pass/cleanup terminal; scratch/task-HOME/process
+absence; protected comparison changed; controller exit 71; HDD invocations 0.
+mechanics: Bookmark-after-rename, positive capacity, exclusive promotion,
+collision preservation, exact destination/no fallback, fixture hashes and
+cleanup pass. Measurements remain evidence_only.
+protected_metadata: Changed after SSD. Exact private delta was not inspected or
+retained; no protected content was read, hashed, parsed, attributed, restored,
+or repaired.
+guard: Controller and guard identities passed five checkpoints and final counts
+are zero. Controller finalizer did not retain explicit pre-stop identity plus
+TERM/wait reap facts, so that subclaim is not made.
+cleanup: Both scratch prefixes, task homes, controller/guard and run-owned app/
+build/test processes absent; private raw controller root removed; clean
+worktree.
+scope_check: Exact seven redacted R05 evidence paths; no source/test/script/
+spec/registry/project/product/TCC/Keychain/camera/audio/media/UI/iOS/Release or
+protected corrective action; no external deletion outside accepted scratch.
+residual: Protected boundary failed closed; cause/delta unknown; explicit guard
+TERM/wait proof unavailable; HDD uninvoked.
+next_dependency: DV-P0B-STORAGE-R05-REVIEW
+runtime_or_visual_handoff: none
+commit: bec67515ed855f1fba5ad3f63c91ac09146434da
+parent: c54c798f1543f03cfcd0d0e87d7b6320a256a22e
+```
+
+### `DV-P0B-STORAGE-R05-REVIEW`
+
+```text
+packet_id: DV-P0B-STORAGE-R05-REVIEW
+status: done
+verdict: accept_with_residual
+split_verdicts: SSD mechanics=accept; hosted private-HOME/CFFIX=accept; shared
+identity-pinned DerivedData=accept; packet protected scope=reject/changed; guard
+cleanup evidence=accept_with_residual; HDD=truthful not_invoked_protected_stop.
+
+outcome: R05 is accepted as truthful evidence of one SSD mechanics/private-
+confinement pass followed by a fail-closed protected-metadata change. HDD
+non-invocation is accepted. Packet protected scope remains failed, and exact
+guard termination/reaping remains an evidence residual.
+structured_evidence: Exact seven-file commit/current blobs; one passing SSD
+terminal plus one packet-fail terminal; zero HDD events/rows; five evidence-
+only measurements; three fixtures matching accepted size/checksum provenance;
+no contradictory retry, threshold, or scope-success claim.
+hosted_isolation: Build and hosted test passed with identical explicit
+DerivedData and test-only private HOME/CFFIX. Foundation Application Support
+and default recovery descendants were validated before external scratch. This
+does not establish every controller/build-tool/concurrent lifecycle.
+protected_scope: Baseline and immediate post-SSD tuples differed. Exact object,
+tuple, path and predicate were neither inspected nor retained; no attribution
+is supported. Repeated changes establish insufficient packet-level isolation,
+not one proven creator.
+guard_cleanup: Five checkpoints and final zero-process state prove no residue,
+but explicit pre-stop identity, TERM, parent wait and reap facts are absent, so
+exact termination/reaping is not proven.
+scope_check: Read-only; no repository mutation, live HOME/protected metadata,
+external volume, process signaling, app/Xcode runtime, TCC, Keychain, camera/
+audio/media, iOS, Release, or restorative action.
+residual: Unknown protected-domain dependency and guard-proof residual. No
+further equivalent storage runtime is justified under existing authority.
+exact_next_dependency: Carry accepted mechanics/confinement plus unresolved
+protected dependency and guard residual into DV-P0B-REVIEW and user
+disposition. A future causal study requires explicit user request and an
+independently reviewed read-only observer design before any runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: bec67515ed855f1fba5ad3f63c91ac09146434da
+parent: c54c798f1543f03cfcd0d0e87d7b6320a256a22e
+```
+
+### `DV-P0B-E07-E01`
+
+```text
+packet_id: DV-P0B-E07-E01
+status: done
+outcome: E07 can be proven through a new test-only paired fixture and redacted
+QA receipt. No product or existing Debug-spike source change is required.
+
+specified_expectation: Paired baseline and spike-enabled attempts compare
+start, stop, finalized-audio ownership, provider dispatch, correction,
+translation, accepted output, cancellation, History/cache effects and terminal
+cleanup. Camera, destination and mux failures remain subordinate; one dictation
+recorder stays authoritative and temporary vlog access ends on every path.
+observed_evidence: DictationSessionController plus the existing recorder,
+journal, transcript pipeline and injectable provider/post-processing/output
+boundaries already support deterministic fake-backed verification. Existing
+dictation and Dev Vlogs suites prove their branches separately but never pair
+and compare them. The isolated DevVlogsPhase0BHarness is not an E07 orchestrator
+because it owns separate audio and never enters normal provider/output flow.
+discrepancy_classification: Not-exercised QA/acceptance gap; no spec conflict or
+product implementation defect is established.
+future_scope: Add only
+HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests.swift,
+HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTestSupport.swift, and a new
+eight-file redacted QA root under
+docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/. All HoldType product/Debug,
+scripts, project, existing tests/evidence, specs and runtime surfaces are
+forbidden.
+paired_matrix: Standard, correction and translation success; explicit cancel;
+camera unavailable, busy and slow/timeout; destination unavailable and
+disconnect; mux failure. Each pair compares action states, recorder counts and
+artifact identity, journal ownership/leases, provider checkpoint/seal/accept,
+provider request, correction/translation, output, terminal cause, History/cache
+effects and exact cleanup.
+checks_required: Structure; bounded focused E07, controller-action and accepted
+launch suites; diff/allowlist and protected-blob audit; no real service/device/
+wait/file mutation; structured artifact and redaction validation; exact-one
+terminal and zero outstanding operation/lease. Any unequal snapshot is a
+functional E07 fail, not evidence_only.
+scope_check: Read-only source/QA inspection. No edit, build, test, runtime,
+process, hardware, provider, Keychain, media or storage action.
+residual: A pass would prove deterministic fake-backed E07 only. It would not
+prove the shipping shared-audio lease, hardware timing/preservation, protected
+storage closure or quantitative measurements.
+next_dependency: DV-P0B-E07-E01-REVIEW, then exact W01 plus independent review.
+runtime_or_visual_handoff: none
+```
+
+### DV-P0B-E07-E01-R1
+
+~~~text
+packet_id: DV-P0B-E07-E01-R1
+status: design_complete_pending_independent_review
+outcome: A complete future writable E07 packet is defined below. It uses two
+new DEBUG-only test files and exactly eight redacted QA files. It requires no
+product hook, product/source change, existing-test change, second microphone,
+shipping audio lease, live provider, Keychain, camera, storage or runtime.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance; agent
+onboarding; specification README/index; complete DV-DRAFT-4@2f3266a; complete
+Dev Vlogs implementation plan and Phase 0B protocol; registry header, scope,
+decisions, epoch, table, current coordination, E01, rejected E01 review,
+integrated Phase 0B review, W02 and W07-R3 receipts/reviews; SWIFT; agent
+tooling; active microphone-text-input, recording-durability-and-interruption,
+privacy-and-permissions, settings-and-secret-storage, OpenAI-transcription,
+text-correction, post-transcription-actions, text-output-workflow and
+transcript-history specifications. root-orchestration was not read because
+this finite authority explorer is not /root.
+
+expected: Under DV-CAPTURE-1..5, DV-CAPTURE-7..10, DV-ACC-CAPTURE-1 and
+Phase 0B E02/E07/E08, every baseline dictation remains usable under the paired
+spike attempt. Baseline and spike compare canonical start, recording, finish
+or cancel, one authoritative audio owner, completed-artifact identity, journal
+checkpoint/release/discard, provider authorization/seal/dispatch/request/
+acceptance, correction/translation, accepted output, History, Recording Cache,
+output handoff and exact terminal cleanup. Camera unavailable/busy/slow-
+timeout, destination unavailable/disconnect and mux failure remain subordinate
+observer outcomes and cannot alter canonical dictation.
+
+observed_evidence: DictationSessionController is the canonical injected state
+owner and AudioRecorderService is the sole microphone owner. Existing recorder,
+journal, recovery, provider, transcript pipeline, correction, translation,
+History, cache, output, settings, credential, monitor and event seams are
+sufficient for deterministic fakes. Existing dictation and Dev Vlogs tests
+exercise branches separately but never form E07 pairs. The existing Debug
+DevVlogsPhase0BHarness is not reusable as E07 orchestration because it owns a
+separate recorder, cancels it on capture failures and never enters canonical
+provider/output flow.
+
+discrepancy_classification: qa_evidence_gap. The expected contract is
+specified and current source is reusable, but E07 remains not_exercised. No
+product implementation defect, specification conflict or protected semantic
+dependency was found. Change mode is discover; specification delta is none.
+
+literal_paths_and_symbols:
+Only these ten new paths may be written:
+1. HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests.swift
+2. HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTestSupport.swift
+3. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/summary.md
+4. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/source-feasibility.md
+5. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/environment.json
+6. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/matrix.csv
+7. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/measurements.csv
+8. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/artifacts.csv
+9. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/residuals.md
+10. docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/events/e07-pairs.jsonl
+
+Both Swift files have at most 500 physical lines; first nonblank line is
+#if DEBUG; last nonblank line is #endif; HoldTypeTests membership comes only
+from its existing PBXFileSystemSynchronizedRootGroup. No project edit is
+permitted.
+
+DevVlogsPhase0BDictationNonRegressionTests.swift declares only:
+@MainActor struct DevVlogsPhase0BDictationNonRegressionTests, with exactly
+standardSuccessPairMatchesBaseline,
+correctedSuccessPairMatchesBaseline,
+translatedSuccessPairMatchesBaseline,
+explicitCancelPairMatchesBaseline,
+cameraUnavailablePairMatchesBaseline,
+cameraBusyPairMatchesBaseline,
+cameraSlowTimeoutPairMatchesBaseline,
+destinationUnavailablePairMatchesBaseline,
+destinationDisconnectPairMatchesBaseline,
+muxFailurePairMatchesBaseline and
+evidenceArtifactsMatchClosedSchemasAndRedactionPolicy.
+It has no file-local helper.
+
+DevVlogsPhase0BDictationNonRegressionTestSupport.swift declares only:
+DevVlogsPhase0BE07CaseID,
+DevVlogsPhase0BE07AttemptMode,
+DevVlogsPhase0BE07ActionState,
+DevVlogsPhase0BE07DictationTerminal,
+DevVlogsPhase0BE07AudioOwner,
+DevVlogsPhase0BE07ArtifactIdentity,
+DevVlogsPhase0BE07AcceptedOutputClass,
+DevVlogsPhase0BE07TerminalCause,
+DevVlogsPhase0BE07Durability,
+DevVlogsPhase0BE07ObserverPhase,
+DevVlogsPhase0BE07ObserverTerminal,
+DevVlogsPhase0BE07ObserverCallResult,
+DevVlogsPhase0BE07GateResolution,
+DevVlogsPhase0BE07GateSnapshot,
+DevVlogsPhase0BE07AccessSnapshot,
+DevVlogsPhase0BE07TemporaryAudioAccess,
+DevVlogsPhase0BE07ObserverSnapshot,
+DevVlogsPhase0BE07DictationSnapshot,
+DevVlogsPhase0BE07AttemptSnapshot,
+DevVlogsPhase0BE07PairResult,
+DevVlogsPhase0BE07AccessError,
+DevVlogsPhase0BE07GateError,
+DevVlogsPhase0BE07HarnessError,
+DevVlogsPhase0BE07EvidenceValidationError,
+DevVlogsPhase0BE07TemporaryAccessToken,
+DevVlogsPhase0BE07SlowPreparationGate,
+DevVlogsPhase0BE07Observer,
+DevVlogsPhase0BE07RecorderSpy,
+DevVlogsPhase0BE07CaptureJournalSpy,
+DevVlogsPhase0BE07RecoverySpy,
+DevVlogsPhase0BE07InjectedServicesSpy,
+DevVlogsPhase0BE07PairHarness and
+DevVlogsPhase0BE07EvidenceValidator.
+
+The closed enum cases are:
+- CaseID: standard_success, corrected_success, translated_success,
+  explicit_cancel, camera_unavailable, camera_busy, camera_slow_timeout,
+  destination_unavailable, destination_disconnect, mux_failure.
+- AttemptMode: baseline, spike.
+- ActionState: idle, recording, transcribing, success.
+- DictationTerminal: success, cancelled.
+- AudioOwner: dictationRecorder.
+- ArtifactIdentity: none, dictationAudio.
+- AcceptedOutputClass: none, standard, corrected, translated.
+- TerminalCause: none, userFinished, explicitUserDiscard.
+- Durability: none, historyCheckpoint, explicitlyDiscarded.
+- ObserverPhase: disabled, idle, preparing, capturing, finalizing, ready,
+  failed, cancelled, cleaned.
+- ObserverTerminal: disabled, ready, cancelled, cameraUnavailable, cameraBusy,
+  cameraPreparationTimedOut, destinationUnavailable, destinationDisconnected,
+  muxFailed.
+- ObserverCallResult: continued, terminal(ObserverTerminal),
+  rejectedLateDuplicate(ObserverTerminal).
+- GateResolution: ready, timedOut.
+- AccessError: artifactMismatch, unavailable, alreadyAcquired, invalidRelease,
+  alreadyReleased.
+- GateError: duplicateEntry, duplicateResolution.
+- HarnessError: unsupportedCase, providerReleaseBeforeDispatch,
+  missingCompletedArtifact, snapshotMismatch, unexpectedTerminal,
+  outstandingResource.
+- EvidenceValidationError: missingFile, unexpectedFile, oversizedFile,
+  symlinkNotAllowed, invalidHeading, invalidSchema, duplicateKey,
+  invalidCardinality, invalidOrder, forbiddenContent.
+
+No global function, extension, extra helper type or nested helper is permitted.
+No overload is permitted beyond the exact production protocol witnesses;
+RecorderSpy implements exactly both AudioRecorderService startRecording
+witnesses and no additional startRecording overload. Production protocol
+witnesses use the current protocol declarations verbatim and do not expand the
+helper API. The only additional named methods are:
+- TemporaryAccessToken: init(completedArtifact:identity:),
+  acquire(completedArtifact:), release(_:), snapshot().
+- SlowPreparationGate: enterAndWaitForResolution(), waitUntilEntered(),
+  resolve(_:), snapshot() throws -> GateSnapshot.
+- Observer: init(caseID:slowPreparationGate:), prepare(),
+  finish(completedArtifact:temporaryAccessToken:), cancel(),
+  destinationDidDisconnect(), snapshot(), and private complete(_:).
+- RecorderSpy: exact AudioRecorderService witnesses,
+  waitUntilCompletedArtifact(), snapshot().
+- CaptureJournalSpy: exact RecordingCaptureJournaling witnesses, snapshot().
+- RecoverySpy: exact TranscriptionFailureRecoveryRecording witnesses,
+  snapshot().
+- InjectedServicesSpy: exact remaining injected-service witnesses,
+  waitUntilProviderDispatch(), releaseProviderResponse(), snapshot().
+- PairHarness: runPair(caseID:), assertPair(caseID:), and private
+  runAttempt(caseID:mode:), expectedDictationSnapshot(caseID:),
+  expectedObserverSnapshot(caseID:), makeSettings(caseID:),
+  makeSnapshot(dictation:observer:).
+- EvidenceValidator: validate(fromTestFilePath:), and private
+  validateFileInventory(_:), validateMarkdown(_:), validateEnvironment(_:),
+  validateCSVFiles(_:), validateEvents(_:), validateSizes(_:),
+  validateRedaction(_:).
+
+observer_contract:
+The observer retains only case ID, optional slow gate, value counters and
+terminal state. It never receives or retains recorder, journal, controller,
+provider, URL, path, microphone or shipping lease. Its only audio input is the
+already-completed AudioRecordingArtifact value plus
+DevVlogsPhase0BE07TemporaryAccessToken passed to
+finish(completedArtifact:temporaryAccessToken:).
+
+The pair harness creates that token exactly once after RecorderSpy publishes
+the artifact returned by canonical stopRecording. The token binds exact
+artifact equality to redacted identity dictationAudio and fixed accessID 1,
+permits one acquire and one matching release, rejects mismatch/second acquire/
+invalid or second release, never opens/reads/copies/moves/deletes/serializes
+the artifact, and exposes only identity and counters.
+
+DevVlogsPhase0BE07TemporaryAudioAccess has exactly
+identity:ArtifactIdentity, accessID:Int and artifact:AudioRecordingArtifact;
+artifact is never serialized or logged. DevVlogsPhase0BE07AccessSnapshot has
+exactly acquireCount:Int, releaseCount:Int and outstandingCount:Int.
+Observer prepare returns terminal cameraUnavailable, cameraBusy or
+destinationUnavailable for those cases; it waits on the injected gate for
+cameraSlowTimeout; it returns continued/capturing for success, mux, cancel and
+disconnect. finish is valid only from capturing and returns terminal ready for
+the three success cases or terminal muxFailed for mux_failure. cancel and
+destinationDidDisconnect return their named terminal only from capturing.
+
+Ready and muxFailed acquire/release/outstanding are 1/1/0; mux release is in
+defer. Cancel, all preparation faults and disconnect are 0/0/0. Every spike
+has exactly one observer terminal and cleanup. Repeating the same terminal API
+returns rejectedLateDuplicate(existingTerminal), increments only the duplicate
+counter and never repeats terminal, release or cleanup.
+
+pair_sequences:
+Baseline success order is settings snapshot; credential resolution; journal
+prepare; playback stop; canonical recorder start; recording barrier; finish;
+recorder stop and completed artifact; recovery checkpoint; journal release;
+userFinished/historyCheckpoint/providerAuthorized terminal; transcribing;
+credential reuse; provider seal; dispatch/request; accept; usage; correction;
+optional translation; accepted output/success state; History; recovery
+removal; output; cache; awaited public finish-action return; and closure of all
+injected/publicly observable duration, provider, journal, recovery and
+harness-task resources.
+
+Baseline cancel order is settings; credential; journal prepare; recorder start;
+recording; cancel; recorder cancel; journal discard; explicitUserDiscard/
+explicitlyDiscarded/providerAuthorized=false; idle; awaited public cancel-action
+return; and closure of all injected/publicly observable duration, journal,
+recovery, provider and harness-task resources.
+Provider seal/dispatch/request/accept, usage, correction, translation, History,
+output and cache remain zero.
+
+Spike success/mux order is canonical recording; observer prepare/capturing;
+controller finish; recorder publishes its already-completed artifact;
+controller checkpoints/releases/seals/dispatches then blocks at the injected
+provider continuation before acceptance; harness confirms dispatch, creates
+the token and calls observer finish; observer reaches ready or muxFailed and
+releases access; observer cleanup; harness releases provider; canonical
+accept/correction/translation/History/recovery removal/output/cache/success/
+cleanup; duplicate finish rejected.
+
+For camera unavailable/busy and destination unavailable, canonical recording
+precedes observer prepare terminal/cleanup and duplicate rejection, then
+canonical finish follows baseline success. Destination disconnect reaches
+capturing, then destinationDidDisconnect terminal/cleanup and duplicate
+rejection before canonical finish. Explicit cancel reaches canonical recording
+and observer capturing, observer cancel/cleanup and duplicate rejection, then
+canonical baseline cancel. Observer failure never cancels canonical audio.
+
+slow_barrier:
+DevVlogsPhase0BE07SlowPreparationGate remains an actor. It imports
+Synchronization and owns exactly one additional private synchronization value:
+waitState, a nonisolated let Mutex whose tuple contains only
+entryContinuation:CheckedContinuation<Void, Error>?,
+resolutionContinuation:CheckedContinuation<GateResolution, Error>?,
+entryWaitOpen:Bool, resolutionWaitOpen:Bool,
+cancellationRequested:Bool and isClosed:Bool. There is no relay Task, task
+handle, third continuation, helper type/method, global, polling, sleep or clock.
+
+GateSnapshot contains exactly the original enterCount:Int,
+resolutionCount:Int, waiterCount:Int and isResolved:Bool plus the closed
+projection pendingContinuationCount:Int, openSuspendingMethodCount:Int and
+isClosed:Bool. The two counts are calculated inside waitState.withLock and do
+not expose continuations. isClosed becomes true only when a terminal normal,
+error or cancellation result exists, both continuation fields are nil and both
+open flags are false.
+
+waitUntilEntered() async throws is explicitly idempotent after enterCount is
+one: any number of later calls returns after Task.checkCancellation and a
+withLock check that no gate cancellation won. duplicateEntry applies only when
+a second waiter arrives while entryWaitOpen is already true before entry, or
+when enterAndWaitForResolution is called a second time. No waiter-consumption
+field exists or is needed.
+
+Before exposing its cancellation handler, pre-entry waitUntilEntered uses one
+waitState.withLock transition to validate the unused gate and set
+entryWaitOpen true while leaving entryContinuation nil. It performs no await or
+yield between that opening transition and withTaskCancellationHandler. Inside
+the handler operation it captures Task.isCancelled immediately before creating
+the checked continuation. The continuation-install withLock transition checks
+both that captured signal and cancellationRequested. If either is true, it
+sets cancellationRequested true, never stores the new continuation, returns
+that continuation as a local cancellation value, unlocks, and resumes the
+local by throwing CancellationError. Otherwise it stores entryContinuation
+while entryWaitOpen remains true. Thus the continuation body returns only
+after either an outside-lock immediate cancellation resume or an atomic store
+under an open flag with normal-entry and cancellation resumers.
+
+The wait cancellation handler synchronously locks waitState and, only while
+entryWaitOpen is true and isClosed is false, records cancellationRequested and
+takes/clears the entry continuation; after unlocking it resumes that local by
+throwing CancellationError as the handler's final side effect. If
+entryWaitOpen is already false, the handler is a no-op. It creates no Task. A
+do/catch finalization path runs after normal or throwing resumption. In one
+waitState.withLock transition, waitUntilEntered reads Task.isCancelled without
+throwing, rechecks cancellationRequested and closes entryWaitOpen. If either
+cancellation value is true, that transition takes and clears both continuation
+fields and captures any resolution continuation for one outside-lock
+CancellationError resume; the actor then updates its terminal counters and
+returns only by throwing CancellationError. If both values are false, the same
+transition closes entryWaitOpen and returns only after confirming its entry
+continuation is nil. That mutex-protected recheck-and-close is the joined
+return boundary. A cancellation handler that obtains the mutex afterward sees
+entryWaitOpen false, is a no-op and cannot retroactively change the completed
+observation.
+
+enterAndWaitForResolution() async throws rejects enterCount other than zero.
+The actor first sets its entry/waiter counts to one. Before exposing its
+cancellation handler, one waitState.withLock transition validates the unused
+resolution path and sets resolutionWaitOpen true while leaving
+resolutionContinuation nil; there is no await or yield before
+withTaskCancellationHandler. Inside the handler operation it captures
+Task.isCancelled immediately before creating the checked resolution
+continuation. The continuation-install withLock transition checks both that
+captured signal and cancellationRequested. If either is true, it sets
+cancellationRequested true, never stores the new resolution continuation, and
+takes/clears any entry continuation; after unlocking it resumes the new local
+and any entry local by throwing CancellationError. Otherwise the same
+transition stores resolutionContinuation and takes/clears entryContinuation,
+then resumes the entry local normally outside the lock. The resolution
+cancellation handler synchronously locks waitState and, only while
+resolutionWaitOpen is true and isClosed is false, records
+cancellationRequested and takes/clears the resolution continuation; after
+unlocking it resumes that local by throwing CancellationError as its final side
+effect. If resolutionWaitOpen is already false, the handler is a no-op. A
+do/catch finalization path runs after any resume. In one waitState.withLock
+transition the method reads Task.isCancelled without throwing, rechecks
+cancellationRequested, closes resolutionWaitOpen and clears both continuations
+on a cancellation terminal. The actor then updates terminal counters and
+returns or throws only after its own continuation is nil and all cancellation
+state for that method is closed. That mutex-protected recheck-and-close is this
+method's joined return boundary.
+
+The registration/race dispositions are closed:
+- Already cancelled before either suspending call: its open flag is set first;
+  handler registration and the captured install signal make cancellation
+  sticky; the continuation is not stored and is locally resumed with
+  CancellationError outside the mutex.
+- Cancellation after the open transition but before install: either the
+  handler sets cancellationRequested first or the captured install signal is
+  true, in which case the install transition does not store. If cancellation
+  races after the signal capture and install wins the mutex before the handler,
+  it stores under the already-open flag and the handler becomes its future
+  resumer.
+- Normal install versus cancellation: the mutex winner either refuses and
+  immediately resumes the local continuation, or stores it for the handler to
+  take. No third state exists.
+- Normal entry/resolution versus cancellation after install: the mutex winner
+  takes the stored continuation once; a normal-resume winner is still subject
+  to the unchanged post-resumption cancellation recheck before return.
+- Cancellation after the joined open-flag close is late; the handler is a
+  no-op and cannot mutate terminal state.
+
+For both methods, every checked-continuation install transition ends in exactly
+one of two dispositions: not stored and resumed locally outside the mutex, or
+stored once while its method flag is open with normal and cancellation routes
+mutex-serialized to exactly one future resumer. Returning from the continuation
+body with neither disposition is forbidden; no call may suspend without an
+exact resumption owner.
+
+resolve(.ready|.timedOut) is actor-isolated. It rejects a second resolution,
+sets resolutionCount one, waiterCount zero and isResolved true, takes/clears
+the resolution continuation under waitState, then resumes the local value
+outside the lock. Normal resolution and cancellation race only through the
+mutex: the winner clears the continuation; the loser finds nil and performs no
+resume. No continuation is resumed while stored or more than once.
+
+The normal entry-notification return is intentionally nonterminal: its own
+entry continuation and cancellation path are closed, while the one resolution
+continuation remains pending for enterAndWaitForResolution. Therefore the slow
+pre-resolution snapshot is exactly 1/0/1/false/1/1/false in field order. After
+resolve, both suspending calls are awaited before terminal inspection;
+snapshot() throws HarnessError.outstandingResource unless the terminal
+projection is exactly pendingContinuationCount zero,
+openSuspendingMethodCount zero and isClosed true. The normal timed-out terminal
+snapshot is exactly 1/1/0/true/0/0/true.
+
+The slow case starts observer prepare, awaits the idempotent entry barrier,
+asserts the pre-resolution snapshot, starts canonical dictation and awaits
+.recording while the gate remains unresolved, then resolves timedOut, awaits
+observer terminal and both gate calls, and asserts the terminal closed
+snapshot. Failure to reach .recording first, a post-resume cancellation escape,
+or any nonzero/open terminal projection is a functional fail.
+
+snapshot_schema:
+DevVlogsPhase0BE07DictationSnapshot has exactly:
+actionStates:[ActionState]; terminal:DictationTerminal; audioOwner:AudioOwner;
+microphoneOwnerCount:Int; recorderStartCount:Int; recorderStopCount:Int;
+recorderCancelCount:Int; preparedArtifactIdentity:ArtifactIdentity;
+finalizedArtifactIdentity:ArtifactIdentity; settingsSnapshotCount:Int;
+credentialResolutionCount:Int; credentialConsumerCheckCount:Int;
+credentialMismatchCount:Int; journalPrepareCount:Int; journalReleaseCount:Int;
+journalDiscardCount:Int; journalOutstandingCount:Int;
+recoveryCheckpointCount:Int; recoveryRemoveCount:Int;
+recoveryOutstandingCount:Int; providerAuthorizationDecisionCount:Int;
+providerAuthorized:Bool; providerSealCount:Int;
+providerDispatchEventCount:Int; providerRequestCount:Int;
+providerAcceptCount:Int; providerRequestArtifactIdentity:ArtifactIdentity;
+correctionCount:Int; remoteCorrectionEnabled:Bool; translationCount:Int;
+usageCount:Int; acceptedOutputClass:AcceptedOutputClass;
+lastTranscriptAcceptedCount:Int; historyCount:Int; outputCount:Int;
+cacheCount:Int; terminalCause:TerminalCause;
+terminalDurability:Durability; durationMonitorStartCount:Int;
+durationMonitorStopCount:Int;
+terminalActionCompletedWithObservedResourcesClosed:Bool;
+providerOutstandingCount:Int; outstandingTaskCount:Int.
+
+terminalActionCompletedWithObservedResourcesClosed is true only after the
+awaited public finish or cancel action returns, the controller's public action
+state is respectively success or idle, duration monitor start/stop counts are
+equal, journal/recovery/provider outstanding counts are zero, and every
+harness-owned continuation/task has been awaited and reports outstanding zero.
+It is false before those observable conditions converge. It does not count,
+infer or claim private finishSession execution, private activeSessionID reset,
+or any other unobservable canonical session cleanup. No harness-owned counter
+may substitute for this Boolean.
+
+Success values are states idle/recording/transcribing/success, terminal success,
+owner dictationRecorder/1, recorder 1/1/0, all three artifact identities
+dictationAudio, settings/credential 1/1, credential mismatch 0, credential
+consumer checks 2 or 3 for translated, journal 1/1/0/0, recovery 1/1/0,
+provider decision 1/authorized true, provider seal/dispatch/request/accept
+1/1/1/1, correction 1, translation only for translated, usage/accepted/
+History/output/cache 1 each, userFinished/historyCheckpoint, monitor 1/1,
+terminalActionCompletedWithObservedResourcesClosed true, and provider/task
+outstanding 0/0.
+
+Cancel values are states idle/recording/idle, terminal cancelled, owner
+dictationRecorder/1, recorder 1/0/1, prepared dictationAudio and finalized/
+provider artifact none, settings/credential 1/1, credential-consumer/mismatch
+0/0, journal 1/0/1/0, recovery all zero, provider decision 1/authorized false,
+all provider/correction/translation/usage/accepted/History/output/cache zero,
+explicitUserDiscard/explicitlyDiscarded, monitor 1/1, provider/task outstanding
+0/0 and terminalActionCompletedWithObservedResourcesClosed true.
+
+ObserverSnapshot has exactly phases:[ObserverPhase],
+terminal:ObserverTerminal, terminalCount:Int, cleanupCount:Int,
+lateDuplicateRejectedCount:Int, accessAcquireCount:Int,
+accessReleaseCount:Int, outstandingAccessCount:Int, outstandingTaskCount:Int.
+Baseline is phases disabled, terminal disabled and all counts zero. Every spike
+has terminal/cleanup/lateDuplicate 1/1/1 and outstanding 0/0.
+Ready phases are idle/preparing/capturing/finalizing/ready/cleaned; preparation
+failure phases are idle/preparing/failed/cleaned; disconnect phases are
+idle/preparing/capturing/failed/cleaned; mux phases are
+idle/preparing/capturing/finalizing/failed/cleaned; cancel phases are
+idle/preparing/capturing/cancelled/cleaned. A late duplicate adds no phase.
+AttemptSnapshot has exactly dictation and observer. PairResult has exactly
+caseID, baseline, spike and dictationSnapshotsEqual. No snapshot contains text,
+prompt, transcript, URL, path, credential, provider payload/response, media
+bytes, camera/device/user/machine identity, UUID or timing sample.
+
+case_matrix:
+- standard_success: success/success; observer ready; accepted standard;
+  provider/output/History/cache 1/1/1/1; observer acquire/release 1/1.
+- corrected_success: success/success; observer ready; accepted corrected;
+  provider/output/History/cache 1/1/1/1; observer 1/1.
+- translated_success: success/success; observer ready; accepted translated;
+  provider/output/History/cache 1/1/1/1; observer 1/1.
+- explicit_cancel: cancelled/cancelled; observer cancelled; accepted none;
+  provider/output/History/cache 0/0/0/0; observer 0/0.
+- camera_unavailable: success/success; observer cameraUnavailable; accepted
+  standard; provider/output/History/cache 1/1/1/1; observer 0/0.
+- camera_busy: success/success; observer cameraBusy; accepted standard;
+  provider/output/History/cache 1/1/1/1; observer 0/0.
+- camera_slow_timeout: success/success; observer cameraPreparationTimedOut;
+  accepted standard; provider/output/History/cache 1/1/1/1; observer 0/0.
+- destination_unavailable: success/success; observer destinationUnavailable;
+  accepted standard; provider/output/History/cache 1/1/1/1; observer 0/0.
+- destination_disconnect: success/success; observer destinationDisconnected;
+  accepted standard; provider/output/History/cache 1/1/1/1; observer 0/0.
+- mux_failure: success/success; observer muxFailed; accepted standard;
+  provider/output/History/cache 1/1/1/1; observer 1/1.
+Every baseline and spike must equal the closed expected dictation snapshot and
+each other. Any mismatch is a functional fail, never evidence_only.
+
+evidence_schemas:
+All eight paths are regular nonsymlink files. Unknown, missing, duplicate,
+reordered or extra fields/rows/files fail.
+
+summary.md: maximum 12288 bytes. Exact unique headings, in order:
+# DV-P0B-E07-W01 Summary; ## Authority; ## Scope;
+## Paired Matrix Result; ## Checks; ## Redaction; ## Residuals.
+Required literal claims:
+- Execution was fake-backed only.
+- Exactly ten baseline/spike pairs were exercised.
+- Canonical dictation retained exactly one recorder and one microphone owner.
+- No second microphone was introduced.
+- No product, Debug, script, project, or existing-test file changed.
+- W02 and W07-R3 are provenance only and do not prove E07.
+- A shipping audio lease was not exercised or proven.
+- Functional result: pass.
+Failure substitutes Functional result: fail and names at least one unequal case
+without payload.
+
+source-feasibility.md: maximum 12288 bytes. Exact headings:
+# DV-P0B-E07-W01 Source Feasibility; ## Canonical Owners;
+## Reused Injection Boundaries; ## Rejected Orchestrator;
+## Target Membership; ## Protected Blobs; ## Residual.
+Required literal claims:
+- DictationSessionController remained the canonical state owner.
+- AudioRecorderService remained the sole microphone owner.
+- The existing Debug Phase 0B harness was not used as E07 orchestration.
+- HoldTypeTests membership was supplied by the filesystem-synchronized target root.
+- No Xcode project edit was required.
+- No product hook was required.
+- The temporary-access token was test-only and was not a shipping lease.
+
+environment.json: maximum 4096 bytes; exact keys/types:
+schema_version:String exactly dv-p0b-e07-environment-v1;
+packet_id:String exactly DV-P0B-E07-W01;
+contract_revision:String exactly DV-DRAFT-4@2f3266a;
+implementation_parent_commit:String exactly 40 lowercase hexadecimal
+characters and equal to the actual W01 commit parent pinned in the dispatch
+receipt, source-manifest calculation and protected-blob audit;
+swift_source_manifest_sha256:String exactly 64 lowercase hexadecimal;
+macos_product_version:String; xcode_version:String; swift_version:String;
+execution_mode enum fake_backed; functional_result enum pass|fail;
+live_keychain_access:Bool false; live_provider_request:Bool false;
+app_launched:Bool false; microphone_opened:Bool false;
+camera_opened:Bool false; external_storage_accessed:Bool false;
+media_created:Bool false.
+
+matrix.csv: maximum 20480 bytes. Exact header:
+schema_version,case_id,baseline_terminal,spike_terminal,snapshot_equal,observer_terminal,baseline_audio_owner_count,spike_audio_owner_count,baseline_provider_dispatch_count,spike_provider_dispatch_count,baseline_output_count,spike_output_count,observer_acquire_count,observer_release_count,observer_terminal_count,outstanding_access_count,outstanding_task_count,functional_result,disposition
+Exactly ten rows in CaseID order; schema dv-p0b-e07-matrix-v1;
+terminals success|cancelled; observer terminals use closed snake_case values;
+lowercase booleans; nonnegative integers; result pass|fail; disposition exactly
+functional_gate.
+
+measurements.csv: maximum 8192 bytes. Exact header:
+schema_version,case_id,metric,value,unit,disposition
+Exactly nine rows: camera_slow_timeout,
+recording_before_gate_resolution,true,boolean,functional_gate; then case_id all
+for dictation_start_latency, camera_start_latency, audio_video_offset,
+end_drift, cpu, memory, byte_rate and finalization_overhead, each value
+not_measured, unit not_applicable, disposition not_applicable_fake_backed.
+Schema dv-p0b-e07-measurements-v1.
+
+artifacts.csv: maximum 8192 bytes. Exact header:
+schema_version,case_id,artifact_class,retained,byte_count,checksum,cleanup_status,disposition
+Exactly ten case rows; schema dv-p0b-e07-artifacts-v1; artifact_class
+fake_audio_identity; retained false; byte_count 0; checksum not_applicable;
+cleanup_status no_file_created; disposition fake_backed_no_media.
+
+residuals.md: maximum 8192 bytes. Exact headings:
+# DV-P0B-E07-W01 Residuals; ## Proven; ## Not Proven;
+## Next Dependency.
+Required literal claims:
+- Proven: deterministic fake-backed E07 paired non-regression only.
+- Not proven: shipping audio lease, real media, hardware, camera, microphone,
+  destination storage, timing thresholds, or live provider behavior.
+- E02, E03, E04, E05, and E06 remain unchanged.
+- Next dependency: DV-P0B-E07-W01-REVIEW.
+
+events/e07-pairs.jsonl: maximum 65536 bytes; exactly 80 nonblank lines,
+eight per CaseID in order. Exact ordered keys/types are:
+schema_version:String exactly dv-p0b-e07-events-v1; sequence:Int exactly 1...80;
+case_id:closed snake_case CaseID; mode baseline|spike|pair;
+action attempt_started|dictation_recording|dictation_terminal|
+observer_terminal|pair_compared;
+result started|recording|success|cancelled|ready|camera_unavailable|
+camera_busy|camera_preparation_timed_out|destination_unavailable|
+destination_disconnected|mux_failed|equal|unequal;
+artifact_token none|dictation_audio; snapshot_equal Bool|null.
+Per-case order is baseline start/recording/terminal; spike
+start/recording/observer-terminal/dictation-terminal; pair comparison.
+snapshot_equal is null except pair comparison. Token is none before recording
+and for cancelled terminals, dictation_audio for recording and successful
+artifact events. Duplicate JSON keys fail.
+
+redaction_contract:
+EvidenceValidator resolves repository root only by deleting HoldTypeTests from
+#filePath, reads exactly the eight files and performs no writes. It rejects
+/Users/, /Volumes/, /private/, /tmp/, file://, Windows drive paths,
+sk-[A-Za-z0-9_-]{8,}, Bearer, Authorization:, and case-insensitive api_key,
+authorization_header, transcript_text, raw_text, prompt_text, provider_payload,
+provider_response, audio_file_url, video_file_url, device_unique_id,
+camera_label, machine_name and user_name. Media content, serials, UUIDs,
+credentials, transcript/prompt/provider content, absolute paths and device/
+user identifiers are forbidden. Commit/source hashes, counters, enums and
+repository-relative paths are allowed.
+
+commands_and_bounds:
+- 60 seconds exactly:
+  python3 scripts/check_swift_structure.py
+- 600 seconds exactly:
+  xcodebuild -project HoldType.xcodeproj -scheme HoldType
+  -destination 'platform=macOS'
+  -only-testing:HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests test
+- 600 seconds exactly:
+  xcodebuild -project HoldType.xcodeproj -scheme HoldType
+  -destination 'platform=macOS'
+  -only-testing:HoldTypeTests/DictationSessionControllerRecordingActionTests
+  -only-testing:HoldTypeTests/DevVlogsPhase0BLaunchTests test
+- 600 seconds exactly:
+  xcodebuild -project HoldType.xcodeproj -scheme HoldType
+  -destination 'platform=macOS' build
+- 30 seconds exactly: git diff --check
+- 30 seconds exactly for each Swift file:
+  test "$(wc -l < PATH)" -le 500
+- 30 seconds exactly for each Swift file:
+  awk 'NF {print; exit}' PATH
+  and awk 'NF {line=$0} END {print line}' PATH; results must be #if DEBUG and
+  #endif.
+- 30 seconds exactly:
+  rg -n 'PBXFileSystemSynchronizedRootGroup|path = HoldTypeTests;'
+  HoldType.xcodeproj/project.pbxproj
+- 30 seconds exactly:
+  git diff --name-only DISPATCH_PARENT...HEAD; output must equal the ten-path
+  allowlist and DISPATCH_PARENT must equal environment.json
+  implementation_parent_commit.
+- 30 seconds exactly:
+  shasum -a 256
+  HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests.swift
+  HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTestSupport.swift |
+  shasum -a 256; first hexadecimal field must equal environment.json
+  swift_source_manifest_sha256.
+- 30 seconds exactly: git ls-tree -r DISPATCH_PARENT for every protected path;
+  every result must equal this contract.
+- 30 seconds exactly: the evidence-validator test plus a case-insensitive rg
+  scan for every redaction token/pattern in redaction_contract.
+- The two Swift files must contain no AVAudioRecorder, AVCapture, URLSession,
+  Keychain, Security, Task.sleep, ContinuousClock, asyncAfter or FileManager
+  create/remove/move/copy call.
+
+No app launch, Computer Use, caffeinate, microphone/camera, custom run root,
+external volume, live provider or process census is relevant. The bounded
+runner terminates only its exact xcodebuild child and descendants on timeout
+and records failure; broad ps/pkill or unrelated signaling is forbidden.
+
+protected_blob_contract:
+W02 accepted commit is f7ff6bfd445dee1857514d21b5898ab85e59cb66.
+Each accepted/current-at-9101428 path and blob pair is:
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BCameraCapture.swift:
+  ccd70159595d223aab09ce6bd155be8ce9278e18 /
+  ccd70159595d223aab09ce6bd155be8ce9278e18.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BEventLog.swift:
+  789f8f0683dc9402a9c3940dd4f840c5701110f3 /
+  d78fa923b0460d2974aa8134fb2a05d24b61ef5b.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BLaunch.swift:
+  0507b92405e55e95cf084b0d98f43c801954c3d3 /
+  935b69007e6132b94b1202b4c8c8e8e6ac6f621a.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BMediaFinalizer.swift:
+  75a88907b4a125316ef6a9969fa3b2c4faa7a3d8 /
+  75a88907b4a125316ef6a9969fa3b2c4faa7a3d8.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BMediaProbe.swift:
+  62789850c64c1939ff039ab73e6f78dbbef5392c /
+  62789850c64c1939ff039ab73e6f78dbbef5392c.
+- HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BVideoPreservation.swift:
+  97c6e101c4322f4c957eaabe5f66569a318ce731 /
+  97c6e101c4322f4c957eaabe5f66569a318ce731.
+- HoldTypeTests/DevVlogsPhase0BCameraCaptureTests.swift:
+  cd0b08bf1951d36e7c39d3a7490482a95204436d /
+  cd0b08bf1951d36e7c39d3a7490482a95204436d.
+- HoldTypeTests/DevVlogsPhase0BEventLogTests.swift:
+  0f406cd7bb80065f66d4a298ceeb2db08f667c44 /
+  3a1114a9c72dfe94e24ed300576b8ac32e1d95be.
+- HoldTypeTests/DevVlogsPhase0BLaunchTests.swift:
+  30ba05fe56d0ec47faa383d57291ee314d1f488b /
+  ba837f5a32fb40867e27f414dd0daae1eb357735.
+- HoldTypeTests/DevVlogsPhase0BMediaFinalizerTests.swift:
+  f0226e9cc6e40bc13d35010676a6258dbe0fe335 /
+  f0226e9cc6e40bc13d35010676a6258dbe0fe335.
+- HoldTypeTests/DevVlogsPhase0BMediaProbeTests.swift:
+  5173a4adfd155f44760168cffe1bf6047782cb64 /
+  5173a4adfd155f44760168cffe1bf6047782cb64.
+- HoldTypeTests/DevVlogsPhase0BVideoPreservationTests.swift:
+  48ac82ef3233ede585cf13a21d9e1daa10ce6809 /
+  5a61b46f6b63a28a7130296911748597c21945ef.
+- docs/qa/runs/dev-vlogs-phase-0b-capture-w01/summary.md:
+  47cc70636677df2164807fc252b0570e5e248119 /
+  4bf5bf20a888a55e9579a535e89a273041bf27db.
+
+W07-R3 accepted commit a90f88809b569aaf07151b58d40f8394ae81f330
+and current-at-9101428 blobs are identical:
+- HoldTypeTests/DevVlogsPhase0BHardwareEvidenceHandoffTests.swift:
+  674c0055b5767e40f33fd96e8879698d1b0eded0.
+- docs/qa/runs/dev-vlogs-phase-0b-capture-w01/summary.md:
+  4bf5bf20a888a55e9579a535e89a273041bf27db.
+- script/dev_vlogs_phase_0b_spike.sh:
+  28b4e45f1e93d5ceabc276cdca565bd42aebbd20.
+
+Current owner seals at provenance checkpoint
+9101428fb7662e6890a1622d7c168a10f62575b4 are:
+- HoldType/Services/DictationSessionController.swift
+  130fdf5ad9af8da007392ecbae67047100c5ca35.
+- HoldType/Services/AudioRecorderContracts.swift
+  44a7be8c5d322d60fa0dcf721f8859662cae3319.
+- HoldType/Services/AudioRecorderService.swift
+  92c593e6e99bb23e24c5cbf68e9f98db4b86d298.
+- HoldType/Services/RecordingCaptureJournal.swift
+  7af644e57f99bc58130bf0b11398bd14d4c9c1b6.
+- HoldType/Services/DictationTranscriptPipeline.swift
+  fd815d1953603509a88dde8fbf3ba89d7646f721.
+- HoldType/Services/TranscriptOutputDelivering.swift
+  4d756fb6c896f71ae07e2f1259419b41b775cff9.
+- HoldType/Services/TranscriptRecoveryHistoryStore.swift
+  67e892658de7a7845cf62ab79e6c009ae2844d2a.
+- HoldType/Services/TranscriptTextCorrectionService.swift
+  558b06c5abb45baca62b11317076b40605ddef4b.
+- HoldType/Services/TranscriptTranslationService.swift
+  e0470741d66056169cdbc91e4f1709cfc7232e7b.
+- HoldType/Services/TranscriptionFailureRecoveryModels.swift
+  5389de2006e8c445e4a7a9a5d02753b5f1e27135.
+- Packages/HoldTypeDomain/Sources/HoldTypeDomain/AudioRecordingArtifact.swift
+  989dc0c46bdc32a8dceb545df98c7416092261f5.
+- Packages/HoldTypeDomain/Sources/HoldTypeDomain/RecordingCacheLifecycleHandling.swift
+  3d18f1441a322574a28f6c1a2f118d7d1df34b17.
+- Packages/HoldTypeDomain/Sources/HoldTypeDomain/SuccessfulTranscriptionUsage.swift
+  c3c41e5a5ac97ced0c29b82ec99ba4fb5fa2df22.
+- Packages/HoldTypeOpenAI/Sources/HoldTypeOpenAI/OpenAITranscriptionService.swift
+  a6e44718353ddac9669a7d1a0c256b5388337d0f.
+- HoldTypeTests/FakeTranscriptionFailureRecovery.swift
+  17321f3daee934e104d2c2440b1df12a0fb42d6a.
+- HoldTypeTests/DictationSessionControllerRecordingActionTests.swift
+  571369b9db0ec708057e10f8709317176c4d92dd.
+- HoldTypeTests/DictationSessionControllerTests.swift
+  c3217185a5befb0278d7436c3ab7cb78b7ebcd57.
+- HoldType.xcodeproj/project.pbxproj
+  10c2b9e2a750a33842a37f3f5ddaa4f5c23ad857.
+Each path/hash must remain equal at the actual W01 dispatch parent. Any
+difference makes W01 stale and requires revalidation; it may not be silently
+updated. W02/W07-R3 are provenance only, never E07 proof.
+
+stop_table:
+- Outside the ten-path allowlist, or product/Debug/project/script/spec/registry/
+  existing-test change: stop and reject scope.
+- Pre-existing overlap on any exact allowlist path: stop and report overlap.
+  Unrelated dirty paths are preserved, excluded and never a blocker.
+- Observer retains recorder/journal/controller/provider/URL/path, or a second
+  recorder/microphone/shipping lease appears: stop on protected dependency.
+- Cancel has provider/correction/translation/History/output/cache activity:
+  functional fail.
+- Recording does not precede slow-gate resolution: functional fail.
+- Gate state differs from the one exact R4 Mutex tuple; waitUntilEntered is not
+  idempotent after entry; duplicateEntry applies outside a concurrent pending
+  waiter/second enter; a method flag is not opened before cancellation-handler
+  exposure; an await/yield occurs between opening and exposure; install does
+  not atomically check cancellationRequested plus a captured current
+  Task.isCancelled signal; a cancelled install stores rather than resuming its
+  local continuation outside the mutex; an install returns with neither an
+  immediate local resume nor one stored continuation under its open flag; any
+  handler creates a Task; a continuation is resumed while stored or more than
+  once; a handler mutates state after its corresponding open flag closes;
+  either method does not combine its post-resume Task.isCancelled/
+  cancellationRequested recheck and open-flag closure in one mutex transition;
+  or terminal snapshot projection is not pending/open zero and isClosed true:
+  structural or functional fail.
+- Observer terminal/cleanup is not exact one, duplicate mutates state, or
+  access/journal/recovery/provider/task remains outstanding: functional fail.
+- terminalActionCompletedWithObservedResourcesClosed is false at comparison,
+  or is derived from a harness counter/private-session inference instead of
+  public action return/state plus injected/public resource evidence: functional
+  fail and reject the cleanup claim.
+- RecorderSpy does not implement exactly both production AudioRecorderService
+  startRecording witnesses, or adds any overload beyond exact production
+  protocol witnesses: structural stop.
+- Baseline differs from expectation, baseline becomes unusable, or pair
+  snapshots differ: functional fail.
+- Evidence inventory/schema/order/cardinality/size/redaction violation:
+  evidence fail.
+- Protected blob differs or fails unique resolution: stale/scope failure.
+- Swift file >500 lines, DEBUG wrapper failure, or target needs project edit:
+  structural stop.
+- Structure, focused/adjacent test or build failure/timeout: fail; no pass
+  receipt.
+- W02/W07 presented as E07 proof or an expectation weakened to pass: reject.
+
+independent_review_matrix:
+Review-R4 verifies authority and no spec delta; exact ten-path diff; one
+canonical controller/recorder/microphone; observer completed-value/token-only
+boundary; success/cancel/failure/disconnect/mux/slow ordering; recording before
+slow resolution; exact Mutex tuple with two optional continuations and four
+minimal closure scalars; idempotent post-entry wait and narrow duplicateEntry;
+suspending flags opened before handler exposure with no intervening yield;
+install checks tuple cancellation plus captured current Task cancellation;
+immediate outside-lock cancellation or stored/open exact resumption ownership;
+already-cancelled, cancel-before-install, install-versus-cancel, normal-
+resolution-versus-cancel and late-after-close dispositions; synchronous no-
+Task cancellation and late-handler no-op after each open flag closes; same-
+mutex post-resume recheck-and-close; seven-field snapshot with
+pre-resolution 1/0/1/false/1/1/false and terminal 1/1/0/true/0/0/true; ten
+closed snapshots and equality; truthful
+terminalActionCompletedWithObservedResourcesClosed derivation with no private
+session or fabricated-counter claim; observer terminal/access/cleanup
+cardinality and zero residue; exactly both production startRecording witnesses
+and no extra overload; cancel provider/output invariance; eight closed evidence
+schemas and redaction; W02/W07/current-parent provenance; <=500/DEBUG/target
+membership; exact selectors/bounds; residual truth; unrelated dirty-state
+preservation. Any stop-table condition requires rejection.
+
+scope_check: Registry design artifact only. No product/spec/source/test/script/
+QA implementation, build, test, runtime, process, hardware, provider, Keychain,
+media, storage, permission or UI action occurred.
+
+deviations: The future implementation_parent_commit is deliberately not frozen
+to resume checkpoint 9101428. It must be the exact 40-lowercase-hex W01 parent
+pinned at dispatch and equal across the dispatch receipt, manifest and blob
+audit. The 9101428 values remain provenance seals. No design expansion.
+
+residual: A future pass proves deterministic fake-backed E07 only. It does not
+prove a shipping audio lease, hardware/media/storage behavior, performance
+thresholds or live provider behavior. E02/E03/E04/E05/E06 remain unchanged.
+No product hook is needed because the canonical controller already exposes the
+required injection boundaries; the test token is not a product lease.
+
+next_dependency: DV-P0B-E07-E01-REVIEW-R1. DV-P0B-E07-W01 remains blocked
+until that review accepts this design. After a future W01, its evidence and
+registry dependency is DV-P0B-E07-W01-REVIEW.
+runtime_or_visual_handoff: none
+~~~
+
+### `DV-P0B-STORAGE-OBSERVER-E01`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01
+status: done
+outcome: design_complete
+
+specified_expectation: Design only one non-external, independently reviewable
+observer that can separate the build/Xcode window from the hosted-test window
+without reading protected content, touching external volumes, attributing an
+unknown writer, restoring data, or changing accepted storage mechanics.
+observed_evidence: R01 proved normal-route recovery-owner exposure; R02 changed
+the same protected metadata under the inert route but live HOME; R05 changed an
+unretained protected tuple after one combined build-plus-private-HOME test
+window. Current evidence cannot distinguish build/Xcode activity, unexpected
+run-owned recovery ownership, a concurrent HoldType process, or another writer.
+selected_design: Add a default-disabled DEBUG closed provenance emitter at the
+canonical recovery mutation boundaries and a separate single-shot controller.
+The controller uses one private task HOME, one pinned DerivedData identity and
+one direct-child guard, rejects any pre-existing HoldType, takes component-safe
+metadata-only observations for exactly the canonical recovery directory and
+Recovery.json, then separates build-for-testing from an observer-only inert
+hosted test with an immediate comparison after each phase. First change stops
+the packet; one run, no retry, no external-volume variables or actions.
+classification: build_xcode_tooling_window_correlated only when the first
+change follows build before hosted launch; run_owned_in_process_recovery_write_
+correlated only when the hosted-window change agrees with a closed canonical
+outside-private-HOME mutation event; every conflict or unsupported writer
+remains still_unknown. No exact external syscall attribution is claimed.
+future_paths: New Debug observer owner; observer-only extension of the existing
+inert storage host and outer Debug router; DEBUG-only calls at existing recovery
+mutation boundaries; one focused observer test; one new non-external controller
+script; one W01 summary. Existing external wrapper stays unchanged.
+checks_required: Disabled semantic equivalence; closed schema/redaction;
+malformed/conflicting route isolation; controller phase/order and guard/identity
+fakes; identical pinned DerivedData; private HOME only for hosted test; no
+external keys; Release/artifact isolation; independent review before runtime.
+scope_check: Read-only repository/spec/committed-evidence inspection only. No
+edit, build, test, process, live HOME/protected metadata, or volume action.
+residual: The design can establish phase correlation and canonical in-process
+provenance, not an arbitrary external writer's exact syscall. Ambiguous results
+remain still_unknown and R05's discarded exact delta is unrecoverable.
+next_dependency: DV-P0B-STORAGE-OBSERVER-E01-REVIEW. Implementation and later
+no-external observer runtime each require their own accepted packet; the prior
+external-root authority does not authorize either runtime.
+runtime_or_visual_handoff: none
+```
+
+## Rejected Receipts
+
+### `DV-P0B-E07-E01-REVIEW` at `79aa32d`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW
+status: done
+verdict: reject
+
+outcome: A test-only paired route through the canonical
+DictationSessionController is feasible without product changes, a second
+recorder or a shipping lease. The durable design is not yet an exact writable
+contract, so W01 must not begin.
+accepted_direction: Existing injected recorder, journal, provider,
+correction/translation, output, History/cache and cleanup boundaries can prove
+standard/corrected/translated success, cancel and six vlog-failure pairs. Two
+new <=500-line test files fit the filesystem-synchronized test target.
+findings: The design does not enumerate the eight QA child paths or closed
+schemas; define the observer API/order and one-shot completed-artifact access;
+define a controllable slow-preparation barrier proving dictation reaches
+Recording before release; or record exact snapshot fields, protected blobs,
+suite selectors, redaction checks and hard review/stop conditions.
+scope_check: Read-only source/design review; no edit, build, test, runtime,
+process, provider, Keychain, hardware, media or storage action.
+residual: A later pass remains deterministic fake-backed E07 only; shipping
+lease, hardware preservation/timing, storage closure and thresholds remain
+separate.
+next_dependency: Same owner returns registry-only DV-P0B-E07-E01-R1, then
+independent review. W01 remains blocked.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01-REVIEW` at `9229bcf`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01-REVIEW
+status: done
+verdict: reject
+
+outcome: The phase-separated observer concept is directionally sound and
+truthfully preserves still_unknown, but the durable design is not exact enough
+for independent implementation review.
+accepted_direction: Build -> compare -> stop, followed only when unchanged by
+observer-only hosted test under private HOME -> compare, is sufficient for
+bounded window correlation. Privileged tracing is not required and arbitrary
+external writers need not become attributable.
+findings: The receipt lacks literal future filenames and mutation call sites;
+closed stderr fields/enums/sequence and enablement key/value; exact non-following
+metadata primitives and allowed tuples; missing/symlink behavior; absent/empty/
+malformed/conflicting route matrix; and the complete controller, guard, signal,
+timeout, cleanup, uncertainty, first-change and success-suppression table.
+scope_check: Read-only design/source review; no edit, build, test, process,
+live HOME/protected path, app/Xcode, volume, restoration or deletion action.
+residual: R05's exact delta remains unrecoverable and external writers may
+remain still_unknown; both are acceptable only after the design is complete.
+next_dependency: Same owner returns design-only
+DV-P0B-STORAGE-OBSERVER-E01-R1, then independent review. Implementation and any
+nonexternal observer runtime remain separately gated and unauthorized.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-REVIEW` at `d94dc78`
+
+```text
+packet_id: DV-P0B-REVIEW
+status: done
+verdict: reject_for_phase0c
+
+outcome: Phase 0B is terminal and truthfully documented, but it does not
+satisfy the current Draft's functional/protected gates. DV-ACTIVE-1 must not
+begin as though only permitted residuals remain.
+gate_matrix: E01 accepted_with_residual; E02 fail (strict stored-sample
+preservation); E03 fail (protected metadata changed); E04 fail/incomplete;
+E05 not_available; E06 accepted_with_residual with representative dataset
+absent; E07 not_exercised; E08 fail integrated closure.
+acceptance_matrix: CAMERA-1 accepted_with_residual; CAPTURE-1 fail; MEDIA-1
+fail; STORAGE-1 fail; UI-1 not_available; dictation independence not_exercised;
+integrated cleanup fail with component successes preserved.
+runtime_weighting: W02/W07-R3/storage mechanics-confinement/UI structure are
+strong deterministic Debug evidence. R06 remains a real preservation failure,
+R05 remains a protected-scope failure, UI R01 is not_available, and E07 was
+never behaviorally exercised. Diagnostic repairs do not retroactively change
+runtime results.
+blockers: Strict native-source preservation failed on the only available
+hardware attempt; protected storage metadata changed with unknown creator;
+paired dictation failure-independence is absent; hardware/interruption matrix
+is incomplete; integrated cleanup cannot claim protected closure.
+allowed_residuals: Built-in/USB unavailable; UI environment/signing
+not_available; honest unavailable interruption hardware; quantitative gaps
+without invented thresholds; narrow Debug same-UID limitation; pending
+DV-BUILD-6 remains separate.
+phase0c_readiness: blocked. Phase 0B may close only as terminal failed evidence
+pending explicit user disposition.
+exact_user_decision_required: Either authorize a new separately reviewed
+evidence cycle using W07-R3 diagnostics, paired E07 verification, and a
+read-only storage observer design before any causal runtime; or accept terminal
+infeasibility and explicitly revise/abandon the strict source/storage product
+direction. Do not dispatch DV-P0C-CONTRACT from current evidence.
+scope_check: Read-only receipt/spec reconciliation; protected adjacent domains
+and publication scope unchanged.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-W05-REVIEW` of `8a98f73`
+
+```text
+packet_id: DV-P0B-STORAGE-W05-REVIEW
+status: done
+verdict: reject
+
+outcome: The explicit shared DerivedData path and private-HOME hosted-test
+ordering are real, but DerivedData identity is not pinned. A same-looking
+replacement can make build and test consume different directory identities.
+The changed canonical feasibility suite is also non-green under sanitized
+serial execution.
+checks_run: Exact commit/parent/two-path/current-blob audit; structure, zsh,
+help/default/invalid, diff and redaction checks; sanitized unsigned split build
+and hosted confinement; serial canonical feasibility suite; task-root/process
+cleanup. No external or protected runtime.
+findings: Store uid/mode/dev/inode when DerivedData is created and require exact
+equality before both Xcode phases; clear the pin only with successful task-HOME
+cleanup. Add a valid-looking replacement fixture proving fail-closed retention
+of original/replacement/sibling. Repair teardown so the canonical suite emits
+no unexpected missing-DerivedData diagnostic and passes serially.
+protected_scope: W04-R1 cleanup, W02 supervision, W03 routing/value state,
+product/recovery, Recording Cache, History, project, plist, entitlement,
+Release, capture/auth/UI/media/iOS remain outside the delta and unchanged.
+scope_check: Read-only; no repository edit, external volume, live HOME,
+protected artifact, process signaling, app UI, TCC, Keychain, camera/audio/
+media, or restorative action.
+residual: No storage runtime until the two-path repair is independently
+accepted. Sanitized signed-build certificate visibility is an environment
+residual, not the rejection basis.
+next_dependency: DV-P0B-STORAGE-W05-R1, then independent re-review.
+runtime_or_visual_handoff: none
+reviewed_commit: 8a98f7362a0c258f3fb653472bc338ac559de059
+parent: ecd17d6671a9bf79b682b641a9a2ab937be8745a
+```
+
+### `DV-P0B-STORAGE-W04-REVIEW` of `03fac5c`
+
+```text
+packet_id: DV-P0B-STORAGE-W04-REVIEW
+status: done
+verdict: reject
+
+outcome: Foundation user-domain confinement, hosted-test ordering, mode
+isolation, and accepted W02/W03 preservation pass. Task-HOME cleanup remains
+unsafe because it validates one inode and then recursively deletes the mutable
+pathname.
+checks_run: Exact commit/parent/two-path/current-blob audit; complete diff and
+ordering review; signed Debug build-for-testing; fresh-process confinement;
+structure/syntax/help/default/invalid/diff/protected-blob/process/root audits;
+deterministic replacement-race fixture. No external or live-HOME runtime.
+finding: A fixture moved the validated directory aside and installed a
+mode-0700 replacement between validation and rm. Cleanup deleted the
+replacement and reported success while the original survived elsewhere.
+scope_check: Read-only; no repository edit, external volume, protected path,
+app, TCC, camera/audio, Keychain, media, or restorative action.
+residual: Foundation confinement is accepted but cannot authorize runtime until
+cleanup is replacement-safe.
+exact_next_dependency: Same W04 owner replaces check-then-rm with an
+identity-bound cleanup or fail-closed retention boundary and adds an exact race
+fixture proving replacement/sibling survival and no success claim; then repeat
+independent review.
+runtime_or_visual_handoff: none
+reviewed_commit: 03fac5cb7cfef202df1077e07645f5b08b4f4af1
+```
+
+### `DV-P0B-STORAGE-R02-REVIEW` of `98b3b66`
+
+```text
+packet_id: DV-P0B-STORAGE-R02-REVIEW
+status: done
+verdict: reject
+functional_cell_verdicts: external_ssd_hfsplus=accept;
+external_hdd_apfs=accept
+packet_scope_verdict: reject
+
+outcome: Exact R02 evidence is internally consistent and preserves both
+external mechanics passes. Packet scope cannot close because the same protected
+Recovery metadata was atomically replaced again while the app-hosted test
+bundle inherited live HOME.
+checks_run: Exact seven-file commit/parent/current-blob and structured evidence
+audit; fixture checksum/size, redaction, guard, scratch/process cleanup,
+accepted wrapper/router/value-free provenance, project test-host configuration,
+and minimal recovery-lifecycle trace. No runtime or protected-path access.
+causal_boundary: W03's outer inert router and value-free state remain accepted,
+but they do not isolate Foundation user-domain paths for the complete hosted
+test bundle. The exact transient creator and restoration predicate remain
+unproven and must not be claimed.
+scope_check: Read-only; no repository, external volume, process, protected
+artifact, TCC, camera/audio, Keychain, or restorative action.
+residual: Exact Recovery contents/creator/predicate remain intentionally
+unknown. Physical interruption, remount, true-stale, genuine read-only/low-
+capacity, and representative media remain not_available.
+exact_next_dependency: Add a fresh wrapper-owned private HOME to the complete
+test-without-building invocation, assert inside the hosted test that effective
+Foundation Application Support and default TranscriptionRecovery resolve below
+that HOME before external scratch creation, prove exact cleanup, then obtain
+independent review before one final protected-scope runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: 98b3b66bedab1191673848fbe874f0c339823067
+```
+
+### `DV-P0B-STORAGE-W03-REVIEW` of `89127cc`
+
+```text
+packet_id: DV-P0B-STORAGE-W03-REVIEW
+status: done
+verdict: reject
+
+outcome: Outer router isolation, fail-closed configuration, wrapper injection,
+tests, protected owners, and Release isolation pass. The inert host nevertheless
+retains the full private external-volume root and parsed configuration in its
+app-lifetime state after lexical validation.
+checks_run: Exact six-path commit/current-blob review; router/static/global
+initialization trace; signed Debug build-for-testing; sanitized-HOME focused
+and accepted-route tests; production wrapper invocation; structure/syntax/diff;
+Release/settings/artifact; protected 21/21 blobs; redaction/process/temp audits.
+scope_check: Read-only; no external storage, live protected artifact, app
+runtime, TCC, media, or repository mutation.
+exact_repair: In Debug StorageTestHostLaunch and its focused test, replace the
+retained raw configuration with a value-free validated marker/failure state.
+Keep the separate runtime-test configuration as the only legitimate root
+consumer. Other W03 paths remain protected unless summary truth changes.
+residual: No runtime rerun before repair review. Original protected content
+delta remains unknowable and must not be restored.
+next_dependency: DV-P0B-STORAGE-W03-R1, then independent re-review.
+runtime_or_visual_handoff: none
+reviewed_commit: 89127ccfa211b29d588bc09525ad17cabd7ffba8
+```
+
+### `DV-P0B-STORAGE-R01-REVIEW` of `f7bbc9d`
+
+```text
+packet_id: DV-P0B-STORAGE-R01-REVIEW
+status: done
+verdict: reject
+functional_cell_verdicts: external_ssd_hfsplus=accept;
+external_hdd_apfs=accept
+packet_scope_verdict: reject
+
+outcome: Both external mechanics cells are truthful and accepted. Packet-level
+scope fails because the app-hosted storage test selected normal HoldType
+lifecycle, which can initialize and atomically persist the live
+TranscriptionRecovery store. The observed protected mtime change is consistent
+with that deterministic exposure; exact content/predicate remains unknowable.
+checks_run: Exact seven-file commit/current-blob and structured evidence audit;
+accepted wrapper/test provenance; redaction/cleanup review; minimal app-host,
+router, runtime, and recovery-owner source trace. No runtime or protected-file
+access by reviewer.
+findings: TEST_HOST is HoldType.app; storage wrapper keys do not select a Debug
+route; normal HoldTypeApp constructs DictationRuntime and recovery store. Outer
+session caffeinate also failed to span the full two-cell session, though wrapper
+coverage preserves the accepted mechanics observations.
+scope_check: Read-only; no external volume, protected artifact, process, or
+repository mutation.
+residual: Exact protected content delta is unavailable. No restorative action
+is authorized.
+exact_next_dependency: Add and independently review a complete opt-in inert
+Debug storage test-host route before any runtime rerun.
+runtime_or_visual_handoff: none
+reviewed_commit: f7bbc9d803e802e2564f3943cd7725cffe4bc5b1
+```
+
+### `DV-P0B-CAPTURE-W07-REVIEW-R2` of `b34dc16`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-REVIEW-R2
+status: done
+verdict: reject
+
+outcome: Descriptor/digest-bound publication, post-exit consumption, trusted-
+root cleanup, builds, and isolation pass, but two mandatory contracts fail.
+Detected schema/ownership/digest mismatches are not universally retained with
+their implicated residual, and the validator rejects protected-emitter output.
+findings: Malformed/schema cases can delete both roots; same-size mutation
+deletes the mutated raw source and retains only an empty sibling. Identifier
+grammar wrongly rejects leading dash/underscore. Nominal FPS zero is wrongly
+rejected even when protected probe evidence supplies a positive derived FPS.
+checks_run: Exact commit/parent/three-path/blob audit; structure, syntax,
+focused 7/7, full Phase 0B 75/75, signed Debug, bounded Release/settings/
+artifact isolation, protected 9/9 blobs, independent production probes,
+redaction, process, and root audits. No runtime/hardware/TCC.
+scope_check: Read-only; no changes or residual test roots/processes.
+exact_repair: Same three paths only. Retain the exact implicated residual for
+every detected mismatch; align identifier/FPS grammar to the protected emitter;
+add publisher/consumer TERM/INT behavior; correct summary claims.
+residual: Real hardware remains deferred but cannot waive deterministic defects.
+next_dependency: DV-P0B-CAPTURE-W07-R3, then repeat independent review.
+runtime_or_visual_handoff: none
+reviewed_commit: b34dc16713961478c0f25db15666267695286ff4
+```
+
+### `DV-P0B-CAPTURE-W07-REVIEW-R1` of `eede551`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-REVIEW-R1
+status: done
+verdict: reject
+
+outcome: The retained sibling snapshot survives raw cleanup and production
+hooks pass, but immutable post-exit evidence authority and exact cleanup are
+not established; the validator also accepts partial schemas the protected Swift
+route cannot emit.
+retained_lifecycle: Separate root/snapshot survive EXIT. A signal window between
+mktemp and ownership assignment can orphan a root without cleanup authority.
+descriptor_findings: Post-exit token/fixed-name authority has no pinned identity
+or digest; consumer reads/deletes by pathname. Failed-publication cleanup closes
+its proving FD before pathname unlink. Same-inode same-size source mutation is
+undetected. Raw cleanup remains mutable-path after descriptors close.
+schema_findings: Ready metrics omit fields guaranteed by protected probes;
+generic IDs and impossible terminal categories can pass. Closed-schema and
+immutable-snapshot claims are therefore false.
+checks_run: Exact three-path scope, structure, syntax/help, focused 5/5 actual
+production hooks, settings/artifact/protected-blob audits, independent post-
+exit replacement/mutation/schema/cleanup probes, redaction and residue checks.
+protected_owners: All accepted W07 Swift, media, product, permission, project,
+plist, and entitlement blobs unchanged.
+exact_repair: Script, handoff tests, and W01 summary only. Repair post-exit
+identity/digest and consumer cleanup authority, failed-output cleanup, in-place
+mutation detection, preparation-signal ownership, raw cleanup, and exact schema.
+scope_check: Read-only; no runtime or repository change.
+residual: The exact cleanup requirement reaches the same Darwin same-UID
+path-deletion limit established by E07; user/protocol trust-boundary authority
+is required before a truthful R2 envelope.
+next_dependency: DV-P0B-CAMERA-AUTH-CLEANUP-DECISION, then W07-R2 and review.
+changed_paths: none
+```
+
+### `DV-P0B-CAPTURE-W07-REVIEW` of `fc514a7`
+
+```text
+packet_id: DV-P0B-CAPTURE-W07-REVIEW
+status: done
+verdict: reject
+
+outcome: Preservation mapping and attempt-local failure evidence are sound, but
+the hardware JSONL handoff is neither retained nor closed/ownership-safe.
+closed_mapping_review: Accepted; all fourteen current typed errors map
+exhaustively, foreign errors alone map unknown, and comparator is unchanged.
+stage_evidence_review: Accepted; same-attempt camera probe, passthrough, and
+final probe precede failure, local immutable evidence emits one terminal and no
+Ready/retry, and sanitized probe summaries are closed.
+handoff_findings: Destination remains inside resolved_run_root and is removed
+by EXIT cleanup; nested metrics/videoEvidence/category/IDs/values are not a
+closed schema and duplicate keys pass; arbitrary private content can be copied
+and printed; O_NOFOLLOW checks only final components, allowing replaced
+ancestor symlinks to redirect source/destination outside the run root; source
+cardinality is not revalidated against the snapshot.
+checks_run: Exact eight-path/blob/scope; structure and syntax; focused suites;
+real valid and fourteen invalid hooks; Debug build-only; help/negative modes;
+independent survival, private-schema, duplicate/ancestor replacement probes;
+protected blob and cleanup audits.
+exact_repair: Script, HardwareEvidenceHandoffTests, and W01 summary only. Publish
+one retained script-owned immutable snapshot outside raw-cleanup target;
+descriptor-walk/pin no-follow ancestry; closed nested schema with duplicate-key
+rejection; bounded behavioral proof of post-exit survival and rejection of
+ancestor/private/malformed inputs.
+scope_check: Read-only; no runtime or repository change.
+residual: R06 remains generic and new hardware evidence is blocked.
+next_dependency: DV-P0B-CAPTURE-W07-R1 and independent review.
+changed_paths: none
+```
+
+### `DV-P0B-CAPTURE-R06-REVIEW` of `7fbeab8`
+
+```text
+packet_id: DV-P0B-CAPTURE-R06-REVIEW
+status: done
+verdict: reject
+
+outcome: The functional Continuity cell is truthfully fail: exactly one
+explicit attempt reached authorized camera routing, passed camera-only probe,
+passthrough finalization, and final 1V/1A probe, then failed
+stored_sample_exact_v1 with zero Ready clips. Evidence is rejected only because
+it incorrectly attributes unavailable probe metrics and mismatch diagnosis to
+watcher loss.
+evidence_integrity: Exact eight-file commit 7fbeab8 and parent verified;
+current blobs match; structured parsing, cross-counts, diff, redaction, media,
+private-identity, and cleanup checks pass.
+authorization_classification: Route-time authorized is supported by ordering;
+it does not establish durable TCC state.
+media_classification: Probe and passthrough passes plus preservation failure are
+supported. Exact failed dimension is unobservable because all comparator errors
+collapse to video_preservation_failed; comparator, finalizer, and platform
+causes remain unproven.
+watcher_root_cause: Hardware provides no deterministic event handoff before
+cleanup. The ad-hoc watcher mechanism is unretained, but watcher repair alone
+would not recover mismatch/probe details because failed terminals omit them.
+cleanup_classification: Supported; zero run roots/caffeinate, preserved
+pre-existing HoldType, protected counts match R06.
+exact_repair: R06 summary.md, residuals.md, and measurements.csv only. Preserve
+functional fail and nulls; state that collapsed failure evidence omits mismatch
+and probes while watcher loss separately removed raw event/path timing.
+next_dependency: Evidence-only three-path repair and repeat review, then an
+independently reviewed diagnostic/handoff repair before any hardware retry.
+changed_paths: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-REVIEW-R4` of `f989aa8`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-REVIEW-R4
+status: done
+verdict: reject
+
+outcome: Complete cleanup pipelines are hard-owned and bounded, but exact-
+object deletion remains unproven because quarantine helpers return a mutable
+pathname after validation and callers later delete by that pathname.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact R3 rejection and R4.
+reviewed_commit_and_parent: f989aa857be7505972b05d1077da32245c9428da;
+79f42972e0508c660de86db17ebf431c8ba4be2e.
+changed_paths: none
+checks_run: Exact three-path scope/current blobs; structure and syntax; 24
+production cleanup scenarios; independent complete-pipeline timeout; 9 focused
+LaunchServices tests; signed Debug build-only; parser/hook/help/error routes;
+hardware hash; diff, process, root, and worktree cleanup.
+closed: Identity pipelines execute in one hard-owned zsh process group. A
+TERM-ignoring producer, consumer, and child returned truthful 124 within the
+reduced cap and left no process-group survivor. Parser/hook isolation and
+protected app/helper/project/hardware behavior remain intact.
+findings: Sensitive and regular quarantine validation is followed by pathname
+unlink. Directory second-quarantine validation is followed by pathname rmdir.
+Final root tombstone validation is also followed by pathname rmdir. A same-type
+replacement after final validation can therefore be deleted. New hooks mutate
+before final validation and do not exercise this destructive window; the
+summary overclaims replacement safety.
+scope_check: Exact Debug tooling/test/evidence review; no runtime, TCC, camera,
+microphone, media, product, storage, UI, iOS, Build, or publication action.
+deviations: Full 68 and unsigned Release were not repeated after deterministic
+rejection; parent-identical app/helper/project blobs establish no product delta.
+residual: Real LaunchServices Camera permission/TCC remains future evidence,
+blocked first by exact cleanup semantics.
+next_dependency: Read-only Darwin exact-object deletion/API exploration before
+another repair packet.
+runtime_or_visual_handoff: none
+reviewed_commit: f989aa857be7505972b05d1077da32245c9428da
+```
+
+### `DV-P0B-CAMERA-AUTH-W06-REVIEW-R3` of `68b9bc3`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W06-REVIEW-R3
+status: done
+verdict: reject
+
+outcome: Direct hard-timeout escalation and pre-use parent/root identity checks
+improved materially, but destructive cleanup retains check/use races and not
+every cleanup subprocess is inside the hard timeout boundary.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E08; exact R2 reject and R3.
+reviewed_commit_and_parent: 68b9bc3482667f95c4faf638ca058b50c7128069;
+525d596e02c9babf23cc36b6a3472dd1c065e6ed.
+changed_paths: none
+checks_run: Exact three-path scope/current blobs; structure and syntax; all 20
+production cleanup hooks; independent TERM-ignoring parent/child; focused 9
+LaunchServices tests; actual parser/hook/build-only routes; process/root and
+worktree cleanup.
+closed: Hard timeout rejects insufficient budget, uses TERM then KILL, returns
+truthful timeout, and leaves no owned process-group survivor. Existing declared
+root/symlink/replacement/type/collision hooks and parser isolation pass.
+findings: Cleanup identity pipelines hard-wrap only ps/lsof while later tr,
+awk, or sed consumers run outside the owned timeout group. Sensitive scrub and
+recursive child removal validate with no-follow stat/open but later unlink or
+rmdir by pathname without atomic quarantine or destructive-boundary identity
+proof. The tombstone descriptor is closed before pathname rmdir, so a late
+replacement can be deleted. Existing hooks do not exercise these windows and
+the summary overclaims replacement safety.
+scope_check: Exact Debug tooling/test/evidence review; no product, runtime,
+TCC, camera, microphone, media, storage, UI, iOS, Build, or publication action.
+deviations: Full 68 and unsigned Release were not repeated after deterministic
+rejection; unchanged app/helper/configuration blobs establish no product delta.
+residual: Real LaunchServices Camera permission/TCC remains future evidence,
+blocked first by cleanup safety.
+next_dependency: Focused three-path W06-R4 repair and independent review.
+runtime_or_visual_handoff: none
+reviewed_commit: 68b9bc3482667f95c4faf638ca058b50c7128069
+```
+
+### `DV-P0B-CAMERA-AUTH-W04-REVIEW` of `b2a2abf`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W04-REVIEW
+status: done
+verdict: reject
+
+outcome: Activation, deferred termination, and direct-PID supervision pass,
+but permission supervision does not enforce its claimed total 420-second bound.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B; E04; exact W04 commit.
+reviewed_commit_and_parent: b2a2abfe6e466d32b9b43b6bb43f629a03966101;
+088ce2ddcf59f3a894aa46f3a1d8d832ea90c770.
+paths: Six authorized W04 paths.
+checks: Exact scope; structure; 59 tests; script help/negatives and independent
+natural/stuck/mismatch/trap fakes; Debug build-only; Release/isolation;
+redaction/owner/process/root.
+findings: Terminal reserve counts 11 seconds, but natural wait, two four-probe
+identity reads, TERM/KILL waits, and reap can take up to 27 seconds; identity
+capture itself is not bounded by the deadline. No enclosing 420-second bound.
+Activation, termination ordering, identity-safe signaling, no broad kill,
+hardware preservation, and Release isolation are closed.
+scope_check: Exact Debug/test/script/evidence scope; no runtime/TCC/product.
+deviations: Reviewer fake canonicalized /tmp to /private/tmp and reran green.
+residual: Permission runtime remains blocked.
+next_dependency: Script/summary repair with one absolute deadline and slow-
+identity behavioral fake; repeat review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W03-REVIEW` of `1ae703f`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W03-REVIEW
+status: done
+verdict: reject
+
+outcome: Diagnostic categories, monotonic frozen stages, exact-one request,
+termination, Debug isolation, and Release isolation pass, but one activation-
+rejection route regresses W02 and can emit a false category.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted AUTH
+W01/W02/R03 reviews; exact W03 commit.
+reviewed_commit_and_parent: 1ae703fa0a4ced0cea0b73ef8ffeee85adb2ac13;
+d7ff6861a9c3e8cc4924460420550e4b361ed7ca.
+paths: Exactly five authorized paths.
+checks: Exact diff/path/blob; structure; 14/14 auth and 59/59 full tests; signed
+Debug build-only; bounded Release/isolation; redaction/owner/process/root.
+findings: Live requestActivation calls NSApplication.shared.activate even when
+NSRunningApplication.current.activate returned false, then reports rejection
+without proving active state. Injected Boolean tests miss the second-call
+behavior. Other categories/stages and protected routes are closed.
+scope: Exact Debug/test/evidence scope; no protected or Release change.
+deviations: none material
+residual: Permission/capture runtime remains blocked.
+next_dependency: Original owner guards the second activation behind first-call
+success, adds behavioral platform-call coverage, and repeats review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-W02-REVIEW` — incorrect artifact authority
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-W02-REVIEW
+status: blocked
+verdict: reject
+
+outcome: Requested full SHA f35ac7f0c269f538ac230c966a519994524498d1
+does not exist, so review stopped before source inspection.
+authority_used: Exact-artifact stop condition.
+reviewed_commit_and_parent: none; Git resolves prefix f35ac7f to
+f35ac7f3659f660e14d596ff0e2e6eb6fa1695be, parent
+f8e0cc00e6e90294d477a1a4e63fbae9cdd3f2ef.
+changed_paths_reviewed: none
+checks_run: rev-parse, cat-file, and bounded hash reconciliation.
+scope_check: No file, runtime, hardware, TCC, or UI action.
+deviations: none
+residual: Full review pending corrected exact authority.
+next_dependency: DV-P0B-CAMERA-AUTH-W02-REVIEW-R1
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAMERA-AUTH-R01-REVIEW` of `4f0efb5`
+
+```text
+packet_id: DV-P0B-CAMERA-AUTH-R01-REVIEW
+status: done
+verdict: reject
+authorization_cell: fail — camera_authorization_timed_out
+
+outcome: Runtime evidence supports one genuine same-signed request and one
+terminal timeout, but summary.md contradicts its unknown final authorization
+state by claiming TCC was otherwise unmodified and its database unchanged.
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B protocol and plan; accepted R05
+and authorization W01 evidence; exact AUTH-R01 commit.
+reviewed_commit_and_parent: 4f0efb557ab4502b16bac8881e731319c6ff16ad;
+00c7d5222dd9d63111cb3cdc65d2a512e9f934d4.
+changed_paths_reviewed: Exactly seven redacted evidence files; no reviewer
+changes.
+checks_run: Exact diff/path/blob; structured data and semantic counts;
+category provenance; redaction/media/path scans; process, guard, root, and
+protected-path snapshot.
+classification_review: One request and terminal timeout with zero retries,
+capture, mic, media, or product owners is supported. Prompt, final TCC state,
+and quantitative results remain unknown. No Debug defect is implicated.
+cleanup_review: Sound; zero run-owned residue and pre-existing HoldType
+preserved.
+scope_check: Exact evidence scope; rejection is claim truthfulness only.
+deviations: Watcher glob miss and Computer Use timeout are disclosed and do
+not invalidate operator-terminal provenance.
+residual: Final Camera authorization/TCC state remains unknown.
+next_dependency: Original evidence owner repairs only capture-auth-R01
+summary.md to say no reset/direct database operation occurred while system-
+managed state after requestAccess remains unknown; then repeat review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-W02-REVIEW` of `e6b3a13`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-REVIEW
+status: done
+verdict: reject
+
+outcome: Exact scope, internal mechanics, focused tests, and residue checks
+pass, but the external runtime seam is not independently fail-closed or fully
+bounded. External runtime remains forbidden before repair and repeat review.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E06/E08;
+accepted W01/E02 evidence; W02 packet and receipt.
+changed_paths: none
+checks_run: Exact commit/parent/three-path/mode/blob audit; diff and structure;
+24 focused cells; Debug build; wrapper syntax/help and nine negatives; collision,
+64 KiB, redirected-prefix, protected-owner, redaction, process, and residue
+audits. No external I/O.
+scope_check: Commit scope otherwise clean; no product, project, entitlement,
+settings, protected storage, media, UI, hardware, dependency, or quality change.
+deviations: none
+residual: Direct environment-backed XCTest can bypass wrapper-only broad-root
+and SSD/HDD checks because suite validation accepts `/` syntactically and
+discards destinationClass. External diskutil/df probes, caffeinate wait, and
+captured-descendant exit verification are not fully bounded.
+next_dependency: Original owner repairs the same three paths and repeats review;
+no external runtime first.
+runtime_or_visual_handoff: none
+reviewed_commit: e6b3a13f046a6e0ac703643c87ee869e222ead6f
+```
+
+### `DV-P0B-STORAGE-W02-REVIEW-R1` of `986af6c`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-REVIEW-R1
+status: done
+verdict: reject
+
+outcome: Repair improves physical-media validation and ordinary cleanup, but
+broad-root and complete bounded-cleanup requirements remain incomplete.
+External runtime remains forbidden.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E06/E08;
+accepted W01/E02 evidence; W02 reject and repair.
+changed_paths: none
+checks_run: Exact three-path repair audit; diff and structure; 25 focused
+cells; bounded Debug build/test; wrapper syntax/help and nine negatives;
+process fixtures; SDK key verification; redaction, protected-owner, residue,
+and process audits. No external I/O.
+scope_check: Clean test/tooling-only repair; no protected or quality change.
+deviations: none
+residual: `group_members` masks timeout/error as empty, allowing a later
+unbounded wait; external shell metadata builtins remain outside a finite
+boundary; broad/home-root rejection and nonlocal, nonwritable/read-only,
+nil-filesystem negative coverage remain incomplete. Actual external evidence
+and prior runtime residuals remain.
+next_dependency: Original owner repairs the same three paths and repeats review;
+no external runtime first.
+runtime_or_visual_handoff: none
+reviewed_commit: 986af6ca85147c8236075b30d5fef200f73dec74
+```
+
+### `DV-P0B-STORAGE-W02-REVIEW-R2` of `767edd9`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-REVIEW-R2
+status: done
+verdict: reject
+
+outcome: Probe statuses, bounded preflight, broad-root rejection, and injected
+authority coverage pass, but process-group cleanup can accept incomplete member
+identity evidence and then signal the whole group.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E06/E08;
+accepted W01/E02 evidence and prior W02 reviews.
+changed_paths: none
+checks_run: Exact three-path repair audit; diff and structure; 25 focused
+invocations; bounded Debug build; eight wrapper negatives; group-status,
+metadata-timeout, process, caffeinate, reap, redaction, protected-owner,
+residue, and process audits. No external I/O.
+scope_check: Clean test/tooling-only repair; no protected or quality change.
+deviations: none
+residual: `capture_group_identities` skips a member whose identity probe fails;
+the incomplete captured set is not matched and revalidated against the observed
+set immediately before group signaling. Actual external/runtime residuals
+remain.
+next_dependency: Original owner repairs only the wrapper, adds a deterministic
+partial-identity fixture, and repeats review; no external runtime first.
+runtime_or_visual_handoff: none
+reviewed_commit: 767edd9eb717f2a5324a79a3aa37dc3086657427
+```
+
+### `DV-P0B-STORAGE-W02-REVIEW-R3` of `d0c9ce5`
+
+```text
+packet_id: DV-P0B-STORAGE-W02-REVIEW-R3
+status: done
+verdict: reject
+
+outcome: Supervisor-group identity capture and signaling are closed, but the
+caffeinate escalation path can KILL a recycled or unrelated PID and report
+cleanup success.
+authority_used: DV-DRAFT-3@ed108fa storage clauses; Phase 0B E03/E04/E08;
+accepted W01/E02 evidence and prior W02 reviews.
+changed_paths: none
+checks_run: Exact wrapper-only repair audit; syntax/help; nine negatives;
+atomic identity, member-set, probe status, EXIT-trap, lifecycle, caffeinate,
+reap, structural, redaction, protected-owner, path, residue, and process
+checks. No external I/O.
+scope_check: Clean wrapper-only repair; no Swift, protected, or quality change.
+deviations: none
+residual: `stop_caffeinate` validates identity before TERM but not freshly
+before KILL. Deterministic direct and EXIT-trap PID-recycle fixtures reproduce
+TERM then KILL to the changed identity. Actual external/runtime residuals
+remain.
+next_dependency: Original owner repairs only the wrapper and repeats review;
+no external runtime first.
+runtime_or_visual_handoff: none
+reviewed_commit: d0c9ce529f8b43234575ce9db2e51a0b007bb484
+```
+
+### `DV-P0B-CAPTURE-W01-REVIEW` of `9d9efec`
+
+```text
+packet_id: DV-P0B-CAPTURE-W01-REVIEW
+status: done
+verdict: reject
+
+outcome: The Debug harness builds and passes focused fake tests, but mandatory
+startup-isolation, terminal-cleanup, and bounded-operation safeguards fail.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; original W01 packet;
+exact commit and protected adjacent contracts.
+changed_paths: none
+checks_run: Exact 15-path diff; structure; 13 fake tests; Debug and Release
+builds; build-setting and built-artifact isolation; script checks; final audit.
+scope_check: Path scope and Release isolation pass; no hardware/TCC/UI/provider
+runtime occurred.
+deviations: none
+residual: Product scenes still compose under the harness gate; steady-state
+camera failures may not terminate and clean up; quit does not await cleanup;
+the export timeout and one hardware-script build-settings probe are not fully
+bounded. All real hardware/media evidence and the shipping lease remain open.
+next_dependency: Original capture owner repairs the exact findings, then a new
+independent review runs before storage or hardware runtime.
+runtime_or_visual_handoff: none
+reviewed_commit: 9d9efecc36e6337790a2f80e2571d3118e4bc404
+```
+
+### `DV-P0B-STORAGE-W01-REVIEW` of `2486b56`
+
+```text
+packet_id: DV-P0B-STORAGE-W01-REVIEW
+status: done
+verdict: reject
+
+outcome: Path scope, build, 18 focused tests, promotion collision, redaction,
+and residue checks pass, but cleanup symlink-prefix safety fails.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B protocol; exact W01 packet and
+commit; protected storage contracts.
+changed_paths: none
+checks_run: Exact three-path diff; structure; focused suite; bounded Debug
+build; zero-residue and process audit.
+scope_check: Clean; no product, external-volume, media, or hardware runtime.
+deviations: none
+residual: Cleanup validates the run-root leaf but not the required temp-prefix
+component immediately before recursive delete, allowing a parent-symlink
+substitution risk. The summary also overstates stale-bookmark evidence: rename
+following passed, but a stale result was not deterministically established.
+next_dependency: Original storage owner repairs the same three paths, adds a
+redirected-prefix survival test, corrects the claim, then repeats review.
+runtime_or_visual_handoff: none
+reviewed_commit: 2486b56c02130abd905824a0b50da95118a4b81c
+```
+
+### `DV-P0B-CAPTURE-R03-REVIEW` of `8b0b263`
+
+```text
+packet_id: DV-P0B-CAPTURE-R03-REVIEW
+status: done
+verdict: reject
+
+outcome: Termination self-dependency and script supervision are closed, but
+raw platform camera-start classification remains false or collapsed.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted R02 evidence/review;
+R03 commit and Apple SDK AVError authority.
+changed_paths: none
+checks_run: Exact eight-path diff; 14-case category and raw-error review; SDK
+codes; termination/script probes; 26 tests; Debug/Release isolation.
+scope_check: Clean; no hardware, TCC, product, storage, or protected-owner run.
+deviations: none
+residual: Authorization AVError codes collapse to recording failure; pre-start
+disconnect is labeled during-capture; numeric codes lack AVFoundation domain
+checking; tests do not cover raw classifier/domain/context.
+next_dependency: Original R03 owner repairs camera classifier/tests/summary,
+then repeat review before hardware or storage dispatch.
+runtime_or_visual_handoff: none
+reviewed_commit: 8b0b2635832c5f5b52f3191c96a2828d90680498
+```
+
+### `DV-P0B-CAPTURE-R03-REVIEW-R1` of `1276283`
+
+```text
+packet_id: DV-P0B-CAPTURE-R03-REVIEW-R1
+status: done
+verdict: reject
+
+outcome: Raw AVFoundation domain/code mapping is repaired, but actual lifecycle
+routes can discard or replace the typed category before terminal evidence.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; R02 evidence/review; R03 reject;
+Apple SDK AVError authority.
+changed_paths: none
+checks_run: Exact four-path diff; SDK mapping; observer/catch/movie/terminal
+route trace; 29 tests; Debug/Release isolation; accepted blob comparison.
+scope_check: Clean; accepted Launch/script behavior unchanged; no hardware run.
+deviations: none
+residual: Notifications before start continuation may be dropped; disconnect
+before first frame and steady interruption can be replaced by generic
+capture_stop; behavioral tests do not exercise these routes.
+next_dependency: Original owner repairs actual propagation and behavioral tests,
+then repeats review before hardware or storage dispatch.
+runtime_or_visual_handoff: none
+reviewed_commit: 127628385a561c13acf4879602ecd749c965cee3
+```
+
+### `DV-P0B-CAPTURE-R03-REVIEW-R2` of `ba058f8`
+
+```text
+packet_id: DV-P0B-CAPTURE-R03-REVIEW-R2
+status: done
+verdict: reject
+
+outcome: Early observer retention and movie-start plus first-frame gate are
+closed, but concrete explicit stop mutates state before context classification
+and replaces steady disconnect with a start-time category.
+authority_used: DV-DRAFT-3@ed108fa; Phase 0B; accepted R02/R03 evidence;
+exact propagation repair.
+changed_paths: none
+checks_run: Exact five-path diff; route trace; 23 focused and 34 full tests;
+structure; Debug/Release isolation; accepted script/lifecycle comparison.
+scope_check: Clean; no hardware, TCC, storage, product, or protected-owner run.
+deviations: none
+residual: Explicit stop must preserve steady context or the already-typed error
+before terminal state mutation; current tests bypass the concrete stop route and
+the summary overclaims later-stop preservation.
+next_dependency: Original owner repairs CameraCapture, its concrete stop test,
+and the summary, then repeats review.
+runtime_or_visual_handoff: none
+reviewed_commit: ba058f8742dc409b91612f95e5254db6fac8b6e0
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01-R1
+status: done
+classification: discover; design_repaired; no implementation or runtime
+
+outcome: Recorded an exact implementable, default-disabled DEBUG provenance
+observer and a separate nonexternal, single-shot controller. The controller
+first runs build-for-testing and compares metadata after all build processes
+are reaped. Only an unchanged build phase admits one inert hosted observer test
+under a private HOME/CFFIXED_USER_HOME/TMPDIR and the same identity-pinned
+DerivedData, followed by a second compare. Any first change or uncertainty
+stops the packet. The design can correlate a closed run-owned canonical
+recovery mutation with a hosted-window change, but never claims an arbitrary
+writer identity; unsupported cases remain still_unknown. The accepted external
+storage wrapper is unchanged.
+
+authority_used: DV-DRAFT-4@2f3266a; Phase 0B E03/E04/E08; rejected integrated
+Phase 0B review; accepted storage mechanics, inert/value-free host, private
+HOME and shared DerivedData evidence; rejected observer E01 review. No prior
+external-root authorization is reused for implementation or runtime.
+
+exact_writable_implementation_envelope:
+1. HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BProtectedStorageObserver.swift
+   (new): @MainActor final class DevVlogsPhase0BProtectedStorageObserver,
+   shared owner, closed enums/token, install, recordOwnerInitialization,
+   observeMutation, classifyTargetScope and emit.
+2. HoldType/Debug/DevVlogsPhase0B/DevVlogsPhase0BStorageTestHostLaunch.swift
+   (modify): closed observer configuration and inert-host routing only.
+3. HoldType/Services/TranscriptionFailureRecoveryStore.swift (modify): DEBUG
+   observer calls around the canonical mutation operations only; no parallel
+   mutation logic, reordered control flow or changed error policy.
+4. HoldTypeTests/DevVlogsPhase0BStorageTestHostLaunchTests.swift (modify).
+5. HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverTests.swift (new).
+6. HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverHostedTests.swift (new).
+7. HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverControllerTests.swift
+   (new).
+8. script/dev_vlogs_phase_0_b_protected_storage_observer.sh (new).
+9. script/dev_vlogs_phase_0_b_protected_storage_probe.c (new).
+10. docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md (new).
+HoldType/HoldTypeApp.swift is explicitly not writable and not required.
+
+exact_observer_environment_contract:
+- HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST=1
+- HOLDTYPE_DEV_VLOGS_PHASE_0B_PROTECTED_STORAGE_OBSERVER=stderr-json-v1
+- HOLDTYPE_DEV_VLOGS_PHASE_0B_PROTECTED_STORAGE_OBSERVER_RUN_ID=<lowercase UUID>
+- HOLDTYPE_DEV_VLOGS_PHASE_0B_PROTECTED_STORAGE_OBSERVER_CASE_ID=protected_metadata
+- HOLDTYPE_DEV_VLOGS_STORAGE_VALIDATE_PRIVATE_HOME=1
+- HOLDTYPE_AUTOMATION=1
+- HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip
+- HOME and CFFIXED_USER_HOME are the identical standardized task HOME; TMPDIR
+  is its mode-0700 child.
+Any observer-key presence selects the outer inert storage route. Every key has
+exactly one raw environ occurrence. Partial, empty, malformed, duplicate or
+unknown observer input fails closed in the inert host. Any external-storage,
+capture, authorization or preview route key conflicts.
+
+closed_stderr_schema: Each observer line begins exactly
+`HTDV_P0B_PROTECTED_STORAGE_OBSERVER_V1 ` and then fixed-order JSON keys
+`schema_version,run_id,case_id,sequence,event,action,category,target_scope,result`.
+Schema version is 1; run_id is a lowercase UUID; case_id is
+`protected_metadata`; sequence is 1...128. Each complete prefixed line is at
+most 512 bytes and a run emits at most 128 lines. Closed events are
+observer_ready, owner_initialized, mutation_begin, mutation_end and
+observer_overflow. Closed actions are none, ensure_recovery_directory,
+copy_recovery_audio, replace_recovery_index, the three marker-write actions,
+the three marker-delete actions and delete_recovery_audio. Closed categories
+are observer, recovery_directory, recovery_index, recovery_marker and
+recovery_audio. Closed target scopes are not_applicable, private_task_home,
+outside_private_task_home and indeterminate. Closed results are ready,
+observed, attempted, succeeded, failed and overflow. Exactly one ready is
+required; sequence/cardinality and adjacent begin/end pairs are validated.
+Gaps, unknown or duplicate keys/events, invalid pairings or overflow fail
+closed. Lines must never contain paths, filenames, Recovery.json,
+TranscriptionRecovery, user/volume names, content, payload, counts, timestamps,
+device/inode/mode/size, PID identities, errors, recovery/provider state,
+credentials or media.
+
+read_only_probe_contract: The controller compiles the new C helper in its
+private run root. The helper opens `/` with O_RDONLY|O_DIRECTORY|O_CLOEXEC,
+walks every directory component with openat using
+O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC plus fstat, and reads the final
+target only through fstatat(..., AT_SYMLINK_NOFOLLOW). It observes exactly the
+canonical recovery directory and its fixed recovery-index child. It never
+enumerates a directory, opens the index, or reads/hashes/parses/mutates
+content. Ephemeral in-memory tuples contain only present/missing, dev, inode,
+type+permissions, uid, gid, nlink, size and mtime seconds/nanoseconds and are
+unset after comparison. Symlink, wrong type/owner/mode, malformed or unexpected
+errno, replacement or discontinuity yields metadata_uncertain. Durable output
+contains only phase plus unchanged, changed, missing_unchanged or uncertain.
+
+canonical_mutation_coverage: DEBUG observeMutation wraps every createDirectory
+in copy/persist/marker writers, the recovery-audio copyItem, the atomic
+Recovery index writer, all three marker atomic writes, and the actual
+deleteExactRegularAudio removeItem boundary with a closed
+RecoveryArtifactDeletionKind propagated from its five callers. Owner
+initialization is observed after directoryURL assignment and before restore.
+The wrapper rethrows the exact operation error. An emitter failure never alters
+product flow but invalidates the later evidence run.
+
+controller_and_guard_state_machine:
+- command: script/dev_vlogs_phase_0_b_protected_storage_observer.sh --execute
+- one 900-second controller deadline; metadata/census 15 seconds each; helper
+  compile 60; build 600; hosted test 180; TERM/KILL waits 5; outer supervisor
+  ceiling 930.
+- S0 pins the single controller identity.
+- S1 creates and identity-pins the private run root, task HOME, TMPDIR,
+  DerivedData, logs and bin, then compiles the probe.
+- S2 starts and pins one direct-child caffeinate guard.
+- S3 rejects any pre-existing product process.
+- S4 captures the no-follow metadata baseline.
+- S5 runs build-for-testing under the invoking HOME with the pinned
+  DerivedData; then reaps, takes an exact process census and compares metadata.
+- S6 only after unchanged runs one inert observer-only hosted test under the
+  private HOME/CFFIX/TMPDIR, identical DerivedData and exact observer keys.
+- S7 reaps, censuses, compares and parses the closed observer stream.
+- S8 writes the authorized evidence set, performs exact run-owned
+  quarantine/cleanup, stops and reaps the guard, and unsets raw values.
+The accepted external wrapper stays byte-identical. The new controller copies
+the required W04/W05 invariants rather than extracting shared behavior.
+
+closed_stop_and_classification_matrix:
+- pre-existing product process -> stop, environment_conflict
+- concurrent external process uncertainty -> stop, still_unknown
+- controller or guard discontinuity -> stop, guard_discontinuity
+- build failure/timeout/signal -> stop, build_failed
+- build-window metadata change -> stop, build_window_change_correlated only
+- metadata/root identity uncertainty -> stop, metadata_uncertain
+- invalid observer stream -> stop, observer_invalid
+- hosted change plus an outside-private succeeded canonical event ->
+  run_owned_canonical_recovery_write_correlated
+- hosted change without a canonical event -> still_unknown
+- observer/metadata conflict -> still_unknown or evidence_conflict
+- outside-private event with unchanged metadata -> evidence_conflict
+- owner observed without mutation -> owner_exposed_no_mutation
+- hosted test failure -> hosted_test_failed
+- cleanup uncertainty -> cleanup_uncertain
+- both phases unchanged with valid stream -> pass_unchanged
+Every stop is first-failure/no-retry. No external-volume action, restoration,
+protected deletion, exact arbitrary-writer attribution, controller/guard
+replacement or live-home content access is authorized.
+
+future_runtime_evidence_envelope: A separately authorized runtime would write
+exactly seven text files under
+docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01/: summary.md,
+environment.json, matrix.csv, measurements.csv, artifacts.csv, residuals.md
+and events/storage-observer-r01.jsonl. Implementation acceptance does not
+authorize that runtime. Runtime requires explicit user authority for one
+nonexternal controller invocation, private root creation/cleanup,
+xcodebuild/hosted test, bounded census/signals limited to exact run-owned
+processes, and metadata-only no-follow traversal of the exact canonical
+recovery directory/index.
+
+checks_run: mandatory spec/protocol/registry/tooling gate; read-only source and
+target-membership confirmation sufficient to name the exact owners; no build,
+test, process, protected-path, volume, app, TCC or runtime action.
+scope_check: Registry design artifact only. No source/spec/product/Release/
+external-storage/protected-data mutation and no runtime authority consumed.
+residual: Independent design review is mandatory before implementation. Even
+after implementation, causal runtime remains separately user-authorized and
+arbitrary writer identity may remain still_unknown.
+next_dependency: DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-PAUSE-2026-08-09`
+
+```text
+packet_id: DV-P0B-PAUSE-2026-08-09
+status: paused_by_user
+reason: User requested a safe pause before restarting Codex because the current
+context/token allowance was nearly exhausted.
+
+coordinator_action: Interrupted only the two active finite packets. No new
+source inspection, implementation, build, test, protected-path observation,
+camera/storage/permission/UI runtime or external action followed the request.
+
+durable_checkpoint:
+- Registry commit 8fe5645 records the exact completed
+  DV-P0B-STORAGE-OBSERVER-E01-R1 design artifact and marks its independent
+  review active.
+- DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1 completed its mandatory authority gate
+  and inspected the exact one-path 8fe5645 diff. It had not issued a verdict.
+  Preliminary unresolved questions were: literal enum values for the three
+  marker-write and three marker-delete actions; exact uid/mode/type predicates
+  for every no-follow probe component and target; and moving the direct-child
+  caffeinate guard before helper compilation so it precedes the first runtime
+  action. These are review questions, not accepted findings, until the reviewer
+  resumes and returns a terminal receipt.
+- DV-P0B-E07-E01-R1 completed mandatory authority/spec reading, canonical
+  DictationSessionController injection/order confirmation, filesystem-
+  synchronized HoldTypeTests membership confirmation, rejection of the
+  isolated Debug harness as noncanonical E07 evidence, and current protected-
+  blob/provenance pinning. It was preparing the exact self-contained registry
+  contract and had not returned a terminal artifact.
+- DV-P0B-E07-E01-REVIEW-R1, DV-P0B-E07-W01 and all later capture/integrated
+  packets remain queued or blocked. No implementation packet was admitted.
+- DV-P0B-CAPTURE-R07 remains blocked. No new camera/media attempt occurred.
+- Storage runtime remains terminal under R05 and no further storage runtime is
+  authorized. The observer design/runtime split remains intact; observer
+  implementation and its future nonexternal causal runtime are separately
+  gated.
+
+restart_instructions: On explicit user resume, /root must repeat the complete
+context-compaction restart gate, reread this registry current state and the
+full applicable DV-DRAFT-4/plan/Phase0B/tooling basis, confirm a clean or safely
+scoped worktree, then resume exactly the interrupted finite packets. First
+obtain the E07 R1 terminal design artifact and the storage observer R1 terminal
+review. Record and independently review each result before admitting any
+implementation. Do not infer runtime authority from the resume request.
+
+scope_check: Registry-only pause checkpoint. No product/spec/source/test/script
+or QA runtime evidence path changed. No process or resource was intentionally
+left running by the paused packets.
+next_dependency: Explicit user resume after Codex restart.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-RESUME-2026-08-09`
+
+```text
+packet_id: DV-P0B-RESUME-2026-08-09
+status: resumed
+authority: User explicitly resumed the paused persistent goal after restarting
+Codex.
+
+restart_gate: /root re-read the persistent objective; global and repository
+AGENTS; root-orchestration; product-truth governance; onboarding; specification
+README/index; complete DV-DRAFT-4; complete Phase 0B protocol and governing
+plan; current registry including the pause receipt; SWIFT/tooling; and the
+complete active dictation, durability, privacy, OpenAI, output, post-action,
+correction, History, Settings, platform-testing and verification contracts.
+
+spec_basis: Discover-only Phase 0B evidence remains pinned to
+DV-DRAFT-4@2f3266a. Resume only the two interrupted registry design/review
+packets. Ordinary dictation/transcription/correction/translation/output,
+History/Recovery, Settings/Keychain, permissions, diagnostics, Release, iOS and
+product runtime remain protected. No specification delta is authorized.
+
+resumed_packets:
+- DV-P0B-E07-E01-R1: finish the self-contained registry design artifact only;
+  no implementation/build/test/runtime.
+- DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1: finish the read-only exact design
+  review of 8fe5645 and resolve the three preliminary questions before a
+  terminal verdict.
+
+blocked_packets: DV-P0B-E07-W01, DV-P0B-CAPTURE-R07, storage observer
+implementation/runtime, DV-P0C-CONTRACT and all later phases remain blocked
+until their exact dependencies are accepted. The resume request grants no
+camera, permission, external-volume or protected-path runtime authority.
+
+scope_check: Registry coordination only. Worktree was clean on master at
+4210114 before this resume update. No product/spec/source/test/script/QA evidence
+path, process or external resource was touched.
+next_dependency: Terminal E07 R1 design artifact and terminal storage observer
+R1 review, each recorded before any later dispatch.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R1
+status: rejected
+reviewed_commit: 8fe5645 (parent efbfe9f); exact one-path registry-only design;
+receipt byte-identical at resume HEAD 9101428.
+
+accepted_direction: The ten-path future implementation envelope, DEBUG-only
+seam, no-follow/no-enumeration observation primitive, phase split, bounds,
+cleanup direction and separate runtime authority are sound.
+
+blocking_findings:
+1. The six marker-action wire values and five
+   RecoveryArtifactDeletionKind mappings are generic rather than literal closed
+   enums.
+2. The no-follow probe does not define exact type/uid/mode predicates for
+   system ancestors, user-owned components, the recovery directory and index.
+3. Controller S1 compiles the helper before S2 starts the guard, contrary to
+   the Phase 0B requirement that caffeinate precede the first runtime action.
+4. `observer/metadata conflict -> still_unknown or evidence_conflict` is not a
+   deterministic classification rule.
+5. The future evidence envelope names seven files; the protocol/resumed packet
+   requires eight and is missing `source-feasibility.md`.
+
+repair_boundary: Registry-only R2 by the original design owner, resolving only
+the five literal contract points above. No implementation, build, test,
+process, protected-path observation, external-volume action or runtime.
+
+scope_check: Read-only review. No repository path changed by the reviewer and
+no runtime authority was consumed.
+next_dependency: DV-P0B-STORAGE-OBSERVER-E01-R2, then independent
+DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01-R2
+status: done
+outcome: The rejected R1 design is repaired at exactly its five literal
+contract gaps. The accepted ten-path future implementation envelope,
+DEBUG-only seam, no-enumeration primitive, phase split, cleanup direction,
+protected owners and separately authorized runtime remain unchanged.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance;
+agent onboarding; specification README/index; full DV-DRAFT-4@2f3266a; full
+Dev Vlogs implementation plan and Phase 0B protocol; registry header, scope,
+decisions, epoch, packet table, current coordination, original observer E01,
+its rejected review, E01-R1, pause/resume and rejected Review-R1; SWIFT;
+agent tooling; platform-testing and verification; recording durability,
+privacy/permissions and transcript-history contracts. root-orchestration was
+not read because this finite design owner is not /root.
+
+expected: Discover-only E03/E04/E08 design repair. Define the five rejected
+wire/probe/order/classification/evidence details without changing product,
+specification, source, tests, scripts, accepted external mechanics or live
+protected storage. No implementation or runtime authority is conveyed.
+
+accepted_direction: Preserve DV-P0B-STORAGE-OBSERVER-E01-R1@8fe5645 except
+where the following literal R2 rules replace the five rejected R1 passages.
+The future implementation remains exactly the ten paths recorded by R1;
+HoldType/HoldTypeApp.swift remains forbidden; the accepted external wrapper
+remains byte-identical.
+
+literal_wire_and_symbol_contract:
+- The six and only marker action wire strings are
+  write_saved_state_marker, write_processing_checkpoint_marker,
+  write_provider_dispatch_marker, delete_saved_state_marker,
+  delete_processing_checkpoint_marker and delete_provider_dispatch_marker.
+- persistSavedStateRepairMarker maps only to write_saved_state_marker;
+  persistProcessingCheckpointMarker maps only to
+  write_processing_checkpoint_marker; persistProviderDispatchMarker maps only
+  to write_provider_dispatch_marker; deleteSavedStateRepairMarker maps only to
+  delete_saved_state_marker; deleteProcessingCheckpointMarker maps only to
+  delete_processing_checkpoint_marker; and deleteProviderDispatchMarker maps
+  only to delete_provider_dispatch_marker.
+- RecoveryArtifactDeletionKind is a closed DEBUG enum with exactly five Swift
+  cases: failedAttemptEmergencyAudio, savedStateRepairMarker,
+  processingCheckpointMarker, providerDispatchMarker and managedRecoveryAudio.
+  No raw-string initializer or unknown/default case exists.
+- failedAttemptEmergencyAudio is supplied only by removeFailedAttempt's direct
+  emergency-audio deletion and maps to action delete_recovery_audio/category
+  recovery_audio. savedStateRepairMarker is supplied only by
+  deleteSavedStateRepairMarker and maps to delete_saved_state_marker/
+  recovery_marker. processingCheckpointMarker is supplied only by
+  deleteProcessingCheckpointMarker and maps to
+  delete_processing_checkpoint_marker/recovery_marker.
+  providerDispatchMarker is supplied only by deleteProviderDispatchMarker and
+  maps to delete_provider_dispatch_marker/recovery_marker.
+  managedRecoveryAudio is supplied only by deleteRecoveryAudio and maps to
+  delete_recovery_audio/recovery_audio.
+- A deletion caller without exactly one of those five cases is a compile-time
+  error. The observer serializes only the mapped action/category strings; it
+  never serializes the Swift case name.
+
+observation_contract:
+- The helper resolves the invoking uid with geteuid() and getpwuid_r(), and
+  accepts the canonical home topology only when pw_dir is exactly
+  /Users/<one nonempty component> with no slash, dot or dot-dot component.
+  HOME is not used to select the protected target. Any other topology is
+  metadata_uncertain before observation.
+- Let kind = st_mode & S_IFMT and perms = st_mode & 07777. lstat("/") must
+  report kind S_IFDIR, uid 0, (perms & 0555) == 0555 and
+  (perms & 0022) == 0 and (perms & 07000) == 0. The subsequently opened root
+  fd must fstat to the same dev, inode, kind, uid, gid, perms and nlink tuple.
+- Every later component is obtained with
+  fstatat(parent_fd, component, ..., AT_SYMLINK_NOFOLLOW). An existing
+  directory is then opened with O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC and
+  fstat must match that pre-open dev, inode, kind, uid, gid, perms and nlink
+  tuple before traversal continues.
+- The system ancestor Users must have kind S_IFDIR, uid 0,
+  (perms & 0555) == 0555, (perms & 0022) == 0 and
+  (perms & 07000) == 0. The user-home component must have kind S_IFDIR,
+  uid geteuid(), (perms & 0700) == 0700, (perms & 0022) == 0 and
+  (perms & 07000) == 0.
+- The user-owned Library, Application Support and HoldType components, and the
+  TranscriptionRecovery recovery directory when present, must each have kind
+  S_IFDIR, uid geteuid(), (perms & 0700) == 0700,
+  (perms & 0022) == 0 and (perms & 07000) == 0.
+- The fixed Recovery.json index target, when present, must be observed only by
+  fstatat(..., AT_SYMLINK_NOFOLLOW) and must have kind S_IFREG,
+  uid geteuid(), nlink == 1, (perms & 0600) == 0600 and
+  (perms & 0022) == 0 and (perms & 07111) == 0. It is never opened.
+- Missing /, Users or the user home is metadata_uncertain. ENOENT at Library,
+  Application Support, HoldType or TranscriptionRecovery deterministically
+  makes both targets missing for that observation; ENOENT only at Recovery.json
+  makes the directory present and the index missing. The same missing state at
+  compare is missing_unchanged; appearance or disappearance is changed.
+- S_IFLNK, a nonmatching kind/uid/mode/nlink predicate, pre-open/post-open
+  identity mismatch, ELOOP, ENOTDIR or any errno other than the permitted
+  ENOENT is metadata_uncertain. No directory enumeration, target-content open,
+  read, parse, hash or mutation is allowed. gid is retained only in the
+  ephemeral identity tuple and is not an ownership acceptance predicate.
+- Ephemeral raw tuples remain limited to the R1 fields and are zeroed after
+  comparison. Durable output remains only phase plus unchanged, changed,
+  missing_unchanged or uncertain; it contains no component or target name.
+
+controller_state_machine_repair:
+- S0 validates arguments and pins the single controller's own identity; no
+  helper, build, test or app process exists.
+- S1's first child/process action is to start one direct-child caffeinate guard
+  and prove its recorded PID, start identity, exact command and PPID equal the
+  controller. This occurs before private-helper compilation and before every
+  other helper, build, test or app process. Failure stops without replacement.
+- S2 creates and identity-pins the private root, task HOME, TMPDIR,
+  DerivedData, logs and bin, then compiles the probe under the already proven
+  guard. S3 through S8 retain the R1 census, baseline, build-compare-stop,
+  conditional hosted-test-compare, evidence, scrub, exact cleanup and guard
+  stop/reap order and all R1 deadlines. The guard is revalidated at every R1
+  checkpoint and is never replaced.
+
+deterministic_stop_and_classification_rule:
+- The first applicable row below wins and yields exactly one terminal class.
+  A metadata change always suppresses packet success. An auxiliary observer
+  defect may be recorded in residuals but never creates a second terminal
+  class.
+- Before hosted execution: pre-existing product process ->
+  environment_conflict; controller/guard discontinuity ->
+  guard_discontinuity; build failure/timeout/signal -> build_failed;
+  metadata/root uncertainty -> metadata_uncertain; first build-window change
+  -> build_window_change_correlated. No hosted test follows any of these.
+- Hosted compare uncertain -> metadata_uncertain.
+- Hosted compare changed and the stream is valid, has at least one completed
+  succeeded mutation pair, and every mutation pair ends succeeded with
+  target_scope outside_private_task_home ->
+  run_owned_canonical_recovery_write_correlated.
+- Hosted compare changed in every other stream condition, including invalid
+  schema, no succeeded outside-private pair, any private/indeterminate scope,
+  any failed mutation, or mixed scopes/results -> still_unknown.
+- Hosted compare unchanged or missing_unchanged with an invalid stream ->
+  observer_invalid.
+- Hosted compare unchanged or missing_unchanged with a valid succeeded
+  outside_private_task_home or indeterminate mutation pair ->
+  evidence_conflict.
+- Hosted compare unchanged or missing_unchanged with any other valid mutation
+  pair, including private_task_home success or a failed attempt ->
+  hosted_test_failed.
+- Hosted compare unchanged or missing_unchanged with a valid owner_initialized
+  event and no mutation pair -> owner_exposed_no_mutation.
+- Hosted compare unchanged or missing_unchanged with only the required valid
+  observer_ready event and no owner/mutation event -> pass_unchanged.
+- A hosted test command failure with otherwise unchanged metadata is
+  hosted_test_failed. Cleanup uncertainty overrides any pending non-change
+  success as cleanup_uncertain. Concurrent non-run-owned process uncertainty
+  before a protected change is environment_conflict; after a protected change
+  it is still_unknown. No branch uses the rejected phrase "still_unknown or
+  evidence_conflict".
+
+future_runtime_evidence_envelope: A later separately authorized runtime may
+write exactly these eight files and no others under
+docs/qa/runs/dev-vlogs-phase-0b-storage-observer-r01/:
+1. summary.md
+2. source-feasibility.md
+3. environment.json
+4. matrix.csv
+5. measurements.csv
+6. artifacts.csv
+7. residuals.md
+8. events/storage-observer-r01.jsonl
+The source-feasibility file records only implementation/provenance identities,
+closed route/schema versions and pass/fail checks. Repository-relative
+implementation paths may be named; no private/protected/volume path, protected
+tuple, process identity, raw environment value or user content may appear.
+
+verification_matrix:
+- Observer unit tests exhaustively assert the six marker wire strings, all five
+  deletion cases/caller mappings and rejection of unknown serialization.
+- Probe fixture tests under a private synthetic tree cover each system/user/
+  recovery/index predicate, missing ancestors and index, symlinks, wrong type,
+  wrong uid, each prohibited mode bit, index nlink != 1, errno closure and
+  pre-open/post-open replacement; they assert zero enumeration and zero target
+  open/read/hash/parse.
+- Controller tests assert the guard is the first child and is proven before
+  compilation, every guard checkpoint is continuous, no replacement occurs,
+  and each ordered classifier row produces exactly one terminal class with
+  success suppressed on first change or uncertainty.
+- Evidence tests assert the exact eight-path allowlist, closed schemas,
+  redaction, maximum line/stream bounds and absence of protected names/tuples.
+- Existing R1 Release isolation, absent/empty/malformed/duplicate/conflicting
+  route, private-HOME/identical-pinned-DerivedData, phase, timeout, census and
+  cleanup checks remain mandatory. Implementation review precedes any runtime.
+
+scope_check: Edited only docs/dev-vlogs-execution-registry.md. No spec,
+product/source/test/script/QA evidence implementation, build, test, process,
+live HOME, protected path, external volume, Keychain/TCC, media or runtime
+action occurred. Accepted storage mechanics and protected owners are unchanged.
+
+deviations: none
+residual: This is design authority only. Independent Review-R2 must accept it
+before implementation. Implementation still does not authorize runtime. A
+later runtime needs explicit authority for one nonexternal controller
+invocation and the exact R1 metadata-only/process/private-root operations;
+arbitrary writers can still terminate as still_unknown without attribution.
+next_dependency: DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-E01-REVIEW-R2
+status: accepted
+reviewed_commit: 794b73314ed44955865f0dbceaf6820e32ea7abc
+parent: 85e546c8a3b7a247fd0f8922c7974e4f0c193882
+scope: exact one-path registry-only design repair; mode 100644 preserved.
+
+outcome: All five Review-R1 blockers are closed without widening the accepted
+observer design or granting runtime authority.
+
+verified_contract:
+- Six literal marker wire values and the exhaustive five-case
+  RecoveryArtifactDeletionKind caller/action/category mapping are closed with
+  no raw-string/default route.
+- Root, system ancestors, home, user-owned components, recovery directory and
+  index have exact no-follow type/uid/mode/link predicates and deterministic
+  missing/error handling.
+- The direct-child caffeinate guard is the first process action and its identity
+  is proven before helper compilation, build, test or app execution.
+- Terminal classification uses a deterministic first-applicable priority;
+  metadata change suppresses success and no `A or B` ambiguity remains.
+- The future runtime envelope contains exactly eight files, including
+  source-feasibility.md.
+
+accepted_direction: The exact ten-path future implementation envelope,
+default-disabled DEBUG seam, non-enumerating observation primitive, phase
+split, bounds, cleanup direction, protected owners and byte-identical external
+wrapper remain unchanged. Durable output is value-free/redacted.
+
+checks: Exact commit/parent/tree/path/mode/blob audit, complete diff review and
+git diff --check. Reviewer performed no source inspection, build, test, process
+query, live-HOME/protected-path/volume/app/Keychain/TCC/runtime action.
+
+residual: Implementation does not authorize runtime. A future arbitrary writer
+may still classify truthfully as still_unknown.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW. Any nonexternal observer runtime requires
+separate explicit authority.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-E01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW-R1
+status: rejected
+reviewed_commit: d14a927b25ed378acd11cbf94390da0bb4d5b86f
+parent: 794b73314ed44955865f0dbceaf6820e32ea7abc
+scope: exact one-path registry-only design artifact; diff hygiene passes.
+
+accepted_direction: Canonical DictationSessionController/sole-recorder pairing,
+completed-artifact and one-shot-token observer boundary, ten sequences, closed
+snapshots and evidence schemas, redaction, dispatch-parent pinning, protected
+provenance, exact ten-path envelope and residual limits are sound. No product
+hook or runtime claim is needed.
+
+blocking_findings:
+1. DevVlogsPhase0BE07SlowPreparationGate permits only four scalar fields, but
+   its nonpolling enter/wait/resolve API needs retained entry and resolution
+   continuations; globals, polling, sleep and extra helpers are forbidden.
+2. The removed R1 private-session cleanup counter has no injected or public
+observation source because finishSession and activeSessionID are private. A
+harness-return counter would manufacture canonical cleanup evidence.
+3. The blanket prohibition on overloads conflicts with the two exact
+   AudioRecorderService startRecording protocol witnesses.
+
+smallest_repair: Registry-only R2 by the same design owner. Permit exactly two
+private optional one-shot continuations while retaining the four scalar public
+gate snapshot fields; replace the removed private-session counter with a
+truthfully observable action-completion/resource-closure field or source
+observation requiring no product hook; limit the overload ban to additional overloads
+beyond exact protocol witnesses. Add the same rules to the stop/review matrix.
+
+scope_check: Read-only review only. No edit, build, test, app/runtime, process,
+hardware, provider, Keychain, media, permission or storage action.
+residual: Any accepted repair still proves deterministic fake-backed E07 only,
+not a shipping audio lease or real hardware/media/storage/provider behavior.
+next_dependency: DV-P0B-E07-E01-R2, then independent
+DV-P0B-E07-E01-REVIEW-R2. DV-P0B-E07-W01 remains blocked.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-E01-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW-R2
+status: rejected
+reviewed_commit: 1616247088409eaeeed0b9cc46d9b8e9847f1365
+parent: 31e7bae800976d89a39f66aad107f69e01482d0f
+scope: exact one-path registry-only repair; diff hygiene passes.
+
+accepted_repairs:
+- sessionCleanupCount is removed everywhere. The replacement
+  terminalActionCompletedWithObservedResourcesClosed is limited to awaited
+  public action completion, public state and zero observable/injected resource
+  counters; it makes no private cleanup inference.
+- Exact AudioRecorderService protocol overload witnesses remain allowed; only
+  additional overloads are forbidden.
+- All observer, case, schema, provenance, parent-pin, path and residual clauses
+  outside the slow-gate repair remain unchanged.
+
+blocking_findings:
+1. waitUntilEntered is both immediately idempotent after enterCount == 1 and
+   required to reject a second entry wait, but the permitted state cannot
+   distinguish first post-entry observation from later calls.
+2. Cancellation uses untracked relay Tasks. Normal entry/resolution may win and
+   allow the suspending method to return before the losing relay, so nil-on-exit
+   and zero outstanding tasks are unprovable.
+3. An entry/cancellation race can let waitUntilEntered return success without a
+   post-resumption cancellation check while resolution continuation/relay work
+   remains outstanding.
+
+smallest_repair: Registry-only R3. Make post-entry waitUntilEntered explicitly
+idempotent and limit duplicateEntry to a concurrent second pending waiter or
+second enter, or add exact waiter-consumption state. Use synchronously safe or
+explicitly tracked-and-joined cancellation cleanup; permit only its minimal
+private state and expose closure in snapshot/hard stops. Recheck cancellation
+after waitUntilEntered resumes and require terminal cleanup before return.
+
+scope_check: Read-only review only. No edit, build, test, app/runtime, process,
+hardware, provider, Keychain, media, permission or storage action.
+residual: An eventual acceptance remains deterministic fake-backed E07 only.
+next_dependency: DV-P0B-E07-E01-R3, then independent
+DV-P0B-E07-E01-REVIEW-R3. DV-P0B-E07-W01 remains blocked.
+runtime_or_visual_handoff: none
+```
+
+### DV-P0B-E07-E01-R3
+
+~~~text
+packet_id: DV-P0B-E07-E01-R3
+status: design_complete_pending_independent_review
+outcome: Only the rejected slow-gate slice is repaired. waitUntilEntered is
+post-entry idempotent, cancellation performs synchronous mutex-protected
+clear-before-resume without relay Tasks, every resumed method rechecks
+cancellation and closes its state, and GateSnapshot exposes exact pending/open/
+closed projections.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance; agent
+onboarding; specification README/index; full DV-DRAFT-4@2f3266a; full Dev Vlogs
+implementation plan and Phase 0B protocol; current registry header/scope/
+decisions/epoch/table/current coordination, E07 R1/R2 and rejected Review-R1/
+Review-R2; SWIFT; agent tooling; active microphone-input and recording-
+durability contracts. root-orchestration was not read because this is a finite
+design owner.
+
+authority_and_frozen_scope: Discover-only DV-DRAFT-4 E02/E07/E08 with no spec
+delta. R1/R2's exact ten paths, two DEBUG <=500-line test files, ten cases and
+sequences, completed-artifact/token observer, cleanup Boolean, protocol-
+overload wording, eight QA schemas, provenance, parent pinning, commands,
+redaction, stop conditions and fake-only residual remain unchanged.
+
+literal_private_state:
+DevVlogsPhase0BE07SlowPreparationGate remains an actor and imports
+Synchronization. Its one and only additional private synchronization property
+is:
+nonisolated let waitState:
+Mutex<(entryContinuation: CheckedContinuation<Void, Error>?,
+       resolutionContinuation: CheckedContinuation<GateResolution, Error>?,
+       entryWaitOpen: Bool,
+       resolutionWaitOpen: Bool,
+       cancellationRequested: Bool,
+       isClosed: Bool)>
+Initial tuple values are nil, nil, false, false, false, false. No third
+continuation, waiter-consumption field, relay Task/task handle, helper
+type/method, global, poll, sleep or clock is allowed.
+
+snapshot_contract:
+GateSnapshot has exactly, in order, enterCount:Int, resolutionCount:Int,
+waiterCount:Int, isResolved:Bool, pendingContinuationCount:Int,
+openSuspendingMethodCount:Int and isClosed:Bool. The last three are derived
+inside waitState.withLock: pending count is the number of nonnil continuations,
+open count is the number of true open flags, and isClosed is the tuple value.
+isClosed may become true only for a terminal result with both counts zero.
+Pre-resolution slow-barrier snapshot is exactly
+1/0/1/false/1/1/false; normal timed-out terminal is exactly
+1/1/0/true/0/0/true. snapshot() throws HarnessError.outstandingResource for a
+terminal snapshot with any other projection.
+
+idempotency_and_duplicate_rule:
+waitUntilEntered() async throws returns idempotently for every call after
+enterCount becomes one, including repeated calls after the first observation,
+after a Task cancellation check and mutex check that no gate cancellation won.
+Before entry it atomically opens and installs one entry waiter. duplicateEntry
+is thrown only for a concurrent second pre-entry pending waiter or a second
+enterAndWaitForResolution call. No first/later post-entry distinction or waiter-
+consumption state exists.
+
+synchronous_cancellation_and_join:
+- A waitUntilEntered cancellation handler synchronously locks waitState and,
+  only when entryWaitOpen is true and isClosed is false, sets
+  cancellationRequested and takes/clears entryContinuation. It unlocks and
+  resumes only that local value with CancellationError as its final side
+  effect. If entryWaitOpen is false, it is a no-op. It creates no Task.
+- An enterAndWaitForResolution cancellation handler performs the same operation
+  only while resolutionWaitOpen is true and isClosed is false, and is a no-op
+  after resolutionWaitOpen closes. Normal entry and resolve also take/clear
+  under the same mutex and resume local values only after unlocking.
+- Each continuation has one mutex-serialized winner. A loser finds nil and
+  performs no resume. No continuation is resumed while stored or twice.
+- A do/catch finalization path after every normal or throwing resumption makes
+  each suspending method perform one mutex-protected transition that reads
+  Task.isCancelled without throwing, rechecks cancellationRequested, closes
+  its own open flag and clears both continuations for a cancellation terminal
+  before it may return or throw. That recheck-and-close transition is the
+  method's joined return boundary.
+  Any opposite continuation captured during terminal cleanup is resumed outside
+  the lock with CancellationError. The last closing method sets isClosed only
+  when both continuation fields are nil and both open flags are false.
+- waitUntilEntered therefore cannot return success from an entry/cancellation
+  race: cancellation that wins before entryWaitOpen closes is observed by the
+  mandatory post-resume recheck and completes terminal cleanup before throwing.
+  Cancellation after entryWaitOpen closes is after the joined method boundary.
+- A normal entry-notification return is nonterminal and closes its own entry
+  continuation/path while the one resolution continuation intentionally
+  remains pending. Both suspending methods are awaited before terminal
+  inspection; every terminal return/throw has both continuations nil, and the
+  joined terminal projection is pending/open zero and closed true.
+
+slow_case:
+Start observer prepare; await the idempotent entry barrier; assert
+1/0/1/false/1/1/false; start canonical dictation and await recording while gate
+resolution remains zero; resolve timedOut; await observer terminal plus both
+gate calls; assert 1/1/0/true/0/0/true; then finish canonical dictation and run
+the unchanged pair equality. No wall-clock wait exists.
+
+hard_stops:
+- Any private gate state beyond the one exact Mutex tuple; any third
+  continuation, relay Task/handle, helper, global, poll, sleep or clock:
+  structural stop.
+- A post-entry wait is rejected/non-idempotent, or duplicateEntry applies
+  outside a concurrent second pending waiter/second enter: functional fail.
+- A continuation resumes while stored or more than once; a cancellation
+  handler mutates state after its corresponding open flag closes; either
+  resumed method does not combine Task.isCancelled, cancellationRequested and
+  its open-flag closure in one mutex transition; a cancellation winner returns
+  success; terminal cleanup retains a continuation/open path: functional fail.
+- Pre-resolution or terminal snapshot differs from the exact seven-field
+  values; terminal pending/open is nonzero or isClosed is false: functional
+  fail.
+- Every unchanged R1/R2 hard stop remains binding.
+
+independent_review_matrix: Review-R3 verifies the exact registry-only delta;
+one Mutex tuple and no other private synchronization/cancellation state;
+post-entry idempotency and narrow duplicateEntry; synchronous outside-lock
+exact-once resumes; no Task; no-op late handlers after their open flags close;
+same-mutex post-resume Task.isCancelled/cancellationRequested recheck and open-
+flag closure; losing-path closure; exact pre-resolution and terminal snapshot
+projections; both continuations nil at terminal; recording-before-resolution;
+and byte-
+identical preservation in meaning of every accepted non-gate R1/R2 clause.
+
+scope_check: Registry only. Unrelated storage W01 paths are preserved and
+excluded. No spec/product/source/test/script/QA implementation, build, test,
+runtime, process, hardware, provider, Keychain, permission, media, storage or UI
+action occurred.
+
+deviations: none. No change outside the rejected slow-gate contract.
+residual: Acceptance would still prove deterministic fake-backed E07 only.
+Shipping audio lease and real hardware/media/storage/provider behavior remain
+unproven. DV-P0B-E07-W01 remains blocked.
+next_dependency: DV-P0B-E07-E01-REVIEW-R3
+runtime_or_visual_handoff: none
+~~~
+
+### `DV-P0B-E07-E01-REVIEW-R3`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW-R3
+status: rejected
+reviewed_commit: c4e1b15251739ebefd4bcc08bd2f9bd06c838b11
+parent: 91c8cc01d647ff5085da59d62b15aa7dd72c124f
+scope: exact one-path registry-only repair; diff hygiene passes.
+
+accepted_repairs: Post-entry waitUntilEntered is idempotent; duplicateEntry is
+narrowed correctly; one Synchronization.Mutex tuple owns the two continuations
+and four closure flags; handler clearing/resumption is synchronous, outside-lock
+and relay-free; installed-continuation post-resume closure/projections are
+coherent. Accepted cleanup Boolean, protocol witnesses, paths, cases, schemas,
+redaction, provenance, parent pinning and residuals remain unchanged.
+
+blocking_finding: Both suspending methods retain a pre-install cancellation
+race. An already-cancelled task or cancellation before continuation install can
+run the handler while the open flag is false; the handler no-ops, and the later
+open/install transition does not recheck cancellationRequested/current task
+cancellation. The continuation can then suspend forever, so post-resume cleanup
+is unreachable.
+
+smallest_repair: Registry-only R4 using the existing mutex tuple. Open the
+method flag before exposing the handler. During continuation installation,
+atomically recheck cancellationRequested and current task cancellation; when
+cancellation already won, do not store and resume the local continuation with
+CancellationError outside the mutex. Preserve the existing post-resumption
+join. Add explicit already-cancelled/cancel-before-install stop and review
+cases. No new state or path is required.
+
+scope_check: Read-only registry review only. No edit, build, test, app/runtime,
+process, hardware, provider, Keychain, media, permission or storage action.
+residual: Eventual acceptance remains deterministic fake-backed E07 only.
+next_dependency: DV-P0B-E07-E01-R4, then independent
+DV-P0B-E07-E01-REVIEW-R4. DV-P0B-E07-W01 remains blocked.
+runtime_or_visual_handoff: none
+```
+
+### DV-P0B-E07-E01-R4
+
+~~~text
+packet_id: DV-P0B-E07-E01-R4
+status: design_complete_pending_independent_review
+outcome: The sole rejected R3 gap is repaired without new state. Each
+suspending gate method opens its existing method flag before cancellation-
+handler exposure, atomically refuses an already-cancelled install, and retains
+the R3 post-resumption join.
+
+spec_basis_read: Global and repository AGENTS; product-truth governance; agent
+onboarding; specification README/index; full DV-DRAFT-4@2f3266a; full Dev Vlogs
+implementation plan and Phase 0B protocol; current registry through E07 R1-R3
+and Review-R1 through Review-R3; SWIFT; agent tooling; active microphone-input
+and recording-durability contracts. root-orchestration was not read because
+this is a finite design owner.
+
+authority_and_frozen_scope: Discover-only DV-DRAFT-4 E02/E07/E08 with no spec
+delta. R1-R3's exact ten paths, two DEBUG <=500-line test files, ten paired
+cases/sequences, completed-artifact/token observer, cleanup Boolean, protocol-
+overload wording, seven-field snapshot, existing Mutex tuple, eight QA schemas,
+provenance, parent pinning, commands, redaction, stops and fake-only residual
+remain unchanged. No field, helper, function, path or case is added.
+
+existing_state_only: DevVlogsPhase0BE07SlowPreparationGate remains an actor
+with exactly one nonisolated Synchronization.Mutex tuple:
+(entryContinuation:CheckedContinuation<Void, Error>?,
+ resolutionContinuation:CheckedContinuation<GateResolution, Error>?,
+ entryWaitOpen:Bool, resolutionWaitOpen:Bool,
+ cancellationRequested:Bool, isClosed:Bool).
+Initial values remain nil/nil/false/false/false/false. No task handle, relay
+Task, third continuation, generation, waiter-consumption field, helper, global,
+poll, sleep or clock is permitted.
+
+preinstall_handshake:
+1. Pre-entry waitUntilEntered sets entryWaitOpen true under waitState before
+   withTaskCancellationHandler. enterAndWaitForResolution similarly sets
+   resolutionWaitOpen true before handler exposure. There is no await or yield
+   between opening and exposure. The post-entry idempotent branch remains
+   nonsuspending and opens no new path.
+2. Inside each handler operation, Task.isCancelled is captured immediately
+   before withCheckedThrowingContinuation creates the local continuation.
+3. The continuation-install withLock transition checks both the captured Task
+   signal and tuple.cancellationRequested. If either is true it sets
+   cancellationRequested true, leaves its continuation field nil and returns
+   the new continuation as a local cancellation value. Resolution install also
+   takes/clears any entry continuation. Every local resumes with
+   CancellationError only after unlocking.
+4. If neither signal is true, install stores exactly its one continuation while
+   its method flag is true. Normal entry/resolution and cancellation are
+   serialized by the same mutex; exactly one takes/clears and resumes outside
+   the mutex.
+5. The continuation body returns only after choosing one exact disposition:
+   unstored plus outside-lock immediate cancellation resume, or stored once
+   under its open flag with an exact future resumption owner. It never suspends
+   with a nil unstored continuation and no local resume.
+6. R3 finalization remains binding: after every resume, Task.isCancelled,
+   cancellationRequested and the method open-flag close share one mutex
+   transition; terminal locals resume outside the mutex; terminal projection
+   remains pending/open zero and closed true.
+
+closed_race_cases:
+- already_cancelled_before_call: flag first; handler registration or captured
+  signal makes cancellation sticky; install never stores and resumes locally.
+- cancellation_between_exposure_and_install: handler/captured-signal winner
+  refuses storage; if cancellation races after capture and install wins the
+  mutex, install stores under the open flag and the handler becomes its future
+  resumer.
+- normal_install_vs_cancel: mutex ordering yields either immediate unstored
+  cancellation or one stored continuation taken by cancellation.
+- normal_resolution_vs_cancel: the mutex winner takes/resumes once; a normal
+  winner still passes the post-resume cancellation join before return.
+- late_cancel_after_close: the false open flag makes the handler a no-op.
+
+snapshot_and_slow_case: Values remain pre-resolution
+1/0/1/false/1/1/false and timed-out terminal 1/1/0/true/0/0/true. The existing
+slow case still requires canonical recording before timedOut, then awaits both
+gate methods and terminal closure. Registration races are transition-review
+cases in the existing gate owner, not new paired product cases.
+
+hard_stops:
+- Handler exposure before its flag opens, or yield between opening/exposure:
+  structural/functional fail.
+- Install omits tuple cancellation or captured Task cancellation, stores after
+  observed cancellation, resumes immediate cancellation while locked, or has
+  neither local resume nor stored/open continuation with future resumer:
+  functional fail.
+- Any of the five race dispositions differs; a continuation resumes while
+  stored/twice; or post-resumption join is weakened: functional fail.
+- New state/path/helper/task/continuation, changed snapshot, or changed accepted
+  R1-R3 non-gate clause: structural/scope fail.
+- Every unchanged R1-R3 hard stop remains binding.
+
+independent_review_matrix: Review-R4 verifies the exact one-path registry
+delta; unchanged Mutex tuple/snapshot; open-before-exposure with no yield;
+captured Task plus tuple cancellation in atomic install; cancelled install
+never stored and resumed outside lock; stored/open install has exactly one
+mutex-winning future resumer; five closed race dispositions; unchanged post-
+resume join/terminal projection; and preservation of all accepted non-gate
+R1-R3 paths, symbols, cases, schemas, provenance, checks, redaction and
+residuals. Any hard stop requires rejection.
+
+scope_check: Registry only. Unrelated storage W01 paths are preserved and
+excluded. No spec/product/source/test/script/QA implementation, build, test,
+runtime, process, hardware, provider, Keychain, permission, media, storage or UI
+action occurred.
+deviations: none.
+residual: Acceptance remains deterministic fake-backed E07 only. Shipping
+audio lease and real hardware/media/storage/provider behavior remain unproven.
+DV-P0B-E07-W01 remains blocked.
+next_dependency: DV-P0B-E07-E01-REVIEW-R4
+runtime_or_visual_handoff: none
+~~~
+
+### `DV-P0B-E07-E01-REVIEW-R4`
+
+```text
+packet_id: DV-P0B-E07-E01-REVIEW-R4
+status: accepted
+reviewed_commit: c0001a99b969e3f292cbc9786475a14bf2248a67
+parent: 8d1c48a339707d0b67d1f7d6ce4edd3b3b0bfd21
+scope: exact one-path registry-only repair; parent storage W01 is unrelated and
+preserved; diff hygiene passes.
+
+outcome: R4 closes the pre-install cancellation race using only the existing
+mutex state. The E07 W01 design is internally implementable and dependency-
+ready.
+
+registration_handshake:
+- Each suspending method opens its existing flag before cancellation-handler
+  exposure with no intervening suspension.
+- Already-cancelled and exposure-before-install cancellation become sticky via
+  the handler or captured Task cancellation state.
+- Installation atomically checks that task state and cancellationRequested.
+- A cancelled install never stores and resumes its local continuation outside
+  the mutex; a normal install stores exactly once under the open flag.
+- Normal/cancellation routes are mutex-serialized to one future resumer;
+  install-vs-cancel and resolution-vs-cancel have exact single-winner outcomes.
+- Late handlers after closure are no-ops and post-resume cancellation/closure
+  remains joined under the same mutex.
+
+preservation: No relay task, extra continuation/state/helper, polling, sleep or
+clock was introduced. Snapshot projections remain coherent. Observable cleanup
+Boolean, exact protocol witnesses, observer ownership, ten cases/sequences,
+eight schemas, redaction, bounded commands, provenance, parent pinning,
+ten-path envelope and fake-only residual are unchanged. All ten future paths
+were absent at review.
+
+scope_check: Read-only registry review only. No edit, build, test, app/runtime,
+process, hardware, provider, Keychain, media, permission or storage action.
+residual: Acceptance authorizes deterministic fake-backed E07 implementation
+only, not a shipping audio lease or real hardware/media/storage/provider proof.
+next_dependency: DV-P0B-E07-W01, then DV-P0B-E07-W01-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW
+status: rejected
+reviewed_commit: 8d1c48a339707d0b67d1f7d6ce4edd3b3b0bfd21
+parent: ae9e8a6e95d8a9b54784207b78cd77ccd9a92d7f
+scope: exact ten paths; nine mode 100644 and controller mode 100755; current
+blobs matched at review.
+
+accepted_implementation: Default-disabled observer/inert routing, DEBUG-only
+canonical recovery mutation hooks, six marker/five deletion mappings, C
+no-follow/no-enumeration primitive, protected product/external-wrapper owners
+and Release isolation are directionally sound. Exact injected inert-host run
+emitted observer_ready plus owner_initialized/private_task_home; focused tests
+passed.
+
+blocking_findings:
+1. Production controller validates the stream then passes literal
+   `none absent none` to classification, discarding owner/mutation/scope events.
+2. Parser does not bind every event run_id, reject orphan mutation_end, or
+   enforce closed event/action/category/scope/result combinations.
+3. Classifier permits run-owned correlation despite concurrent uncertainty,
+   contradicting the accepted first-applicable priority.
+4. The 900-second deadline is not absolute: per-stage timeouts are not capped
+   to remaining time and no 930-second outer supervisor is enforced.
+5. TMPDIR is only re-statted; logs, bin and compiled probe are not creation-
+   identity pinned. Several command diagnostics can expose private root paths.
+6. W01 summary claims no live-user-HOME action despite the disclosed invalid
+   pre-repair/default-Xcode test route. No protected content was inspected.
+
+smallest_repair: Same implementation owner may change only
+script/dev_vlogs_phase_0_b_protected_storage_observer.sh,
+HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverControllerTests.swift and
+docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md. Parse and feed
+exact event-derived state; close schema/run binding; correct uncertainty
+priority; enforce one absolute inner/outer deadline; creation-pin TMP/log/bin/
+probe and fail closed on replacement; suppress/redact all private diagnostics;
+add production-route adversarial tests; disclose the invalid pre-repair route.
+All other W01 blobs are frozen.
+
+scope_check: Reviewer made no repository edit. No external-storage execution or
+observer --execute runtime occurred. One ordinary focused review invocation did
+not confine its app host, was stopped/excluded and is recorded as a review
+procedure deviation; no protected content was inspected.
+residual: No protected/external observer runtime is accepted.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R1, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01-REVIEW`
+
+```text
+packet_id: DV-P0B-E07-W01-REVIEW
+status: rejected
+reviewed_commit: 0e3b3ada836dc8a3c037b45001aa1dbfae774df8
+actual_parent: b1160fd26e76e5135b14da69c67b0367eefbbe40
+dispatch_parent: 24f4a601087322c6a3ac80e637e808a684deb9b4
+
+accepted_evidence: Exact ten-path scope/modes/current blobs, nonsemantic
+registry-only parent drift, canonical DictationSessionController and one
+recorder witness, ten paired cases, source manifest, protected blobs, target
+membership, DEBUG/line bounds, retained artifact cardinality/order/redaction,
+structure and focused 11-test suite all pass. The parent drift does not make
+the proof depend on the immediate parent.
+
+blocking_findings:
+1. Both slow-gate post-resume paths read Task.isCancelled before taking the
+mutex, then close the open flag and inspect cancellation separately. A cancel
+between the stale read and closure can lose to closure, become a no-op in the
+handler and let a cancellation winner return success, contrary to R4.
+2. Observer completion records terminal, cleaned and cleanupCount=1 before the
+deferred temporary-access release. The evidence can claim cleanup while the
+token remains acquired.
+3. Evidence validation hard-codes pass where the accepted schema permits
+pass|fail and checks only the first measurement metric plus common row
+fragments; duplicated, substituted or reordered metric names can pass.
+
+smallest_repair: Same owner may change only the two existing E07 Swift test
+paths unless a retained claim changes. Derive Task cancellation plus tuple
+cancellation and close the corresponding open flag in one mutex transition;
+release/snapshot temporary access before cleaned; validate the literal
+pass/fail contract and exact eight metric names/order. Exercise these repairs
+through existing allowed tests. No product hook, new path/type, shipping lease
+or runtime claim.
+
+scope_check: Read-only review. No repository edit, app/UI/hardware/microphone/
+camera/provider/Keychain/media/storage/runtime/process action. Concurrent
+Storage Observer work was preserved.
+deviations: Synchronization.Mutex remains test-only macOS-15 availability-
+scoped; shipping deployment is unchanged. Parent drift is accepted only as
+nonsemantic provenance drift.
+residual: Eventual acceptance remains deterministic fake-backed E07 only;
+shipping audio lease and real hardware/media/storage/provider behavior remain
+unproven.
+next_dependency: DV-P0B-E07-W01-R1, then independent
+DV-P0B-E07-W01-REVIEW-R1. DV-P0B-CAPTURE-R07 remains blocked.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01-R1`
+
+```text
+packet_id: DV-P0B-E07-W01-R1
+status: implementation_complete_pending_independent_review
+commit: 8f21b2edaaa90e38d06f2fa2de3873b4d5ac6400
+parent: f1183f71581e8a9b8330ebfaaf8f0bd8bf08d599
+
+outcome: The three W01 review blockers were repaired in the exact two Swift
+test paths plus one manifest-only environment update. Both gate methods now
+join cancellation observation, tuple state and flag closure in one mutex
+transition; temporary artifact access is released and snapshotted before
+cleaned/cleanupCount; the validator closes pass|fail and all eight ordered
+measurement metrics.
+
+changed_paths:
+- HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTestSupport.swift
+- HoldTypeTests/DevVlogsPhase0BDictationNonRegressionTests.swift
+- docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/environment.json
+
+evidence_integrity: environment.json changed only its derived source-manifest
+digest, now bb53c9851dff5ecc36e0582da6fc612b78471b45e3b8ad5e97efabacea71b47c.
+The seven other retained QA blobs remain frozen.
+
+checks: Focused 11-test E07 suite, adjacent controller/Phase0B launch suites,
+structure, signed Debug build, target membership, DEBUG/line bounds, 33/33
+protected blobs, manifest-only environment delta, redaction, forbidden APIs,
+recorder witnesses and diff hygiene passed.
+
+scope_check: No product, Debug harness, script, project, specification,
+registry, runtime, camera, microphone, provider, Keychain, media or storage
+action. Concurrent Storage Observer paths were preserved.
+deviations: none.
+residual: Deterministic fake-backed E07 only; no shipping lease or real
+hardware/media/storage/provider proof.
+next_dependency: DV-P0B-E07-W01-REVIEW-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R1
+status: implementation_complete_pending_independent_review
+commit: 2a25dd3fb98a5e0d90385593210e4f01e8666680
+parent: 8f21b2edaaa90e38d06f2fa2de3873b4d5ac6400
+
+outcome: The production protected-storage evidence controller now derives
+classification from a closed, expected-run-bound event stream; gives
+concurrent uncertainty first-applicable priority; enforces one absolute
+900-second inner deadline plus a real 930-second outer supervisor; creation-
+pins TMPDIR/logs/bin/probe; and suppresses or redacts private diagnostics.
+The W01 summary now truthfully discloses the excluded pre-repair route.
+
+changed_paths:
+- script/dev_vlogs_phase_0_b_protected_storage_observer.sh
+- HoldTypeTests/DevVlogsPhase0BProtectedStorageObserverControllerTests.swift
+- docs/qa/runs/dev-vlogs-phase-0b-storage-observer-w01/summary.md
+
+evidence: Production parsing rejects malformed/orphan/duplicate/mismatched
+streams and feeds exact owner/mutation/result/scope facts to classification.
+TERM-ignoring inner/outer fixtures close within bounds; expired work starts no
+new command. Identity-replacement fixtures fail closed while preserving
+original/replacement/sibling objects. All seven frozen W01 blobs match.
+
+checks: Focused observer/host/router 30/30, final controller 11/11, protected
+recovery/capture/auth/preview 58 Swift Testing + 5 XCTest, signed Debug/codesign,
+unsigned Release and key/string isolation, zsh CLI matrix, C probe build,
+structure, exact cleanup and residue audits passed.
+
+scope_check: Exact three paths; no external storage, observer --execute, live
+protected-content access, Camera/TCC/Keychain/provider/media or product
+runtime. Existing inert host, observer, recovery hooks, C probe and external
+wrapper remain unchanged.
+deviations: A deterministic ps-indentation fixture exposed a process-identity
+normalization defect, repaired within scope. Dispatch parent text was stale;
+the commit used the then-current disjoint E07 parent without rewriting history.
+residual: Independent review remains mandatory. Non-run-owned writers may
+still classify truthfully as still_unknown. No runtime authority is granted.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-E07-W01-REVIEW-R1
+status: rejected
+reviewed_commit: 8f21b2edaaa90e38d06f2fa2de3873b4d5ac6400
+parent: f1183f71581e8a9b8330ebfaaf8f0bd8bf08d599
+
+accepted_repairs: Exact three-path scope/current blobs, seven frozen QA blobs,
+manifest-only environment delta and digest pass. The slow-gate joined
+cancellation transition, R4 registration/continuation/snapshot behavior,
+pre-cleaned temporary-access release, exact eight measurement metric order,
+structure, target membership, signed focused 11-test suite and diff hygiene
+all pass.
+
+blocking_finding: Overall summary/environment now allow pass|fail with a named
+unequal case, but matrix validation still requires all ten rows pass/equal and
+event validation requires all pair comparisons equal. A fail claim with an
+all-pass matrix/event stream validates, while a truthful failed row/event is
+rejected. Overall result, named unequal case, matrix row and pair event are not
+cross-checked.
+
+smallest_repair: Same owner and existing two-Swift-plus-manifest ceiling.
+Validator must accept closed pass and fail matrix/event forms; pass iff all ten
+rows/events are equal/pass; fail requires at least one exact named case with
+matrix false/fail and event unequal/false, with duplicates, disagreements and
+unlisted cases rejected. Seven retained pass-evidence blobs stay frozen; only
+the derived source manifest may update. Exercise negative cross-agreement
+forms through existing tests.
+
+scope_check: Read-only review; no edit, app/runtime, camera, microphone,
+provider, Keychain, media, storage or process action.
+deviations: Test-only macOS-15 Synchronization.Mutex availability remains
+acceptable; shipping deployment is unchanged.
+residual: Eventual acceptance remains deterministic fake-backed E07 only; no
+shipping audio lease or real hardware/media/storage/provider proof.
+next_dependency: DV-P0B-E07-W01-R2, then independent
+DV-P0B-E07-W01-REVIEW-R2. DV-P0B-CAPTURE-R07 remains blocked.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01-R2`
+
+```text
+packet_id: DV-P0B-E07-W01-R2
+status: implementation_complete_pending_independent_review
+commit: 719e995afd437b3d6509d04a3c8b740ca9d63607
+parent: 671dc89c538341ad7cb12280f876c071282b6c91
+
+outcome: Validator cross-agreement is closed across summary/environment, all
+ten exact ordered matrix rows and all ten pair events. Pass requires universal
+true/pass plus equal/true and no unequal case. Fail requires exact ordered
+named unequal cases with false/fail plus unequal/false. Contradictions,
+duplicates, omissions, unknown cases and reordering are rejected.
+
+changed_paths: The same two E07 Swift test paths plus manifest-only
+docs/qa/runs/dev-vlogs-phase-0b-dictation-w01/environment.json. Seven other QA
+blobs and accepted R1 gate/observer/cleanup implementation remain byte-identical.
+Final source manifest is
+c021dcfb47a124f6a08ec665c24020c6dde88613d6112f62ede39e5761fe225a.
+
+checks: Focused E07 11/11, signed Debug build, structure, DEBUG/line bounds,
+target membership, exact eight-file inventory, seven frozen QA blobs, 33/33
+protected blobs, manifest-only environment delta, forbidden APIs, redaction
+and diff hygiene passed.
+
+scope_check: Exact three paths; no product, Debug harness, script, project,
+specification, registry, runtime, microphone, camera, storage, provider,
+Keychain or media action.
+deviations: none.
+residual: Deterministic fake-backed E07 only; no shipping lease or real
+hardware/media/storage/provider proof.
+next_dependency: DV-P0B-E07-W01-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R1
+status: rejected
+reviewed_commit: 2a25dd3fb98a5e0d90385593210e4f01e8666680
+parent: 8f21b2edaaa90e38d06f2fa2de3873b4d5ac6400
+
+accepted_repairs: Exact three-path scope/current blobs and all seven frozen W01
+blobs pass. Event parsing is expected-run-bound and event-derived; uncertainty
+wins correlation. TMPDIR/logs/bin/probe and other private artifacts are pinned.
+Private hosted env injection, Release isolation, signed Debug build, focused
+30/30 and protected 60/60 tests pass.
+
+blocking_findings:
+1. Classified build-window/hosted change, conflict and failure return nonzero;
+under set -e run_controller skips write_runtime_evidence. The writer also
+requires hosted events, impossible for a build-window first stop. Principal
+terminal outcomes therefore retain no accepted eight-file evidence.
+2. cleanup=complete success is emitted before the EXIT trap stops/reaps the
+guard, so later guard uncertainty can follow an already-recorded success.
+3. JSON schema_version/sequence accept bool and 1.0 through Python numeric
+equality; exact integer types are not enforced.
+4. The directly callable controller-inner mode bypasses the mandatory outer
+930-second supervisor.
+5. Summary acknowledges an unconfined live-HOME diagnostic but then asserts
+inert/no Recovery.json stat without evidence sufficient to prove that claim.
+
+smallest_repair: One terminal evidence/cleanup state machine must retain every
+first-stop result, including pre-hosted stops; cleanup/reap must precede durable
+cleanup-complete/success and override it on uncertainty; schema numbers require
+exact JSON integer types with bool/float negatives; inner execution must be
+bound to the real outer supervisor or inaccessible as a bypass; summary must
+state only bounded known facts. Add behavioral production-route tests. Keep
+the exact three-path envelope and seven frozen W01 blobs.
+
+scope_check: Read-only review. No observer --execute, external volume,
+live-HOME host, protected-path probe/content access, Camera/TCC/Keychain/
+provider/media runtime or repository edit.
+deviations: Reviewer build signing used the normal invoking environment only;
+launched tests used task-owned private HOME/CFFIX/TMPDIR and inert route. No
+protected content was inspected.
+residual: Non-run-owned writers may remain still_unknown; implementation
+acceptance and all observer runtime remain blocked.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R2, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-E07-W01-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-E07-W01-REVIEW-R2
+status: accepted
+reviewed_commit: 719e995afd437b3d6509d04a3c8b740ca9d63607
+parent: 671dc89c538341ad7cb12280f876c071282b6c91
+
+outcome: The Review-R1 validator blocker is closed. Pass/fail state is fully
+cross-bound across summary, environment, ten ordered matrix rows and ten
+ordered pair events.
+
+accepted_evidence: Pass requires all rows true/pass, all pair events equal/true
+and no unequal case. Fail requires a nonempty canonically ordered set of named
+cases matching exactly the matrix false/fail and event unequal/false cases.
+Missing, duplicate, unknown, reordered, contradictory, wrong-name,
+all-pass-under-fail and failed-under-pass forms reject. Exact ten-case and
+80-event order, nine measurement rows and eight exact not-measured metrics
+remain closed. Accepted R1 gate, observer, access-release-before-cleaned and
+cleanup semantics are unchanged.
+
+integrity: Exact three paths/modes/current blobs pass. Seven retained QA blobs
+are unchanged; environment.json changes only the manifest digest. Independent
+recomputation equals
+c021dcfb47a124f6a08ec665c24020c6dde88613d6112f62ede39e5761fe225a.
+Protected dictation owners and W07 script match pinned provenance.
+
+checks: Commit/parent/later-drift, static validator/adversarial forms,
+cardinality/order/cross-agreement/redaction, structure, DEBUG/line bounds,
+target membership, forbidden APIs, focused signed Debug 11/11 and diff hygiene
+passed.
+
+scope_check: Deterministic fake-backed E07 only. No app, camera, microphone,
+provider, Keychain, media, external storage, permission or product runtime.
+deviations: none.
+residual: No shipping audio lease or real hardware/media/storage/provider
+behavior is proven.
+next_dependency: Record acceptance; DV-P0B-CAPTURE-R07 is dependency-ready
+subject to separate serialized coordinator authorization.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R2
+status: implementation_complete_pending_independent_review
+commit: 84aec4db3eaf6214ccf4f76440425e363e9eab67
+parent: ca862ae2d600942d70e3a5cf80abee8cc62da51e
+
+outcome: Every terminal classification now flows through the closed eight-file
+evidence state machine; cleanup uncertainty overrides success; schema/sequence
+require exact JSON integer types; and only the public outer-supervised
+--execute route can reach controller execution. The summary retains only
+bounded known facts about excluded verification routes.
+
+changed_paths: The protected-storage observer controller script, its controller
+tests and the W01 summary only. All seven accepted W01 paths remain frozen.
+
+evidence: Closed parser rejects Boolean/float schema numbers; event-derived
+classification and uncertainty priority remain green. Absolute inner/outer
+timeout and TERM-ignoring fixtures pass. Stable/replacement cleanup, sibling
+survival, pinned artifacts, private-output suppression and terminal evidence
+fixtures pass.
+
+checks: Controller 11/11; ordinary inert-host/protected regressions 87/87;
+observer-configured hosted confinement 1/1; signed Debug/codesign; unsigned
+Release and observer-symbol/key absence; structure at 499 lines, Swift parse,
+zsh syntax, CLI negatives, diff, frozen blobs, process/root/residue audits.
+
+scope_check: Exact three paths; no observer --execute, external volume,
+protected-content inspection, product runtime, Camera/TCC/Keychain/provider/
+media action.
+deviations: One intermediate hosted verification omitted explicit result-bundle
+routing, so Xcode wrote result metadata under the default user DerivedData.
+It was not inspected or removed. The summary records this; final qualifying
+reruns used task-owned private result bundles.
+residual: Independent review remains mandatory. No task-owned roots/processes
+remain and no runtime authority is granted.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R2
+status: rejected
+reviewed_commit: 84aec4db3eaf6214ccf4f76440425e363e9eab67
+parent: ca862ae2d600942d70e3a5cf80abee8cc62da51e
+
+accepted_repairs: Exact three paths/current blobs/modes and seven frozen W01
+blobs pass. R2 terminal state machine, exact JSON integer rejection,
+outer-only route, cleanup-before-success, deadlines, identity pins, summary
+correction, signed Debug, unsigned Release isolation and focused/protected tests
+otherwise review correctly.
+
+blocking_findings:
+1. The controller collects every prefixed hosted.log line before validation and
+blindly writes that raw value to retained events JSONL. A malformed prefixed
+line containing arbitrary/private text therefore classifies observer_invalid
+yet is durably retained. The current fixture explicitly accepts non-JSON text.
+2. write_runtime_evidence does not check each directory creation, write or
+append. Because it runs as an if-condition, zsh suppresses errexit inside the
+function; an intermediate failed write can be followed by later successful
+writes and falsely set evidence_write_state=complete.
+
+smallest_repair: Persist observer events only after complete production stream
+validation; malformed and pre-hosted outcomes retain an empty JSONL. Hard-check
+every directory/write/append and verify exactly eight regular closed-schema
+files before evidence success. Production-function tests must prove malformed
+prefixed secret/path text is absent and mid-write failure produces
+evidence_write_failed, retains partial evidence and emits no success. Preserve
+the exact three-path envelope and every accepted R2 repair.
+
+scope_check: Read-only review. No observer --execute, external volume, live
+HOME/protected inspection, product runtime, Camera/TCC/Keychain/provider/media
+action, source edit or commit.
+deviations: One reviewer private-HOME fixture topology was initially wrong,
+then corrected and rerun canonically. Signing used normal environment only for
+build; launched tests were private/inert.
+residual: Non-run-owned writers may remain still_unknown. Implementation and
+observer runtime remain blocked.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R3, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R3`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R3
+status: implementation_complete_pending_independent_review
+commit: a9cd23707a20f09eba898141f06915eeed3d3a1a
+parent: 5f476a73445c171a60d696def296267ca5dab9a4
+
+outcome: Retained observer events are now written only after complete
+expected-run production validation. Malformed and pre-hosted streams retain an
+empty JSONL. Every evidence directory/write/append and exact closed eight-file
+postcondition must pass before success; intermediate or postcondition failure
+retains truthful partial evidence and emits no success.
+
+changed_paths: The same protected-storage controller script, controller tests
+and W01 summary only. Accepted R2 terminal state machine, parser/classifier,
+deadlines, outer-only route, pins, cleanup ordering and redaction are reused.
+
+evidence: Malformed sentinel is absent from retained evidence/default output.
+Injected mid-write failure returns 74, retains partial evidence and writes no
+summary. Injected ninth-file postcondition failure rejects, retains partial
+evidence and identity-unlinks the uncommitted summary. Stable terminal and
+cleanup-uncertainty matrices remain green.
+
+checks: Controller 11/11; production-configured private observer/inert/hosted
+19/19; zsh syntax; structure at 500 lines; C strict syntax; signed Debug/
+codesign; unsigned Release and observer-symbol/key absence; diff, exact paths/
+modes, redaction, process/root audits. Seven frozen W01 blobs match.
+
+scope_check: Exact three paths; no external volume, observer --execute, live
+protected content, app UI, Camera/TCC/Keychain/provider/media action.
+deviations: One intermediate hosted regression used direct process environment
+that Xcode did not propagate; final proof reran through production-configured
+.xctestrun. One fixture state-reset omission was corrected. All roots were
+task-owned and cleaned.
+residual: Independent review required; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R3
+status: rejected_with_review_procedure_deviation
+reviewed_commit: a9cd23707a20f09eba898141f06915eeed3d3a1a
+parent: 5f476a73445c171a60d696def296267ca5dab9a4
+
+accepted_repairs: Exact three paths/current blobs/modes, seven frozen W01 blobs
+and external-wrapper provenance pass. Valid streams canonicalize retained
+events; malformed/pre-hosted streams produce empty JSONL and omit sentinels.
+Each evidence operation and final eight-path check is explicit; summary is
+written last and identity-removed on postcondition failure. Accepted R2
+classifier, types, outer route, deadlines, cleanup ordering, pins, redaction
+and summary disclosures remain intact.
+
+blocking_finding: Evidence files are initially rendered from the successful
+terminal state. When a later mid-write or postcondition failure changes the
+in-memory result to evidence_write_failed, already-retained partial files keep
+success-looking fields. A production measurements.csv failure retained
+environment cleanup=complete, matrix pass_unchanged/complete and
+source-feasibility terminal_class pass_unchanged. Summary absence is
+insufficient and tests only checked that absence. The ninth-file case has the
+same weakness.
+
+smallest_repair: Every partial artifact must remain in a closed uncommitted or
+failure-safe state with no cleanup=complete or successful terminal claim until
+the complete eight-file set and postconditions atomically commit. Tests must
+scan every retained partial file for forbidden success markers under both
+mid-write and ninth-file failures. Preserve exact three paths and accepted R3
+repairs.
+
+review_procedure_deviation: The first hosted reviewer test set HOME/CFFIX/
+TMPDIR only on xcodebuild; Xcode did not propagate them. The failed log proves
+the app host used live HOME and normal TMPDIR, then Swift Testing continued and
+constructed TranscriptionFailureRecoveryStore at its default recovery URL.
+Protected metadata/content access or repair mutation cannot be ruled out. The
+reviewer did not inspect/stat/repair the protected path. The process exited;
+only a later production-configured private .xctestrun passed and qualifies.
+This excluded invocation is not evidence of protected-scope closure.
+
+scope_check: Read-only review; no observer --execute, external volume,
+Camera/TCC/Keychain/provider/media action or repository edit. Task roots and
+processes were removed.
+residual: Non-run-owned writers may remain still_unknown. Implementation and
+observer runtime remain blocked; protected effect from the excluded reviewer
+invocation is unknown and must not be silently cleared.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R4, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4 using the private host from first launch.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R4`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R4
+status: implementation_complete_pending_independent_review
+commit: 079fc037003d5ca2d6aca495ad06e0b3ca0fb83b
+parent: 63e4f5dd8b62abe409e44dd8a1c9a74371e2f75e
+
+outcome: Partial evidence remains failure-safe until the complete exact
+eight-file set and schemas commit. Precommit artifacts use only
+evidence_write_failed, incomplete_retained, uncertain/not-run comparisons,
+empty events and explicit uncommitted state. No retained partial can claim
+cleanup complete or a successful terminal/classification.
+
+evidence: Middle-write, ninth-file and promotion failures enumerate every
+retained file and prove all are free of success markers. Promotion/final-schema
+failure restores the closed failure-safe schema before status 74. Stable
+success still yields exactly eight mode-0600 closed-schema files.
+
+changed_paths: The same controller script, controller tests and W01 summary.
+Seven frozen W01 blobs and accepted R2/R3 parser, event retention, router,
+deadlines, cleanup ordering, identity pins, Release isolation and summary
+disclosures are preserved.
+
+checks: Controller 11/11; protected/inert/hosted 19/19 using production-
+configured private .xctestrun from first launch; signed Debug/codesign;
+unsigned Release/string isolation; zsh and strict C syntax; structure at 500
+lines; diff, redaction, process/root audits.
+
+scope_check: Exact three paths; no observer --execute, external volume, live
+HOME/protected-path inspection, product runtime, Camera/TCC/Keychain/provider/
+media action.
+deviations: none; no direct xcodebuild-host environment assumption was used.
+residual: Independent Review-R4 required; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R4
+status: rejected
+reviewed_commit: 079fc037003d5ca2d6aca495ad06e0b3ca0fb83b
+parent: 63e4f5dd8b62abe409e44dd8a1c9a74371e2f75e
+
+accepted_repairs: Exact three paths/current blobs/modes, seven frozen W01 blobs
+and external wrapper pass. Initial partial evidence is a complete closed
+failure-safe/uncommitted eight-file set. Mid-initial-write and ninth-file
+failures have no success markers. Validated-event retention, malformed
+sentinel exclusion, R2 routing/types/deadlines/classifier, cleanup ordering,
+redaction and Release isolation remain intact. Normal promotion produces the
+closed final eight files.
+
+blocking_findings:
+1. Failure-safe rollback rewrites eight files sequentially. A promotion or
+final-validation failure followed by rollback interruption leaves earlier
+promoted success files. Production repro failed promotion at measurements.csv
+and rollback at environment.json; terminal was evidence_write_failed while
+environment retained cleanup=complete and matrix retained
+pass_unchanged/complete.
+2. replace_evidence_file validates only current type/owner/mode/link count, not
+creation dev/inode, before truncation. A valid-looking replacement can be
+overwritten instead of producing retained uncertainty.
+3. Tests omit rollback-interruption, replacement and post-promotion final-
+schema-validation failures.
+
+smallest_repair: Replace in-place multi-file promotion/rollback with one
+identity-bound commit design that keeps the exact retained evidence tree
+failure-safe unless the complete success schema commits. Pin each directory
+and evidence file at creation by dev/inode and never truncate a replacement.
+Add production-function rollback-interruption/replacement/final-schema
+failure cases that enumerate every retained file. Preserve exact three paths
+and accepted R4/R3/R2 behavior.
+
+checks: Structure, zsh, strict C, CLI negatives, controller 11/11, production-
+configured private observer/router/hosted 19/19, signed Debug, unsigned Release
+isolation and residue/provenance passed. The private .xctestrun was injected
+and independently read back before first launch.
+scope_check: No live-HOME host, protected inspection, observer --execute,
+external volume, Camera/TCC/Keychain/provider/media action or edit.
+deviations: none.
+residual: Non-run-owned writers may remain still_unknown. Implementation and
+observer runtime remain blocked.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R5, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R5`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R5
+status: implementation_complete_pending_independent_review
+commit: 005899385a1aa52b92b022aa2c8dbeb85cef5459
+parent: 7f80a4cc42dabd3e822c73f1a0342b1a012a8106
+
+outcome: Sequential in-place promotion/rollback is replaced by a creation-
+pinned descriptor-relative atomic namespace swap. Durable retained evidence
+remains a complete closed failure-safe/uncommitted eight-file tree unless the
+separately built and validated success tree commits at the single swap point.
+
+identity_commit: Parent opens O_DIRECTORY|O_NOFOLLOW and exact fstat identity
+is checked. Retained/staged children and every file are pinned relative to that
+descriptor. renameatx_np(RENAME_SWAP) is the sole commit. Post-swap identities
+and both schemas revalidate before success; displaced failure-safe cleanup uses
+only pinned identities and never traverses replacements.
+
+adversarial_evidence: Promotion interruption, middle write, ninth-file/final-
+schema failure, staged file/root/events replacement, retained-root replacement,
+commit failure/collision and cleanup failure enumerate implicated artifacts and
+prove each tree is complete success or complete failure-safe/uncommitted, never
+mixed. Cleanup failure leaves coherent success plus coherent displaced-safe
+residual and reports retained cleanup state.
+
+changed_paths: Same controller script, controller tests and W01 summary. Seven
+frozen W01 hashes remain unchanged; accepted R2-R4 parsing, event binding,
+deadlines, outer route, failure-safe tree, cleanup ordering and redaction are
+reused.
+
+checks: Controller 11/11; production-configured private protected/inert/hosted
+19/19; zsh and strict C syntax; structure at 500 lines; signed Debug/codesign;
+unsigned Release isolation; diff, redaction, path/process/root audits.
+scope_check: Exact three paths; no observer --execute, external volume, live
+HOME/protected content, Camera/TCC/Keychain/provider/media/product runtime.
+deviations: None. One unrelated review-owned temp root was observed and left
+untouched.
+residual: Independent review only; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R5
+status: rejected
+reviewed_commit: 005899385a1aa52b92b022aa2c8dbeb85cef5459
+parent: 7f80a4cc42dabd3e822c73f1a0342b1a012a8106
+
+accepted_evidence: Exact three paths/current blobs/modes and all protected
+blobs pass. Local SDK supports renameatx_np RENAME_SWAP. The single swap point,
+complete staging validation, failure-safe retained tree, normal final eight
+files, focused private suites, signed Debug and Release isolation pass.
+
+blocking_findings:
+1. Staged file creation checks absence then uses ordinary redirection. A seam-
+installed mode-0600 replacement was truncated and accepted.
+2. Displaced-tree cleanup revalidates an absolute path then calls path-based
+unlink/rmdir. A replacement between validation and consumption was deleted.
+3. Displaced-safe cleanup failure is converted to status 0; durable evidence
+and public output can claim cleanup complete while a retained failure-safe tree
+exists. Tests expected this false-success path and did not exercise public
+success emission.
+4. Swap helper nonzero/timeout cannot distinguish failure before swap from
+interruption after commit. Tests cover only pre-helper failure.
+5. Per-object descriptor identity claims are incomplete; directory link count
+and file creation/pinning lack fd-bound proof.
+
+smallest_repair: Create/write/chmod/fstat each staged file through exclusive
+descriptor-relative O_NOFOLLOW descriptors and pin full identity. Reconcile
+helper timeout/nonzero by exact pre/post path identities so committed versus
+uncommitted is unambiguous. Never delete through separately validated mutable
+paths; use one descriptor-relative helper boundary or retain the coherent
+displaced tree on uncertainty. Any retained displaced-safe residual must be
+encoded in durable terminal state and suppress cleanup-complete/public success.
+Add production replacements, post-swap interruption and public success-gate
+tests. Preserve exact three paths and accepted prior behavior.
+
+scope_check: Read-only review; no live HOME/protected inspection, observer
+--execute, external volume, Camera/TCC/Keychain/provider/media action or edit.
+deviations: none.
+residual: Non-run-owned writers may remain still_unknown. Implementation and
+observer runtime remain blocked.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R6, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R6`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R6
+status: implementation_complete_pending_independent_review
+commit: cbbd9e0741210688734584db9b56c651bc2a5860
+parent: 2b6a9e381942e71f3db7f81549c7366b060dda5b
+
+outcome: The exact three-path Debug observer repair now creates evidence files
+through descriptor-relative O_CREAT|O_EXCL|O_NOFOLLOW writes with full identity
+pins, reconciles exact pre/post identities after every swap result, cleans only
+through one no-follow descriptor-relative identity helper, and suppresses
+public success whenever any displaced or staging residual remains.
+
+adversarial_evidence: Write replacement, retained/staged/events directory
+replacement, validation-to-cleanup replacement, helper pre-swap failure,
+actual post-swap nonzero/timeout, cleanup failure and false-public-success
+fixtures pass. A replacement at cleanup restores a separately pinned complete
+failure-safe tree as authoritative evidence; original, replacement and sibling
+survive; status is failure and public success is silent.
+
+checks: Controller 11/11; production-private protected/inert/hosted 19/19;
+zsh and strict C syntax; structure at 500 lines; signed Debug/codesign; unsigned
+Release isolation; frozen seven W01 hashes; diff, redaction, path, process and
+root audits. All qualifying hosted runs used a production-configured private
+.xctestrun and explicit task-owned result bundle.
+
+scope_check: Exact controller script, controller tests and W01 summary only;
+no observer --execute, external volume, protected-content inspection, Camera,
+TCC, Keychain, provider, media or product runtime.
+deviations: One excluded focused rerun omitted resultBundlePath and Xcode wrote
+test-result metadata under the default user DerivedData. Host HOME/CFFIX/TMP
+remained private; protected content was not inspected. The summary records the
+excluded route and final qualifying runs are private.
+residual: Independent review only; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R6
+status: rejected
+reviewed_commit: cbbd9e0741210688734584db9b56c651bc2a5860
+parent: 2b6a9e381942e71f3db7f81549c7366b060dda5b
+
+accepted_evidence: Exact three paths/current blobs/modes, seven frozen W01
+blobs, descriptor-relative exclusive file creation, ordinary exported
+post-swap reconciliation, whole-tree replacement handling, public success
+suppression, private controller 11/11, static/build/Release/redaction and
+residue checks pass. The excluded default-Xcode result-metadata route is
+truthfully disclosed and was not inspected or cleaned.
+
+blocking_findings:
+1. Atomic swap may consume the whole remaining deadline, leaving no reserved
+budget to reconcile a committed swap after helper timeout. A real low-budget
+post-swap timeout retained authoritative success schema with cleanup complete
+plus the displaced failure-safe sibling.
+2. Cleanup validates all files then unlinks sequentially. A later unlink
+failure leaves a partial tree; restore checks only directory identity and can
+swap that partial tree back as authoritative instead of a complete pending
+failure-safe schema.
+3. Committed post-swap exit/timeout tests did not export the hook consumed by
+Python, so they exercised the normal path rather than the claimed injection.
+
+smallest_repair: Reserve bounded reconciliation/recovery budget before commit;
+after cleanup failure restore only a complete identity-pinned pending schema or
+invoke the existing fresh failure-safe recovery path; add deterministic
+mid-cleanup failure coverage; export or command-scope post-swap hooks and assert
+the injected path/status. Preserve exact three paths and accepted prior
+behavior.
+
+scope_check: Read-only review; no product/spec/Release/protected drift,
+observer --execute, external volume or protected runtime.
+deviations: none.
+residual: Non-run-owned writers remain still_unknown; runtime unauthorized.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R7, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R7`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R7
+status: implementation_complete_pending_independent_review
+commit: fc177df1e1a3e72caf65bcd8b703a176ec79f3df
+parent: 177ca03d77556160d119eedc7d2ace96d0128b2a
+
+outcome: The exact three-path Debug observer repair reserves post-swap recovery
+time before commit, makes post-swap injections real, and prevents a partial
+cleanup tree from becoming authoritative evidence.
+
+reserve_proof: The initial atomic helper is capped with a 30-second post-swap
+reserve inside the existing global bound. Real command-scoped/exported exit-70
+and timeout injections reconcile a committed swap, restore a complete pinned
+pending tree, return 74 and emit no public success.
+
+partial_cleanup_proof: A fail-after-four cleanup fixture makes the displaced
+tree partial. Complete pending schema plus all file pins reject restoration;
+fresh pinned failure-safe evidence becomes authoritative. The partial residual
+and sibling survive and public status remains 74.
+
+checks: Production-private .xctestrun suites 30/30; zsh and strict C syntax;
+structure at 500 lines; signed Debug/codesign; unsigned Release/string
+isolation; seven frozen W01 blobs; diff, redaction, process, root and temp
+audits. Exact three paths only; zero task roots/process residue.
+
+scope_check: No observer --execute, external volume, live protected content,
+Camera/TCC/Keychain/provider/media/product runtime or fourth path.
+deviations: One failed build-only diagnostic exposed an ephemeral task-owned
+/tmp token in internal tool output because redaction covered its /private/tmp
+alias only. No protected/user path or durable evidence was involved; the exact
+task root was removed.
+residual: Independent review only; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R7
+status: rejected
+reviewed_commit: fc177df1e1a3e72caf65bcd8b703a176ec79f3df
+parent: 177ca03d77556160d119eedc7d2ace96d0128b2a
+
+accepted_evidence: Exact three paths/current blobs/modes and seven frozen W01
+blobs pass. Exported exit-70/timeout hooks reach Python. Stable success,
+ordinary committed timeout recovery and fail-after-four partial-cleanup fresh
+failure-safe recovery pass. Static, unsigned build/Release, isolation,
+redaction, protected hashes and residue checks pass.
+
+blocking_findings:
+1. The reserve covers only the initial swap helper. A committed exit-70 swap
+followed by delay in the first bounded reconciliation exhausted the remaining
+deadline. Status was 74 and reconciliation not_run, but authoritative evidence
+remained pass_unchanged/cleanup complete while displaced pending evidence
+remained as a residual. Direct returns precede restoration.
+2. The W01 summary omits the packet-required task-owned /tmp alias-redaction
+diagnostic disclosure.
+
+smallest_repair: Remove all direct post-swap failure returns before safe-state
+recovery. Make terminal publication independent of reconciliation timing by
+retaining failure-safe authority until exact old-tree cleanup succeeds, then
+publishing the complete success tree with one identity-bound move into an
+absent authoritative name. Add a committed exit-70 plus first-reconciliation
+stall fixture proving pending/absent authority, retained auditable residual,
+status 74 and no public success. Add the exact bounded diagnostic disclosure.
+
+scope_check: Read-only exact review; no edits, observer --execute, protected
+inspection, external volume or app/product runtime.
+deviations: One private-HOME signed review build could not see a certificate;
+unsigned compile and Release evidence passed; no live Keychain fallback.
+residual: Non-run-owned writers remain still_unknown; runtime unauthorized.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R8, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R8`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R8
+status: implementation_complete_pending_independent_review
+commit: 8161d605a3b4139ad279a36604010d944d64caf5
+parent: 738d9612c1868640af797c71f6c0aa6d843f9480
+
+outcome: Complete pinned failure-safe evidence remains authoritative while
+success is built and validated separately. Old pending authority is
+quarantined and identity-safely cleaned while canonical is absent; success is
+published only by one same-controller, identity-validated no-clobber move of
+the complete staged tree into the proven-absent canonical name. No external
+helper or reconciliation remains after publication.
+
+adversarial_proof: Quarantine collision and sibling survival; real exit-70,
+timeout and exit-70 plus first-reconciliation stall; fail-after-four partial
+cleanup with fresh pending authority; cleanup replacement; and public
+false-success all return failure without authoritative cleanup-complete
+success. Stable success yields exactly eight closed-schema files.
+
+checks: Final production-configured private .xctestrun 30/30; signed Debug and
+strict codesign; unsigned Release and observer-string isolation; zsh, strict C,
+Swift parse/structure at 500 lines, diff, CLI, twelve frozen blobs, redaction,
+process, temp and root audits. Exact three paths and modes only.
+
+scope_check: No observer --execute, external volume, live HOME/protected
+inspection, Camera/TCC/Keychain/provider/media/product runtime or fourth path.
+deviations: One excluded exact-topology group used a wrong private-root prefix
+and failed route naming; the canonical rerun passed. Intermediate fixture and
+parent-nlink issues were repaired before qualifying runs. The summary records
+the required prior task-owned /tmp alias diagnostic without overclaim.
+residual: Independent Review-R8 only; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R8
+status: rejected
+reviewed_commit: 8161d605a3b4139ad279a36604010d944d64caf5
+parent: 738d9612c1868640af797c71f6c0aa6d843f9480
+
+accepted_evidence: Exact three paths/current blobs/modes and twelve frozen
+blobs pass. Failure-safe authority ordering, prepublication exit/timeout/stall,
+partial cleanup recovery, descriptor writes, pins, parser/classifier, bounds,
+stable publication, public gating, static/Release/redaction and residue checks
+pass. No fallible scripted work occurs after the final move returns.
+
+blocking_findings:
+1. Final publication uses zf_mv -i, which is not exclusive for a destination
+directory. A late destination collision returns zero and nests the source
+inside the replacement; caller can mark published/cleanup complete.
+2. Tests do not invoke the final-move collision hook. The hook fails without
+public output but leaves an empty non-pending canonical directory plus staged
+success and sibling, so required authority truth is unproven.
+3. W01 summary records the R7 /tmp diagnostic but omits the packet-required R8
+excluded wrong-private-root-prefix rerun.
+
+smallest_repair: Replace zf_mv with genuine identity-bound atomic exclusive
+rename such as renameatx_np RENAME_EXCL, retaining the same-controller and
+no-post-publication-fallibility invariant. Add a production seam immediately
+before the primitive and prove a late canonical directory collision cannot
+nest, delete, clear staging or emit success; retain collision and sibling.
+Add the exact excluded wrong-prefix summary disclosure. Preserve exact three
+paths and all accepted R2-R7 behavior.
+
+scope_check: Read-only review; no edits, hosted test, observer --execute,
+protected access, external volume or product runtime.
+deviations: One task-owned fixture initially used zsh reserved status; its
+private root was removed. No user/protected path or durable artifact.
+residual: Non-run-owned writers remain still_unknown; runtime unauthorized.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-R9, then independent
+DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-R9`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-R9
+status: implementation_complete_pending_independent_review
+commit: fec202a10ea44487828a214fc9ee8cc384867f2f
+parent: e321bde9825de186d2eac21893adf564df961229
+
+outcome: Final zf_mv publication is replaced by descriptor-relative,
+identity-validated renameatx_np RENAME_EXCL. Late collisions cannot overwrite
+or nest staged evidence. Failure returns 74 without public success; stable
+publication has no later fallible operation.
+
+collision_proof: Direct primitive collision returns 73 while source,
+destination and sibling survive without nesting. Production late-collision
+returns 74 with no public output; complete staged success, collision and sibling
+remain and canonical is explicitly classified.
+
+checks: Final production-configured private .xctestrun 30/30; signed Debug and
+strict codesign; unsigned Release and observer/storage-host/test artifact
+absence; zsh/CLI, strict C, Swift parse/structure at 500 lines, twelve frozen
+blobs, diff, redaction, path, process and root audits.
+
+scope_check: Exact three paths/modes; no observer --execute, external volume,
+live HOME/protected inspection, Camera/TCC/Keychain/provider/media/product
+runtime or fourth path.
+deviations: One initial focused run exposed only test-fixture variable lifetime
+and was repaired before qualifying evidence. Exact failed-attempt task roots
+were identity/no-follow cleaned; unrelated review-owned root remains untouched.
+The summary records the excluded R8 wrong-prefix rerun.
+residual: Independent Review-R9 only; no runtime authority.
+next_dependency: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9`
+
+```text
+packet_id: DV-P0B-STORAGE-OBSERVER-W01-REVIEW-R9
+status: accepted_with_residual
+reviewed_commit: fec202a10ea44487828a214fc9ee8cc384867f2f
+parent: e321bde9825de186d2eac21893adf564df961229
+
+outcome: The final publication defect is closed. Canonical evidence publishes
+through an effective descriptor-relative renameatx_np RENAME_EXCL boundary;
+late collision fails without overwrite, nesting, deletion or success
+overclaim.
+
+accepted_evidence: Exact three paths/current blobs/modes and twelve frozen
+blobs pass. Direct primitive collision returns 73 with source, destination and
+sibling intact and no nesting; absent destination moves the exact source.
+Production late collision returns 74/no output, retains complete staging,
+collision and sibling, and records absent_authority_collision_retained. Stable
+publication yields exact eight-file closed success with no residual. Nonzero
+and timeout reconciliation remain bounded; confirmed publication has only
+in-memory state assignments afterward. Summary contains both required
+verification deviations.
+
+checks: Static native API/deadline/identity trace, direct and production
+fixtures, zsh/CLI, strict C, Swift parse/structure, diff, twelve frozen hashes,
+Release/string isolation, redaction, process, root and worktree audits pass.
+No hosted Xcode route or runtime was launched by review.
+
+scope_check: Exact read-only review; no edit, observer --execute, external
+volume, live HOME/protected access, Camera/TCC/Keychain/provider/media/product
+runtime.
+deviations: One blocked-before-execution fixture and one task-owned Python
+bytecode residue were handled inside the private review root; final residue
+zero.
+residual: No implementation residual. Arbitrary non-run-owned writers and an
+actual observer result remain still_unknown until separately authorized
+runtime.
+next_dependency: DV-P0B-CAPTURE-R07 is admitted as the next serialized runtime;
+storage-observer runtime remains separate and unauthorized by this acceptance.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R07`
+
+```text
+packet_id: DV-P0B-CAPTURE-R07
+status: failed
+functional_result: fail
+commit: 603956c02d3dba273db77b73f684d0459b926764
+parent: 67349ecb41d644d94ee8c358238f13b3a9ce3ca9
+
+outcome: Fresh bounded enumeration found exactly one connected eligible
+Continuity Camera and selected its identity ephemerally. Exactly one accepted
+10-second hardware invocation ran with no retry/fallback and terminated
+invalid_configuration before any app attempt-start event.
+
+evidence: Operator terminal count one, attempt-event count zero, Ready zero.
+Authorization, camera/audio capture, probes, passthrough, preservation and all
+quantitative media fields are not_reached/unavailable. W07 publisher returned
+publisher_validation_mismatch; validated snapshot count zero and consumer not
+invoked. No cause is attributed because the exact failed configuration check
+was not retained.
+
+cleanup: No media was created. Run-owned app/script/enumerator/helper/guard
+processes and exact empty raw/handoff roots are absent; unrelated pre-existing
+root was preserved. Protected counts are unchanged and no external/remote I/O
+occurred.
+
+scope_check: Exactly nine redacted text files under the R07 QA root; no source,
+test, script, spec, registry, project, plist, entitlement, TCC, product,
+provider, Keychain or external-storage change/action.
+deviations: Two preflight command-shape corrections occurred before runtime;
+publisher mismatch required exact empty-root post-classification cleanup. No
+extra enumeration or capture.
+residual: Debug-spike invalid_configuration plus absent validated W07 handoff;
+authorization/media/preservation facts unavailable. No retry.
+next_dependency: DV-P0B-CAPTURE-R07-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R07-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R07-REVIEW
+status: done
+verdict: accept_with_residual
+evidence_result: accepted
+functional_result: fail
+reviewed_commit: 603956c02d3dba273db77b73f684d0459b926764
+parent: 67349ecb41d644d94ee8c358238f13b3a9ce3ca9
+
+outcome: Exact nine-file evidence truthfully proves one explicit eligible
+Continuity invocation, one invalid_configuration operator terminal before app
+attempt start, zero Ready/media/retry, and no validated W07 handoff. It proves
+no authorization, capture, probe, passthrough, preservation or measurement.
+
+checks: Exact commit/parent/path/mode/current-blob equality; diff/MIME/text;
+JSON/JSONL/CSV schema, ordering and cross-counts; redaction/private material;
+no-media; cleanup/protected-count consistency all pass.
+
+diagnostic_blocker: DevVlogsPhase0BConfiguration.resolve and makeHarness
+collapse every pre-attempt guard into invalid_configuration. The exact failed
+guard is unavailable and no device, TCC, signing, resolver or filesystem cause
+may be attributed.
+
+smallest_repair: The existing Debug capture/handoff owner must add a closed,
+redacted configuration-stage diagnostic across Launch/EventLog, focused launch
+and handoff tests, and the spike script; W01 summary changes only if its claim
+changes. Preserve zero-attempt semantics, never write through an unvalidated
+path, and keep ordinary two-event handoff behavior unchanged.
+
+scope_check: Read-only; no repository, runtime, TCC, hardware, external-storage
+or process mutation.
+deviations: none
+residual: Functional capture remains failed; exact configuration stage,
+authorization, media, preservation and measurements remain unavailable.
+next_dependency: DV-P0B-CAPTURE-W08, then independent W08 review. No runtime
+retry is authorized.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08
+status: done
+commit: 1387b641dd3fc60e309eb7619dabe678ff63d672
+parent: d93262a97091ae0f4a7b97725fad03c924b7e8d0
+
+outcome: Added a Debug-only closed redacted pre-attempt configuration
+diagnostic while preserving the public invalid_configuration terminal, zero
+attempt events and zero Ready.
+
+closed_dimensions: isolation_not_enabled, automation_not_enabled,
+keychain_ui_not_suppressed, run_root_missing, event_log_missing,
+camera_id_missing, run_root_outside_temporary_root, event_log_path_mismatch,
+duration_invalid, case_id_invalid, run_paths_unavailable, unknown.
+
+transport: The script pre-opens fixed FD 3 inside its pinned handoff authority.
+The target emits only a closed line. The script descriptor-relatively publishes
+a strict mode-0400 configuration.json; the existing identity/digest consumer
+validates and consumes it once. Rejected configuration paths are not used.
+
+checks: Structure; focused 21/21; Launch 12/12; ordinary serial Phase0B
+117/117; signed Debug build-only/codesign; unsigned Release and settings/symbol
+isolation; script CLI/syntax; eight protected hashes; diff/redaction/scope/
+process/root audits all pass.
+
+scope_check: Exact six paths; no camera, microphone, TCC, app runtime,
+permission mode, product/media/storage/project/plist/entitlement/Release/iOS or
+external-storage action.
+deviations: A broad 118-test invocation included one protected hosted-storage
+case without its required private runner environment; the 117 ordinary suites
+passed and no protected owner was edited. One zsh reserved-variable fixture
+was repaired and its exact residual removed.
+residual: R07 remains historically unattributed. This repair requires
+independent review before any separately authorized retry.
+next_dependency: DV-P0B-CAPTURE-W08-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08-REVIEW
+status: done
+verdict: reject
+reviewed_commit: 1387b641dd3fc60e309eb7619dabe678ff63d672
+parent: d93262a97091ae0f4a7b97725fad03c924b7e8d0
+
+accepted_evidence: Exact six paths/modes/current blobs pass. Eleven closed
+stages plus typed run_paths_unavailable and foreign unknown are internally
+mapped; public terminal stays invalid_configuration. FD3 is hardware-only and
+inside the pinned handoff authority. Focused 21/21, ordinary Phase0B 117/117,
+signed Debug, Release isolation, protected hashes and redaction pass.
+
+blocking_findings:
+1. isolation_not_enabled is unreachable through the actual app route because
+missing/wrong isolation selects normal HoldTypeApp before diagnostic resolve.
+2. Shell command substitution strips trailing newlines, so missing, one and
+multiple LF terminators are indistinguishable and malformed FD3 framing passes.
+3. After raw diagnostic identity mismatch, EXIT discard checks only pathname
+type and can delete a replacement without the captured identity proof.
+
+smallest_repair: In Launch/LaunchTests and the spike/handoff tests, repair the
+actual router without changing normal ungated behavior, enforce exactly one
+complete LF-terminated record, retain identity-mismatched evidence, and add
+production-route adversarial coverage. Update W01 summary only as required.
+
+scope_check: Read-only exact review; no edits, app/camera/mic/TCC/permission/
+hardware/external/protected runtime.
+deviations: Hosted-storage case was excluded because its dedicated private
+runner was unavailable.
+residual: Runtime remains unauthorized; hardware evidence remains future work.
+next_dependency: DV-P0B-CAPTURE-W08-R1, then independent Review-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08-R1
+status: done
+commit: d1f5f5fea79afff4907c84c489039a875ad450a9
+parent: 300dd6ef325a334dc10978915e4b84b8386e1673
+
+outcome: Actual routing now leaves truly absent hardware intent on normal
+HoldType while partial/wrong canonical hardware intent selects isolated
+isolation_not_enabled diagnostics. FD3 requires exactly one ASCII LF record
+plus EOF. Captured raw dev/inode/uid/full-mode/type/nlink identity gates every
+publication/deletion; mismatch retains implicated private evidence.
+
+proof: Route factory counters prove normal 1/harness 0 for no hardware intent
+and normal 0 for invalid hardware intent with zero attempt/Ready. Production
+framing rejects missing/extra LF, CRLF, multiple records, NUL, non-ASCII,
+trailing/partial/private/unknown forms. Mode/hardlink/inode/sibling mutation
+returns identity_mismatch, publishes nothing, emits no success and preserves
+the implicated object.
+
+checks: Structure; focused Launch/handoff 21/21; serial 14-suite Phase0B
+117/117 (independent Review-R1 correction of the worker's stale 115 count);
+auth-LS 9/9; script CLI/syntax; signed Debug build-only/codesign;
+unsigned Release/settings/artifact isolation; fourteen protected hashes;
+diff/redaction/scope/process/root audits all pass.
+
+scope_check: Exact five paths; EventLog and all protected owners unchanged; no
+app/camera/mic/TCC/permission/hardware/external/protected runtime.
+deviations: An early parallel aggregate collided in a protected permission
+timeout fake; required serial reruns passed. The worker incorrectly replaced
+the prior 117 count with 115; Review-R1 reran the unchanged exact 14 suites and
+proved 117/117. One reserved zsh local name was repaired before final
+verification.
+residual: R07 remains historically unattributed; no retry before Review-R1.
+next_dependency: DV-P0B-CAPTURE-W08-REVIEW-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08-REVIEW-R1
+status: done
+verdict: reject
+reviewed_commit: d1f5f5fea79afff4907c84c489039a875ad450a9
+parent: 300dd6ef325a334dc10978915e4b84b8386e1673
+
+accepted_code: All three W08 defects are repaired. No hardware intent preserves
+normal composition; partial/wrong intent selects isolated
+isolation_not_enabled. FD3 requires one ASCII LF record plus EOF. Captured full
+identity prevents deletion of replacements; production inode replacement
+returns 70 and preserves original plus replacement with no publish/success.
+
+blocking_finding: The committed W01 summary and worker receipt claim 115/115 in
+14 suites. Independent execution of the exact unchanged 14-suite selection
+produced 117 tests, 117 passed, zero failed. Hosted-storage remained excluded.
+
+checks: Structure; focused 21/21; ordinary Phase0B 117/117; script syntax/CLI;
+signed Debug; unsigned Release/settings/symbol isolation; protected hashes;
+diff/redaction/process/root/worktree all pass.
+
+smallest_repair: Change only W01 summary to the reproduced 117/117. Coordinator
+corrects the registry receipt. Freeze all code/tests/script and perform narrow
+documentation/provenance rereview; no broad rerun required.
+scope_check: Read-only; no app/camera/mic/TCC/permission/hardware/media/external
+runtime.
+deviations: First reviewer wrapper used zsh reserved status after hook; exact
+fixture was removed and clean rerun proved status 70/replacement survival.
+residual: R07 remains historically unattributed; runtime unauthorized.
+next_dependency: DV-P0B-CAPTURE-W08-R2, then narrow Review-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08-R2`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08-R2
+status: done
+commit: b418c0872ab6585b795289e46cac66228450d559
+parent: 7443e051ce53ca97810e74925af911ecfc8ede9b
+
+outcome: Corrected the sole stale W08-R1 summary count from 115/115 to the
+independently reproduced 117/117 while preserving the exact 14-suite selection
+and hosted-storage exclusion.
+
+changed_paths: W01 capture summary only; one-line diff.
+frozen_provenance: Launch, LaunchTests, spike script, HandoffTests and EventLog
+blobs are byte-identical to d1f5f5f.
+checks: Exact one-path diff, diff-check, contradiction search and redaction pass;
+no build/test/runtime rerun by packet design.
+scope_check: No source/test/script/product/runtime action.
+deviations: none
+residual: R07 remains historically unattributed; runtime separately gated.
+next_dependency: DV-P0B-CAPTURE-W08-REVIEW-R2.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W08-REVIEW-R2`
+
+```text
+packet_id: DV-P0B-CAPTURE-W08-REVIEW-R2
+status: done
+verdict: accept_with_residual
+reviewed_commit: b418c0872ab6585b795289e46cac66228450d559
+parent: 7443e051ce53ca97810e74925af911ecfc8ede9b
+
+outcome: Summary-only repair is exact and truthful. W08 route, strict LF
+framing and identity-retention diagnostic repair is accepted_with_residual.
+
+evidence: Exactly one summary line changed from stale 115/115 to independently
+reproduced 117/117 in the same 14 suites. Hosted-storage exclusion is retained;
+no 115 contradiction or new runtime/media claim remains. Diff-check passes.
+
+frozen_provenance: Launch, LaunchTests, spike script, HandoffTests and EventLog
+blobs equal accepted d1f5f5f at reviewed commit and current checkout. Registry
+checkpoint consistently records the correction; historical 115 mentions are
+explicitly rejected context.
+
+scope_check: Read-only summary/provenance review; no source/test/script/build/
+runtime action.
+deviations: none
+residual: R07 remains historically unattributed; real Camera/TCC/media evidence
+is separately gated.
+next_dependency: One separately packetized R08 hardware attempt, then review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R08`
+
+```text
+packet_id: DV-P0B-CAPTURE-R08
+status: failed
+functional_result: fail
+commit: 4581e31da66a323dd9b0d35d4025f6717a060823
+parent: f3ae739ec8ab42cf6ee7925dbba79e3467818305
+
+outcome: One fresh enumeration found exactly one connected/non-suspended/
+not-in-use eligible Continuity Camera. Exactly one explicit 10-second hardware
+invocation ran with no retry/fallback and terminated invalid_configuration
+before attempt start.
+
+diagnostic: W08 published one validated configuration diagnostic; the one-shot
+consumer consumed it once with configuration_stage=event_log_path_mismatch.
+Attempt events and Ready are zero. Authorization, capture, audio, probes,
+passthrough, preservation and metrics were not reached; no deeper cause is
+attributed.
+
+cleanup: Raw root, consumed diagnostic/handoff, enumerator/orchestration root
+and all run-owned processes/guard are absent. One unrelated pre-existing root
+was preserved. Protected counts are unchanged; no external/remote I/O.
+
+scope_check: Exactly nine redacted text evidence files under the R08 QA root;
+no source/test/script/spec/registry/project/plist/entitlement/TCC/product/
+storage change.
+deviations: Packet referenced a nonexistent underscored script spelling; actual
+accepted spelling was used. First enumerator command referenced a missing
+timeout path and exited before launch; one sole enumeration then ran. No extra
+hardware attempt.
+residual: Debug-spike pre-attempt event_log_path_mismatch; authorization/media/
+preservation/metrics unavailable. No retry.
+next_dependency: DV-P0B-CAPTURE-R08-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R08-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R08-REVIEW
+status: done
+verdict: accept_with_residual
+evidence_result: accept
+functional_result: fail
+reviewed_commit: 4581e31da66a323dd9b0d35d4025f6717a060823
+parent: f3ae739ec8ab42cf6ee7925dbba79e3467818305
+
+outcome: Exact nine-file evidence truthfully proves one eligible Continuity
+enumeration, one invocation and one pre-attempt invalid_configuration terminal
+with validated/consumed event_log_path_mismatch. Attempt/Ready/media/retry are
+zero; authorization and media/preservation/measurements are not reached.
+
+source_diagnosis: Launch resolves symlinks for the run root but only standardizes
+the supplied event URL before comparing it to the fixed
+hardware-raw/evidence/events.jsonl descendant. The script derives that suffix
+from the same resolved run root and does not rewrite it. The supported defect
+class is Launch-owned asymmetric path normalization; the concrete runtime alias
+was intentionally not retained and remains unknown.
+
+smallest_repair: In Launch and LaunchTests, resolve the candidate parent
+symmetrically, require equality with the fixed validated hardware-raw/evidence
+parent and exact events.jsonl leaf. Cover equivalent aliases, foreign or
+symlink-escape parents, wrong leaves, zero-attempt diagnostics and valid config.
+W01 summary changes only for the revised Debug claim. Freeze script/handoff/
+EventLog/W07 cleanup and trust-boundary owners.
+
+checks: Commit/parent/nine paths/current blobs; structured evidence; redaction;
+no-media; cleanup/protected counts all pass.
+scope_check: Read-only evidence and minimum source review; no runtime/edit.
+deviations: none
+residual: Functional capture remains failed; authorization/media/preservation/
+metrics unavailable. No runtime authorized.
+next_dependency: DV-P0B-CAPTURE-W09, then independent W09 review.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W09`
+
+```text
+packet_id: DV-P0B-CAPTURE-W09
+status: done
+commit: 20787c42ccbee210cb77a884a9d2fda2a3c6c3b3
+parent: b3b91019697af13f3fa66ca69cae6c790cab7930
+
+outcome: Launch now requires exact events.jsonl leaf and compares a
+symmetrically symlink-resolved and standardized candidate parent with the fixed
+resolved <run_root>/hardware-raw/evidence parent. Canonical paths, equivalent
+filesystem aliases and a parent-symlink alias to that exact parent pass;
+foreign, symlink-escaping, wrong-leaf, directory-shaped and malformed
+candidates fail event_log_path_mismatch before harness construction or writes.
+
+specified_expectation: The validated resolved run root owns the sole event-log
+parent; aliases of that same parent pass, while foreign, escaping and malformed
+paths fail before attempt or Ready. Public invalid_configuration, valid routing
+and zero-attempt semantics remain unchanged.
+
+checks: Structure passes with both changed Swift files exactly 500 lines;
+Launch 12/12; Launch plus frozen handoff 21/21; current exact serial 14-suite
+selection 115/115 with hosted protected-storage excluded; auth-LS 9/9; signed
+Debug build-only/codesign; unsigned Release and settings/artifact isolation;
+script CLI/syntax regressions; fourteen protected hashes; diff, redaction,
+path, mode, process and temporary-root audits all pass.
+
+scope_check: Exactly Launch, LaunchTests and W01 summary changed. Script,
+handoff, EventLog, camera/media/auth/product/project/plist/entitlement owners
+remain byte-identical. No app, camera, microphone, TCC, permission, hardware or
+external-storage runtime occurred.
+deviations: Current Xcode result reports 115/115 for a different 14-suite
+selection: PreviewLaunch 5 plus PreviewSession 8 replace the historical
+ProtectedStorageObserverController 11 plus ProtectedStorageObserver 4. The
+other twelve suites are identical, so 115 = 117 - 15 + 13. Historical W08
+Review-R1 independently reproduced 117/117 and remains truthful.
+residual: R08 remains truthful historical pre-attempt failure. No retry.
+next_dependency: DV-P0B-CAPTURE-W09-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W09-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-W09-REVIEW
+status: done
+verdict: reject
+reviewed_commit: 20787c42ccbee210cb77a884a9d2fda2a3c6c3b3
+parent: b3b91019697af13f3fa66ca69cae6c790cab7930
+
+accepted_evidence: Exact three paths/modes/current blobs pass. Parent
+canonicalization correctly accepts equivalent aliases and rejects foreign or
+symlink-escaping parents. Focused, serial current and historical suites,
+Debug/Release isolation, protected hashes, redaction and cleanup pass.
+
+blocking_finding: Launch validates the candidate parent and exact leaf spelling
+but does not no-follow validate the canonical leaf object. A canonical
+events.jsonl symlink to a foreign regular file passes; the unchanged EventLog
+FileHandle follows it. A reviewer-owned probe returned guard=true and then
+changed the foreign sentinel. Existing tests omit this leaf-symlink case.
+
+qa_reconciliation: Current W09 selection passes 115/115 and substitutes
+PreviewLaunch 5 plus PreviewSession 8 for historical W08
+ProtectedStorageObserverController 11 plus ProtectedStorageObserver 4. The
+other twelve suites and all four test-file blobs are unchanged. Historical
+W08 117/117 and current W09 115/115 are both truthful for different exact
+selections; registry wording was corrected.
+
+smallest_repair: In Launch, LaunchTests and W01 summary, reject a pre-existing
+canonical leaf symlink or non-regular leaf before harness construction, keep
+valid same-parent aliases, and prove the foreign target stays unchanged with
+zero harness/attempt/Ready. Freeze script/handoff/EventLog and every adjacent
+owner.
+
+scope_check: Read-only review; no app, camera, microphone, TCC, permission,
+hardware, media, external-storage or hosted-storage runtime.
+deviations: Initial focused command used scheme parallelism; authoritative
+counts are serial and xcresult-backed. Reviewer-owned fixtures were removed.
+residual: W09 is not hardware-dependency-ready.
+next_dependency: DV-P0B-CAPTURE-W09-R1, then independent Review-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W09-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W09-R1
+status: done
+commit: 7342f18a1ea8b03d98bd855900115b61e7e444cd
+parent: c3298f0ed36e68c3914b565f909e5d8fd5fd8614
+
+outcome: Added no-follow final-leaf validation. An absent or regular
+events.jsonl leaf passes; symlink and non-regular leaves fail before harness
+construction or writing. Foreign and same-parent targets remain unchanged.
+
+specified_expectation: Preserve accepted symmetric parent canonicalization and
+valid aliases while rejecting a pre-existing leaf symlink/non-regular object as
+event_log_path_mismatch, with zero harness/attempt/Ready and no target write.
+
+checks: Structure and diff pass with both changed Swift files exactly 500
+lines; Launch 12/12; Launch plus frozen handoff 21/21; current serial selection
+115/115; auth-LS 9/9; signed Debug build-only/codesign; unsigned Release and
+settings/artifact isolation; frozen script regressions; fourteen protected
+hashes; redaction, mode, process, root and residue audits all pass.
+
+scope_check: Exactly Launch, LaunchTests and W01 summary changed. Script,
+handoff, EventLog and all protected adjacent owners remain unchanged. No app,
+camera, microphone, TCC, permission, hardware, external-storage or product
+runtime.
+deviations: Initial focused run exposed an obsolete run-path fixture; it was
+corrected to preserve run_paths_unavailable and authoritative reruns passed.
+Historical W08 117/117 remains separate; current W09 selection is 115/115.
+residual: R08 remains historical pre-attempt failure; no hardware retry.
+next_dependency: DV-P0B-CAPTURE-W09-REVIEW-R1.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W09-REVIEW-R1`
+
+```text
+packet_id: DV-P0B-CAPTURE-W09-REVIEW-R1
+status: done
+verdict: accept_with_residual
+reviewed_commit: 7342f18a1ea8b03d98bd855900115b61e7e444cd
+parent: c3298f0ed36e68c3914b565f909e5d8fd5fd8614
+
+outcome: Final-leaf escape is closed. Darwin lstat inspects the submitted leaf
+without following it; only regular or ENOENT passes. Symlink and non-regular
+leaves fail before harness, EventLog, attempt, Ready, open, create or write.
+
+behavioral_proof: Production-path tests cover absent/regular leaves, canonical
+and parent aliases, parent escape, wrong leaf, malformed path, directory leaf,
+and outside-evidence plus same-parent symlink targets. Rejected targets and link
+identity remain unchanged. The corrected fixture still reaches
+run_paths_unavailable independently.
+
+qa_reconciliation: Current W09 selection passes 115/115 using PreviewLaunch 5
+plus PreviewSession 8. Historical W08 passes 117/117 using protected observer
+suites 11 plus 4. Other twelve suites and substituted suite blobs are unchanged;
+both results are truthful for different exact selections.
+
+checks: Exact commit/parent/three paths/current blobs; structure at 500 lines;
+focused 21/21; current serial 115/115 including auth-LS 9/9; script and signed
+Debug build-only/codesign; bounded unsigned Release/settings/artifact isolation;
+fourteen protected hashes; diff, redaction, process, root and worktree audits
+all pass.
+
+scope_check: Read-only review; no app, camera, microphone, TCC, permission,
+hardware, media, external-storage, UI or product runtime.
+deviations: none material; authoritative test counts are serial.
+residual: Real Continuity/TCC/media/preservation/quantitative evidence remains.
+The accepted private Debug boundary does not promise resistance to a malicious
+same-UID post-validation namespace race.
+next_dependency: One separately coordinator-authorized R09 hardware attempt.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R09`
+
+```text
+packet_id: DV-P0B-CAPTURE-R09
+status: failed
+functional_result: fail
+commit: 8c5ea025e56ef2982c802f48295d84127abe51e9
+parent: d3a5b2dd60da7ad0a16cb8d49bf139c98397a0c8
+
+outcome: One fresh explicit Continuity ten-second attempt ran with no retry or
+fallback. Camera-only probe passed playable 1V/0A, passthrough passed, and final
+probe passed playable 1V/1A. Strict stored_sample_exact_v1 failed at emitted
+dimension reading_failed; Ready remained zero.
+
+authorization: Authorized, supported by accepted route ordering and successful
+camera capture. No requestAccess, permission mode, UI, System Settings or TCC
+action occurred.
+
+counts_and_media: Enumeration=1, eligible=1, invocation=1, attempt=1,
+terminal=1, Ready=0, retry=0. Camera/final video is 1920x1080 avc1 with identity
+transform; final audio is AAC. One dictation-audio owner and zero camera audio
+inputs. Product dictation or shipping lease is not claimed.
+
+measurements: Validated W07 handoff retains cadence, timestamp bounds and
+estimated rates as evidence_only. Sample/file bytes, exact durations, latency,
+resources, sync and drift are unavailable; no markers were used.
+
+cleanup: Validated handoff published and consumed once. Raw media and all
+run-owned roots/processes/guard are absent; one unrelated old root was
+preserved. Protected metadata-only counts/path sets remain unchanged at
+54/0/0/53/0; no external or remote I/O.
+
+scope_check: Exactly nine redacted text files under the R09 QA root; no source,
+test, script, spec, registry, project, plist, entitlement, product, TCC or
+storage change.
+deviations: One wrong pre-runtime build-only spelling exited before launch;
+correct build-only passed. A post-enumeration zsh readonly-variable error did
+not cause re-enumeration. No retry, fallback or second invocation.
+residual: Debug-spike strict preservation reading_failed; no lower-level cause
+or unavailable quantitative value is inferred.
+next_dependency: DV-P0B-CAPTURE-R09-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-R09-REVIEW`
+
+```text
+packet_id: DV-P0B-CAPTURE-R09-REVIEW
+status: done
+verdict: accept_with_residual
+evidence_result: accept
+functional_result: fail
+reviewed_commit: 8c5ea025e56ef2982c802f48295d84127abe51e9
+parent: d3a5b2dd60da7ad0a16cb8d49bf139c98397a0c8
+
+outcome: Exact nine-file evidence supports one explicit Continuity attempt,
+authorized capture, playable camera 1V/0A, passthrough, playable final 1V/1A,
+then strict stored_sample_exact_v1 reading_failed with zero Ready and no retry.
+
+dimension_classification: reading_failed is a legitimate closed typed
+dimension emitted by the stored-sample comparator. It combines sample-data
+copying, sample-size/timing extraction and non-completed reader status,
+potentially on either camera or finalized media. Retained evidence cannot
+identify the operation or side; comparator defect, finalizer artifact defect
+and AVFoundation/platform behavior remain unclassified.
+
+measurements: Retained finite cadence/timestamp/rate values are evidence_only.
+Sample/file bytes, exact durations, latency, resources, sync and drift are
+null/unavailable; no threshold or marker claim is made.
+
+checks: Exact commit/parent/nine paths/current blobs; duplicate-key structured
+parsing; CSV shape/order/cardinality and cross-counts; media semantics;
+redaction/no-media; cleanup/protected-count consistency all pass.
+
+cleanup: Publication/consumption exactly once; raw media, handoff and run-owned
+processes/roots absent; one unrelated root preserved; protected counts remain
+54/0/0/53/0.
+scope_check: Read-only evidence review; no source, runtime, TCC, external or
+protected-owner change/action.
+deviations: Pre-runtime spelling, post-enumeration zsh and plist-linter issues
+do not alter the single enumeration/invocation/attempt counts.
+residual: Strict preservation and quantitative closure remain failed.
+next_dependency: Debug-only closed reader operation and asset-side diagnostic
+repair, independent review, and no runtime before acceptance.
+runtime_or_visual_handoff: none
+```
+
+### `DV-P0B-CAPTURE-W10`
+
+```text
+packet_id: DV-P0B-CAPTURE-W10
+status: done
+commit: b539487cc1c35e66b07ce64dfc7b7557c9187223
+parent: 09b587f660ff2e36e802735dc08ab38e610f6cfb
+
+outcome: Added closed Debug-only strict-preservation reader detail while
+preserving public video_preservation_failed/reading_failed and comparator/
+finalizer behavior. Exactly six local mappings are camera_source/finalized
+cross sample_data_copy/sample_size_timing_metadata/reader_terminal_status.
+
+schema: EventLog/operator and W07 retained JSONL carry the detail exactly once.
+reading_failed requires it; every other preservation dimension forbids it.
+Missing, extra, unknown, duplicate and private forms fail closed.
+
+checks: Structure passes with all changed Swift wholly Debug and at most 500
+lines; focused 29/29; current ordinary exact 14-suite selection 115/115;
+hosted protected-storage excluded; zsh syntax/CLI; signed Debug build-only and
+strict codesign; bounded unsigned Release; settings/plist/entitlement/artifact
+isolation; diff, mode, redaction, path, process and root audits all pass.
+
+protected_proof: Fourteen frozen media/auth/app/project/plist/entitlement/
+storage-wrapper blobs match parent. W09 Launch lines 1-110 are hash-identical.
+scope_check: Exactly nine authorized paths; no runtime, camera, microphone,
+TCC, permission, provider, Keychain, external or storage action.
+deviations: Structure caught LaunchTests at 501 after a final assertion; one
+test-only line was compacted and final structure reran green.
+residual: R09 remains historical/unclassified until a separately authorized
+runtime after review. Strict preservation and quantitative closure remain open.
+next_dependency: DV-P0B-CAPTURE-W10-REVIEW.
+runtime_or_visual_handoff: none
+```
+
+### `DV-ECONOMIC-RESET-2026-08-10`
+
+```text
+packet_id: DV-ECONOMIC-RESET-2026-08-10
+status: accepted_user_decision
+work_classification: coordination
+shipping_capability_delivered: none; this receipt must not be counted as
+product delivery.
+outcome: The user rejected the Phase 0B support-to-product ratio and adopted an
+outcome-first, risk-proportional execution policy. Debug, tests, evidence,
+models, registries and review are supporting work; Release-path functionality
+is the primary progress measure.
+economic_limits: Ordinary milestones target 50-70% shipping implementation,
+20-35% verification and 10-20% discovery/tooling/coordination. More than two
+consecutive support-only packets or more than one repair/re-review cycle stops
+for delivery-and-cost reassessment and normally explicit user approval.
+current_goal_disposition: No new Phase 0B diagnostic/tooling/runtime work is
+authorized without a separate user-approved cost/benefit decision. W10 remains
+supporting work with an uncompleted review residual after reviewer usage limit;
+it does not block Release UI/setup.
+next_visible_milestone: One bounded Phase 0C contract reconciliation and
+proportional review, then the Release-path Dev Vlogs menu entry, separate
+SwiftUI window and truthful Off/Setup state.
+protected_behavior: Dictation, user data, privacy, security, permission,
+storage and released behavior remain protected. Residuals may gate only the
+specific capability that depends on them.
+scope_check: Coordination policy only; no product source, build, test, app,
+camera, microphone, TCC, storage or runtime action.
+```

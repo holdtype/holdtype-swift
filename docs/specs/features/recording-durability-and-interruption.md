@@ -83,6 +83,27 @@ other cause preserves positive bytes under one durable owner.
   capture becomes impossible, it preserves the partial as
   `platformInterrupted`.
 
+## Dev Vlogs media boundary
+
+- `DV-DURABILITY-1`: Dev Vlogs camera video, final source clips, recoverable
+  fragments, manifests, and Build ownership have a separate feature owner and
+  recovery lifecycle. They never become Transcript History, Recording Cache,
+  provider-retry audio, or another dictation durability owner.
+- `DV-DURABILITY-2`: Capture/finalization interruption preserves every
+  recoverable vlog fragment under the Dev Vlogs owner and classifies the vlog
+  result truthfully as Ready, Incomplete, or Failed without changing the
+  dictation result. Relaunch recovery validates only the separate local vlog
+  archive and never uploads recovered media.
+- `DV-DURABILITY-3`: Only an explicit Dev Vlogs Delete action may remove a
+  retained vlog clip or recoverable vlog media. Dev Vlogs has no automatic
+  retention deletion in V1. Transcript History clear/delete, Recording Cache
+  clear/delete/pruning, dictation cleanup, and unrelated lifecycle teardown
+  must not delete vlog media.
+- `DV-DURABILITY-4`: Active, finalizing, recovering, or Build-owned vlog media
+  is not eligible for Dev Vlogs Delete. Deletion has exact clip/media scope and
+  never removes dictation audio owners, History rows, Recording Cache files,
+  completed exports, or unrelated files.
+
 ## Saved Recording and History
 
 - Before provider work, every finalized non-empty source that meets the active

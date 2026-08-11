@@ -24,6 +24,7 @@ This spec covers:
 - debug logging boundaries
 - local diagnostics and crash-report handling boundaries
 - user content handling before a dedicated storage spec exists
+- optional Dev Vlogs Camera consent and its explicit local archive exception
 
 ## Non-goals
 
@@ -37,6 +38,20 @@ This spec covers:
 
 ## User-visible behavior
 
+- `DV-PRIVACY-1`: Camera permission is optional to core HoldType. It must not
+  block app launch, ordinary dictation readiness, transcription, or output.
+- `DV-PRIVACY-2`: HoldType may request Camera permission only after an explicit
+  camera-related action inside Dev Vlogs, such as requesting setup preview or
+  enabling a capture-dependent camera step. Opening the Dev Vlogs window,
+  showing Off/Setup, or reading Camera status must not request permission or
+  start capture.
+- `DV-PRIVACY-3`: When Dev Vlogs is enabled, eligible, and explicitly
+  configured, it may retain local camera source clips with the same-dictation
+  audio in the user-selected Dev Vlogs archive. This is a named exception to
+  normal dictation audio retention, separate from Recording Cache, Transcript
+  History, and failed-attempt recovery. Dev Vlogs source clips are never
+  cloud-uploaded. The explicit macOS Share action consumes only a completed
+  export under the Build/share contract.
 - The app must request microphone permission through the platform's normal
   permission flow before recording.
 - The app must explain Accessibility permission when automatic insertion or
@@ -383,8 +398,10 @@ This spec covers:
   user-visible disclosure.
 - The Permissions surface must not represent an app-owned feature choice or
   privacy disclosure as a macOS permission.
-- No persistent audio outside the explicit local recording cache setting and
-  bounded recording-recovery ownership governed by `transcript-history.md`.
+- No persistent audio outside the explicit local recording cache setting,
+  bounded recording-recovery ownership governed by `transcript-history.md`,
+  and the explicit local Dev Vlogs camera/same-dictation-audio archive exception
+  in `DV-PRIVACY-3`.
 - Recording cache controls must show local disk usage and provide a way to
   clear app-owned cached recordings.
 - Default logs must be short, scannable, and free of sensitive dictated content.
@@ -464,7 +481,10 @@ This spec covers:
   launch or Settings changes. This cache must not be persisted outside
   Keychain.
 - Local storage of audio is limited to the explicit recording cache setting and
-  bounded failed-attempt retry audio governed by `transcript-history.md`.
+  bounded failed-attempt retry audio governed by `transcript-history.md`, plus
+  the separate local Dev Vlogs archive exception governed by `DV-PRIVACY-3`.
+- Dev Vlogs Camera state is optional feature state. It does not join the core
+  required-permission setup gate or the shared Settings Permissions owner.
 - App-owned runtime diagnostic logs are local derived diagnostics governed by
   `diagnostics-and-crash-reports.md`; they are separate from transcript history,
   recording cache audio, and macOS system crash reports.
