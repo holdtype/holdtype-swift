@@ -25,7 +25,7 @@ struct DevVlogsOverviewView: View {
             .frame(maxWidth: 560, alignment: .leading)
             .padding(32)
         }
-        .navigationTitle("Overview")
+        .navigationTitle(HoldTypeWindowTitle.titled("Dev Vlogs"))
     }
 
     private var statusDescription: String {
