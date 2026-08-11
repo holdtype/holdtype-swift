@@ -79,6 +79,9 @@ This spec covers:
   existing command, shortcut hint, disabled state, ordering responsibility,
   and recovery behavior. Camera, destination, app-policy, library, and build
   controls remain in the dedicated window.
+- `DV-MENU-2A`: Within the utility group, `Dev Vlogs…` follows
+  `Manage Fixes…`, `Transcript History`, and `Settings…`. It is the final
+  utility item immediately before the divider that separates `Quit HoldType`.
 - `DV-MENU-3`: A compact camera-capturing or degraded-state indication may be
   added only when its later shipping state owner exists and can report it
   truthfully. Phase 1 Off/Setup delivery does not require that indication and

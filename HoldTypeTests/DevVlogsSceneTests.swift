@@ -16,10 +16,10 @@ struct DevVlogsSceneTests {
             .appendingPathComponent("HoldType/DevVlogs/DevVlogsWindowRoot.swift")
         let source = try String(contentsOf: sourceURL)
 
-        let overview = try #require(source.range(of: "Label(\"Overview\""))
-        let capture = try #require(source.range(of: "Label(\"Capture\""))
-        let applications = try #require(source.range(of: "Label(\"Applications\""))
-        let storage = try #require(source.range(of: "Label(\"Storage\""))
+        let overview = try #require(source.range(of: "sidebarRow(title: \"Overview\""))
+        let capture = try #require(source.range(of: "sidebarRow(title: \"Capture\""))
+        let applications = try #require(source.range(of: "sidebarRow(title: \"Applications\""))
+        let storage = try #require(source.range(of: "sidebarRow(title: \"Storage\""))
 
         #expect(overview.lowerBound < capture.lowerBound)
         #expect(capture.lowerBound < applications.lowerBound)

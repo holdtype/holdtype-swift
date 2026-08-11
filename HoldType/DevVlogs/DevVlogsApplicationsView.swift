@@ -24,36 +24,37 @@ struct DevVlogsApplicationsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Applications")
-                    .font(.largeTitle)
-
-                Text("Choose which apps may later trigger Dev Vlogs. This setup never starts capture or checks the frontmost app.")
-                    .foregroundStyle(.secondary)
-
-                if let loadMessage = settingsStore.applicationPolicyLoadMessage {
-                    Text(loadMessage)
+        Form {
+            if let loadMessage = settingsStore.applicationPolicyLoadMessage {
+                Section {
+                    Label(loadMessage, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
                 }
+            }
 
-                if !settingsStore.isEnabled {
-                    Text("Enable Dev Vlogs to edit its application policy.")
+            if !settingsStore.isEnabled {
+                Section {
+                    Label("Enable Dev Vlogs to edit application access.", systemImage: "pause.circle")
                         .foregroundStyle(.secondary)
                 }
+            }
 
-                policySection
-                applicationsSection
+            policySection
+            applicationsSection
 
-                if let feedback {
-                    Text(feedback)
+            if let feedback {
+                Section {
+                    Label(feedback, systemImage: "info.circle")
                         .foregroundStyle(.secondary)
                         .accessibilityLabel(feedback)
                 }
             }
-            .frame(maxWidth: 560, alignment: .leading)
-            .padding(32)
         }
+        .formStyle(.grouped)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+        .contentMargins(.top, 0, for: .scrollContent)
+        .contentMargins(.bottom, 18, for: .scrollContent)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle(HoldTypeWindowTitle.titled("Dev Vlogs"))
         .fileImporter(
             isPresented: $isApplicationImporterPresented,
@@ -75,10 +76,7 @@ struct DevVlogsApplicationsView: View {
     }
 
     private var policySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("App scope")
-                .font(.title2.weight(.semibold))
-
+        Section {
             Picker("App scope", selection: policyModeSelection) {
                 ForEach(DevVlogsApplicationPolicyMode.allCases, id: \.self) { mode in
                     Text(mode.title)
@@ -88,32 +86,37 @@ struct DevVlogsApplicationsView: View {
             .pickerStyle(.radioGroup)
             .disabled(!settingsStore.isEnabled)
 
+            if settingsStore.applicationPolicy.mode == .onlySelectedApps {
+                Label("Recommended", systemImage: "shield.checkered")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Privacy Scope")
+        } footer: {
             Text(policyExplanation)
-                .foregroundStyle(.secondary)
         }
     }
 
     private var applicationsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(applicationsTitle)
-                    .font(.title2.weight(.semibold))
-
-                Spacer()
-
-                Button(addButtonTitle) {
-                    isApplicationImporterPresented = true
-                }
-                .disabled(!settingsStore.isEnabled)
-                .accessibilityLabel(addButtonTitle)
-            }
-
+        Section {
             if settingsStore.applicationPolicy.activeApplications.isEmpty {
-                Text(emptyApplicationsMessage)
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Label(emptyStateTitle, systemImage: "app.dashed")
+                        .foregroundStyle(.secondary)
+
+                    Text(emptyApplicationsMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } else {
                 ForEach(settingsStore.applicationPolicy.activeApplications) { application in
                     HStack(spacing: 12) {
+                        Image(systemName: "app.fill")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20)
+
                         VStack(alignment: .leading, spacing: 2) {
                             Text(application.displayName)
                             Text(application.bundleIdentifier)
@@ -123,19 +126,35 @@ struct DevVlogsApplicationsView: View {
 
                         Spacer()
 
-                        Button("Remove") {
+                        Button {
                             mutatePolicy {
                                 try settingsStore.removeApplication(
                                     bundleIdentifier: application.bundleIdentifier
                                 )
                             }
+                        } label: {
+                            Image(systemName: "minus.circle")
                         }
+                        .buttonStyle(.borderless)
                         .disabled(!settingsStore.isEnabled)
                         .accessibilityLabel("Remove \(application.displayName)")
+                        .help("Remove \(application.displayName)")
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 2)
                 }
             }
+
+            Button {
+                isApplicationImporterPresented = true
+            } label: {
+                Label(addButtonTitle, systemImage: "plus")
+            }
+            .disabled(!settingsStore.isEnabled)
+            .accessibilityLabel(addButtonTitle)
+        } header: {
+            Text(applicationsTitle)
+        } footer: {
+            Text("Application names are shown for readability; the saved policy uses each app’s bundle identifier.")
         }
     }
 
@@ -181,6 +200,15 @@ struct DevVlogsApplicationsView: View {
             return "No apps are selected. Dev Vlogs will not be eligible for any app until you add one."
         case .allAppsExceptExcludedApps:
             return "No apps are excluded. All apps are eligible under this broader policy."
+        }
+    }
+
+    private var emptyStateTitle: String {
+        switch settingsStore.applicationPolicy.mode {
+        case .onlySelectedApps:
+            return "No selected applications"
+        case .allAppsExceptExcludedApps:
+            return "No excluded applications"
         }
     }
 

@@ -175,11 +175,11 @@ struct MenuBarPresentationTests {
         #expect(MenuBarPresentation.devVlogsTitle == "Dev Vlogs…")
         #expect(
             MenuBarPresentation.utilityActions
-                == [.devVlogs, .editFixes, .history, .settings]
+                == [.editFixes, .history, .settings, .devVlogs]
         )
         #expect(
             MenuBarPresentation.utilityActions.map(\.title)
-                == ["Dev Vlogs…", "Manage Fixes…", "Transcript History", "Settings…"]
+                == ["Manage Fixes…", "Transcript History", "Settings…", "Dev Vlogs…"]
         )
         #expect(
             !MenuBarPresentation.utilityActions.map(\.title)

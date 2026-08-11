@@ -6,22 +6,22 @@ struct DevVlogsCaptureSetupView: View {
     @ObservedObject var cameraSetupStore: DevVlogsCameraSetupStore
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Capture")
-                    .font(.largeTitle)
-
-                if !settingsStore.isEnabled {
-                    Text("Enable Dev Vlogs before requesting camera access or choosing a preferred camera.")
+        Form {
+            if !settingsStore.isEnabled {
+                Section {
+                    Label("Enable Dev Vlogs to configure capture.", systemImage: "pause.circle")
                         .foregroundStyle(.secondary)
                 }
-
-                permissionSection
-                cameraSection
             }
-            .frame(maxWidth: 560, alignment: .leading)
-            .padding(32)
+
+            permissionSection
+            cameraSection
         }
+        .formStyle(.grouped)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+        .contentMargins(.top, 0, for: .scrollContent)
+        .contentMargins(.bottom, 18, for: .scrollContent)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle(HoldTypeWindowTitle.titled("Dev Vlogs"))
         .task {
             cameraSetupStore.refresh()
@@ -39,12 +39,19 @@ struct DevVlogsCaptureSetupView: View {
     }
 
     private var permissionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(cameraSetupStore.permissionStatus.title, systemImage: cameraSetupStore.permissionStatus.systemImage)
-                .font(.title2.weight(.semibold))
+        Section {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(
+                    cameraSetupStore.permissionStatus.title,
+                    systemImage: cameraSetupStore.permissionStatus.systemImage
+                )
+                .foregroundStyle(permissionColor)
 
-            Text(cameraSetupStore.permissionStatus.description)
-                .foregroundStyle(.secondary)
+                Text(cameraSetupStore.permissionStatus.description)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             switch cameraSetupStore.permissionStatus {
             case .notDetermined:
@@ -60,22 +67,30 @@ struct DevVlogsCaptureSetupView: View {
             case .allowed, .unavailable:
                 EmptyView()
             }
+        } header: {
+            Text("Camera Access")
+        } footer: {
+            Text("Access is requested only when you choose the camera action above. Opening this page never starts preview or capture.")
         }
     }
 
     private var cameraSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Preferred camera")
-                .font(.title2.weight(.semibold))
-
+        Section {
             if let preferredCamera = settingsStore.preferredCamera,
                !cameraSetupStore.cameras.contains(where: { $0.hasSameIdentity(as: preferredCamera) }) {
-                Text("\(preferredCamera.label) is unavailable. Dev Vlogs will wait for this camera to return.")
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Camera unavailable", systemImage: "video.slash")
+                        .foregroundStyle(.orange)
+
+                    Text("\(preferredCamera.label) is still remembered. Dev Vlogs will wait for this camera to return and will not substitute another device.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             if cameraSetupStore.cameras.isEmpty {
-                Text("No cameras are currently available.")
+                Label("No cameras are currently available.", systemImage: "video.slash")
                     .foregroundStyle(.secondary)
             } else {
                 Picker("Preferred camera", selection: preferredCameraSelection) {
@@ -89,6 +104,21 @@ struct DevVlogsCaptureSetupView: View {
                 }
                 .disabled(!settingsStore.isEnabled)
             }
+        } header: {
+            Text("Preferred Camera")
+        } footer: {
+            Text("Dev Vlogs remembers this camera by its stable device identity and never switches silently.")
+        }
+    }
+
+    private var permissionColor: Color {
+        switch cameraSetupStore.permissionStatus {
+        case .allowed:
+            return .green
+        case .denied, .notDetermined:
+            return .orange
+        case .unavailable:
+            return .secondary
         }
     }
 

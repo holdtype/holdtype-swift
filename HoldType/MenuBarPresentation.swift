@@ -25,21 +25,21 @@ enum HoldTypeWindowTitle {
 
 struct MenuBarPresentation: Equatable {
     enum UtilityAction: CaseIterable, Hashable {
-        case devVlogs
         case editFixes
         case history
         case settings
+        case devVlogs
 
         var title: String {
             switch self {
-            case .devVlogs:
-                return MenuBarPresentation.devVlogsTitle
             case .editFixes:
                 return MenuBarPresentation.editFixesTitle
             case .history:
                 return MenuBarPresentation.historyTitle
             case .settings:
                 return MenuBarPresentation.settingsTitle
+            case .devVlogs:
+                return MenuBarPresentation.devVlogsTitle
             }
         }
     }

@@ -8,29 +8,28 @@ struct DevVlogsStorageView: View {
     @State private var feedback: String?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                Text("Storage")
-                    .font(.largeTitle)
-
-                Text("Choose where future Dev Vlogs clips will be stored. Setup does not create clips or inspect the folder’s contents.")
-                    .foregroundStyle(.secondary)
-
-                if !settingsStore.isEnabled {
-                    Text("Enable Dev Vlogs to choose a destination.")
-                        .foregroundStyle(.secondary)
-                }
-
-                destinationSection
-
-                if let feedback {
-                    Text(feedback)
+        Form {
+            if !settingsStore.isEnabled {
+                Section {
+                    Label("Enable Dev Vlogs to choose a destination.", systemImage: "pause.circle")
                         .foregroundStyle(.secondary)
                 }
             }
-            .frame(maxWidth: 560, alignment: .leading)
-            .padding(32)
+
+            destinationSection
+
+            if let feedback {
+                Section {
+                    Label(feedback, systemImage: "info.circle")
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
+        .formStyle(.grouped)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
+        .contentMargins(.top, 0, for: .scrollContent)
+        .contentMargins(.bottom, 18, for: .scrollContent)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle(HoldTypeWindowTitle.titled("Dev Vlogs"))
         .fileImporter(
             isPresented: $isFolderImporterPresented,
@@ -41,36 +40,39 @@ struct DevVlogsStorageView: View {
     }
 
     private var destinationSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(destinationStore.status.displayName)
-                .font(.title2.weight(.semibold))
-            Text(destinationStore.status.displayPath)
-                .font(.callout.monospaced())
-                .textSelection(.enabled)
-                .foregroundStyle(.secondary)
+        Section {
+            VStack(alignment: .leading, spacing: 5) {
+                Label(destinationStore.status.displayName, systemImage: destinationSystemImage)
+                    .font(.headline)
+
+                Text(destinationKindDescription)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
+                Text(destinationStore.status.displayPath)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.vertical, 2)
 
             switch destinationStore.status.availability {
             case .needsSetup:
-                Text("Use the default folder or choose an existing writable folder.")
-                    .foregroundStyle(.secondary)
+                Label("Destination setup required", systemImage: "exclamationmark.circle")
+                    .foregroundStyle(.orange)
             case .available:
-                Label("Destination available", systemImage: "checkmark.circle")
+                Label("Destination available", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             case .unavailable(let reason):
-                Text(reason.message)
-                    .foregroundStyle(.orange)
-            }
-
-            HStack {
-                Button("Use/Create Default Folder") {
-                    destinationStore.useOrCreateDefaultFolder()
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Destination unavailable", systemImage: "externaldrive.badge.exclamationmark")
+                        .foregroundStyle(.orange)
+                    Text(reason.message)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .disabled(!settingsStore.isEnabled)
-
-                Button(destinationStore.status.isConfigured ? "Choose Different Folder…" : "Choose Folder…") {
-                    isFolderImporterPresented = true
-                }
-                .disabled(!settingsStore.isEnabled)
             }
 
             if needsReselection,
@@ -79,7 +81,46 @@ struct DevVlogsStorageView: View {
                     isFolderImporterPresented = true
                 }
                 .disabled(!settingsStore.isEnabled)
+                .buttonStyle(.borderedProminent)
+            } else {
+                Button(destinationStore.status.isConfigured ? "Choose Different Folder…" : "Choose Folder…") {
+                    isFolderImporterPresented = true
+                }
+                .disabled(!settingsStore.isEnabled)
             }
+
+            Button("Use Default Movies Folder") {
+                destinationStore.useOrCreateDefaultFolder()
+            }
+            .disabled(!settingsStore.isEnabled)
+        } header: {
+            Text("Destination")
+        } footer: {
+            Text("Setup does not create clips or inspect folder contents. HoldType never falls back to another location silently.")
+        }
+    }
+
+    private var destinationSystemImage: String {
+        switch destinationStore.status.selection {
+        case .proposedDefault, .defaultFolder:
+            return "folder"
+        case .custom:
+            return "externaldrive"
+        case .persistedRecordUnavailable:
+            return "externaldrive.badge.questionmark"
+        }
+    }
+
+    private var destinationKindDescription: String {
+        switch destinationStore.status.selection {
+        case .proposedDefault:
+            return "Default Movies destination, not yet created"
+        case .defaultFolder:
+            return "Default Movies destination"
+        case .custom:
+            return "Custom folder"
+        case .persistedRecordUnavailable:
+            return "Saved folder record needs recovery"
         }
     }
 

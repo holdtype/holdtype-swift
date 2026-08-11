@@ -34,21 +34,29 @@ struct DevVlogsWindowRoot: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedSection) {
-                Label("Overview", systemImage: "rectangle.grid.1x2")
+                sidebarRow(title: "Overview", systemImage: "rectangle.grid.1x2")
                     .tag(DevVlogsNavigationItem.overview.rawValue)
-                Label("Capture", systemImage: "video")
+                sidebarRow(title: "Capture", systemImage: "video")
                     .tag(DevVlogsNavigationItem.capture.rawValue)
-                Label("Applications", systemImage: "app.badge")
+                sidebarRow(title: "Applications", systemImage: "app.badge")
                     .tag(DevVlogsNavigationItem.applications.rawValue)
-                Label("Storage", systemImage: "externaldrive")
+                sidebarRow(title: "Storage", systemImage: "externaldrive")
                     .tag(DevVlogsNavigationItem.storage.rawValue)
             }
             .listStyle(.sidebar)
             .navigationTitle("Dev Vlogs")
+            .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 300)
         } detail: {
             switch DevVlogsNavigationItem(rawValue: selectedSection) ?? .overview {
             case .overview:
-                DevVlogsOverviewView(readiness: readiness, settingsStore: settingsStore)
+                DevVlogsOverviewView(
+                    readiness: readiness,
+                    settingsStore: settingsStore,
+                    cameraStatus: cameraSetupStore.permissionStatus,
+                    availableCameras: cameraSetupStore.cameras,
+                    destinationStatus: destinationStore.status,
+                    onNavigate: navigate(to:)
+                )
             case .capture:
                 DevVlogsCaptureSetupView(
                     settingsStore: settingsStore,
@@ -60,7 +68,7 @@ struct DevVlogsWindowRoot: View {
                 DevVlogsStorageView(settingsStore: settingsStore, destinationStore: destinationStore)
             }
         }
-        .frame(minWidth: 620, minHeight: 400)
+        .frame(minWidth: 760, minHeight: 520)
         .task {
             refreshReadinessInputs()
         }
@@ -72,6 +80,28 @@ struct DevVlogsWindowRoot: View {
                 return
             }
             refreshReadinessInputs()
+        }
+    }
+
+    private func sidebarRow(title: String, systemImage: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+
+            Text(title)
+                .lineLimit(1)
+        }
+    }
+
+    private func navigate(to destination: DevVlogsOverviewDestination) {
+        switch destination {
+        case .capture:
+            selectedSection = DevVlogsNavigationItem.capture.rawValue
+        case .applications:
+            selectedSection = DevVlogsNavigationItem.applications.rawValue
+        case .storage:
+            selectedSection = DevVlogsNavigationItem.storage.rawValue
         }
     }
 
