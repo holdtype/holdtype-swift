@@ -3,6 +3,7 @@ import SwiftUI
 private enum DevVlogsNavigationItem: String {
     case overview
     case capture
+    case applications
 }
 
 @MainActor
@@ -31,6 +32,8 @@ struct DevVlogsWindowRoot: View {
                     .tag(DevVlogsNavigationItem.overview.rawValue)
                 Label("Capture", systemImage: "video")
                     .tag(DevVlogsNavigationItem.capture.rawValue)
+                Label("Applications", systemImage: "app.badge")
+                    .tag(DevVlogsNavigationItem.applications.rawValue)
             }
             .listStyle(.sidebar)
             .navigationTitle("Dev Vlogs")
@@ -43,6 +46,8 @@ struct DevVlogsWindowRoot: View {
                     settingsStore: settingsStore,
                     cameraSetupStore: cameraSetupStore
                 )
+            case .applications:
+                DevVlogsApplicationsView(settingsStore: settingsStore)
             }
         }
         .frame(minWidth: 620, minHeight: 400)
