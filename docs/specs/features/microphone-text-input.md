@@ -32,6 +32,15 @@ This spec covers:
 
 - The app must not capture microphone input until the user takes an explicit
   start action and required permissions are available.
+- By default, capture uses the current macOS system-default audio input.
+- The user may instead pin capture to one available microphone from Settings.
+  A pinned microphone is resolved by its stable macOS device identity for each
+  new attempt and must not be replaced silently by the system default or by a
+  newly connected headset.
+- If the pinned microphone is unavailable when recording starts, HoldType must
+  remain out of the recording state and explain that the selected microphone
+  is disconnected. The user may choose another device or return to System
+  Default in Settings.
 - Skipping a setup prompt for microphone permission may dismiss that prompt for
   the current app run, but it must not count as microphone consent and must not
   let recording start while microphone permission is missing.
@@ -194,6 +203,10 @@ This spec covers:
   permissions.
 - If no microphone is available, the app should fail before entering a false
   recording state.
+- If a pinned microphone disconnects during capture, the attempt ends as a
+  platform interruption under `recording-durability-and-interruption.md`.
+  HoldType preserves any qualifying non-empty partial as a provider-free Saved
+  Recording and must not continue from a different microphone.
 - A missing, empty, or finalized recording shorter than one second is not a
   completed recording. HoldType removes only that current app-created temporary
   artifact and returns to Ready without a status message, History row,
@@ -255,8 +268,10 @@ dictation ownership into the vlog archive.
 ## Verification mapping
 
 - Add tests or manual QA for permission denied, microphone unavailable,
-  start/stop, cancel, timeout, empty speech, empty-file and sub-one-second
-  rejection, silent temp-file cleanup, recording cache retention, configurable auto-Finish, warning cadence,
+  system-default and pinned-device start, pinned-device unavailable and
+  disconnect behavior, start/stop, cancel, timeout, empty speech, empty-file
+  and sub-one-second rejection, silent temp-file cleanup, recording cache
+  retention, configurable auto-Finish, warning cadence,
   finalized-media duration, false recorder callbacks at the maximum boundary,
   exact-once finalization, recovery playback, and successful transcription
   states when implementation code exists.

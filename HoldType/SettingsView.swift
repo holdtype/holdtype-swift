@@ -6,12 +6,14 @@
 //
 
 import AppKit
+import AVFoundation
 import HoldTypeDomain
 import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject private var navigation: SettingsWindowNavigation
     @StateObject private var permissionsModel: SettingsPermissionsViewModel
+    @StateObject private var audioInputDevicesModel: AudioInputDeviceListModel
     @State private var appSettings: AppSettings
     @StateObject private var apiKeySettingsModel: OpenAIAPIKeySettingsViewModel
     @State private var hotkeyRegistrationStatus: GlobalHotkeyRegistrationStatus
@@ -45,6 +47,7 @@ struct SettingsView: View {
         microphonePermissionService: MicrophonePermissionService = MicrophonePermissionService(),
         accessibilityPermissionService: AccessibilityPermissionService = AccessibilityPermissionService(),
         inputMonitoringPermissionService: InputMonitoringPermissionService = InputMonitoringPermissionService(),
+        audioInputDeviceProvider: any AudioInputDeviceProviding = AVFoundationAudioInputDeviceProvider(),
         apiKeyStorage: any APIKeyStorage = APIKeyCredentialProvider.shared,
         appSettingsStore: AppSettingsStore = AppSettingsStore(),
         hotkeyStatusProvider: @escaping @MainActor () -> GlobalHotkeyRegistrationStatus = { .notRegistered },
@@ -89,6 +92,9 @@ struct SettingsView: View {
                 visiblePollingIntervalNanoseconds: permissionPollingIntervalNanoseconds
             )
         )
+        _audioInputDevicesModel = StateObject(
+            wrappedValue: AudioInputDeviceListModel(provider: audioInputDeviceProvider)
+        )
         _apiKeySettingsModel = StateObject(
             wrappedValue: OpenAIAPIKeySettingsViewModel(apiKeyStorage: apiKeyStorage)
         )
@@ -124,6 +130,7 @@ struct SettingsView: View {
                 microphonePermissionStatus: permissionsModel.microphonePermissionStatus,
                 accessibilityPermissionStatus: permissionsModel.accessibilityPermissionStatus,
                 inputMonitoringPermissionStatus: permissionsModel.inputMonitoringPermissionStatus,
+                availableAudioInputDevices: audioInputDevicesModel.devices,
                 showsInputMonitoringManualFallbackWarning: permissionsModel.showsInputMonitoringManualFallbackWarning,
                 launchAtLoginStatus: launchAtLoginStatus,
                 transcriptHistoryCount: transcriptHistoryStore.entries.count,
@@ -171,12 +178,19 @@ struct SettingsView: View {
                 navigation.selectedItem = .permissions
             }
             refreshFocusedSettingsWindowState()
+            audioInputDevicesModel.refresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             scheduleFocusedSettingsWindowRefresh()
         }
         .onReceive(NotificationCenter.default.publisher(for: .recordingCacheDidChange)) { _ in
             scheduleRecordingCacheRefresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: AVCaptureDevice.wasConnectedNotification)) { _ in
+            audioInputDevicesModel.refresh()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: AVCaptureDevice.wasDisconnectedNotification)) { _ in
+            audioInputDevicesModel.refresh()
         }
         .onChange(of: navigation.focusRefreshToken) { _, _ in
             scheduleFocusedSettingsWindowRefresh()
@@ -263,6 +277,7 @@ struct SettingsView: View {
 
     private func refreshSettingsWindowState() {
         reloadAppSettings()
+        audioInputDevicesModel.refresh()
         refreshSetupStatusForVisibleSettings()
         refreshHotkeyRegistrationStatus()
         refreshLaunchAtLoginStatus()
@@ -480,21 +495,5 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView(apiKeyStorage: PreviewAPIKeyStorage())
-}
-
-private final class PreviewAPIKeyStorage: APIKeyStorage {
-    private var apiKey: String?
-
-    func saveAPIKey(_ apiKey: String) throws {
-        self.apiKey = apiKey
-    }
-
-    func loadAPIKey() throws -> String? {
-        apiKey
-    }
-
-    func deleteAPIKey() throws {
-        apiKey = nil
-    }
+    SettingsView(apiKeyStorage: SettingsViewPreviewAPIKeyStorage())
 }

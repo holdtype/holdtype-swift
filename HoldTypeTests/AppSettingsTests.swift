@@ -390,6 +390,7 @@ struct AppSettingsTests {
             showFloatingIndicator: true,
             recordingStopTailDuration: .seconds1_5,
             recordingDurationLimit: RecordingDurationLimit(minutes: 12),
+            audioInputPreference: AudioInputPreference(deviceID: "fixture-microphone-id", deviceName: "Fixture Microphone"),
             saveTranscriptHistory: false,
             recordingCachePolicy: .keepLast(25)
         )
@@ -407,7 +408,6 @@ struct AppSettingsTests {
         #expect(persistedKeys.contains { $0.localizedCaseInsensitiveContains("api") } == false)
         #expect(persistedKeys.contains { $0.localizedCaseInsensitiveContains("key") } == false)
     }
-
 
     @Test func voiceSessionPreferenceOptionsHaveExpectedLabels() {
         #expect(RecordingStopTailDuration.allCases.map(\.displayName) == [

@@ -31,6 +31,8 @@ let expectedAppSettingsPersistedKeys = Set(
         "showFloatingIndicator",
         "recordingStopTailDuration",
         "recordingDurationLimitMinutes",
+        "preferredAudioInputDeviceID",
+        "preferredAudioInputDeviceName",
         "showInDock",
         "saveTranscriptHistory",
         "recordingCachePolicyMode",

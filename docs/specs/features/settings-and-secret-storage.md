@@ -23,7 +23,8 @@ This spec covers:
 - settings visible in the Settings window
 - UserDefaults-backed non-secret settings
 - Keychain-backed OpenAI API key
-- automatic insertion, app clipboard, recording, stop-tail, and indicator controls
+- automatic insertion, app clipboard, recording, microphone input, stop-tail,
+  and indicator controls
 - recording cache retention, size display, Finder reveal, and clear actions
 - transcript recovery history toggle and clear action, including recoverable
   failed transcription attempts
@@ -44,7 +45,6 @@ This spec covers:
 - cloud-synced or policy-managed hotkey profiles
 - provider marketplaces, local model downloads, self-hosted transcription
   endpoints, or multi-provider settings beyond the OpenAI MVP
-- microphone input device selection
 - account usage dashboards, telemetry, cloud billing sync, or cloud-backup
   controls
 - cloud, account-backed, or always-on raw-audio archives
@@ -179,6 +179,23 @@ This spec covers:
   macOS system clipboard and must not disable automatic insertion.
 - The Settings window should include toggles for short dictation start/stop
   sounds and the floating recording indicator.
+- The Behavior section should begin with an Audio Input group containing a
+  Microphone picker. The picker offers `System Default` followed by the
+  currently available macOS audio-input devices.
+- `System Default` preserves the existing behavior and follows the input chosen
+  by macOS. It is the default for new and existing installs that have not made
+  an explicit microphone choice.
+- Choosing a concrete microphone stores its stable macOS device identity and
+  last known product name locally. The choice persists across app relaunches,
+  device disconnects, and reconnects.
+- HoldType must never silently substitute another microphone for an explicitly
+  selected device. When that device is unavailable, Settings keeps the saved
+  choice visible, explains that it is disconnected, and recording start fails
+  before capture with actions to choose another microphone or return to
+  `System Default`.
+- The available-device list should refresh when macOS reports that an input
+  device connected or disconnected. Reconnecting the saved device restores it
+  as the resolved input without another user choice.
 - The Settings window should include a Behavior control for `Recording tail
   after release`.
 - `Recording tail after release` lets the user choose how long HoldType keeps
@@ -423,6 +440,7 @@ The MVP non-secret settings default to:
 - floating recording indicator: on
 - recording tail after release: off
 - maximum recording length: 5 minutes
+- microphone input: System Default
 - start HoldType at login: off
 - show HoldType in Dock: off
 - keep transcript recovery history: on
@@ -541,6 +559,8 @@ UserDefaults may store:
 - showFloatingIndicator
 - recording stop tail duration
 - maximum recording length in whole minutes, normalized to 1 through 15
+- preferred microphone stable device identifier and last known product name,
+  absent for System Default
 - saveTranscriptHistory
 - recording cache retention policy
 - prompt
@@ -608,10 +628,11 @@ selected entry must not start, stop, cancel, or otherwise affect dictation.
 
 - Add tests or manual QA for saving/loading settings, saving/loading/deleting
   API key, missing key errors, local usage price calculation, projection math,
-  unknown-model cost handling, maximum recording length default/range/migration,
-  Dock presence default/persistence/immediate application, recording cache
-  listing/clear/retention, reset behavior, and ensuring logs do not contain the
-  API key when implementation exists.
+  unknown-model cost handling, microphone default/device persistence and
+  disconnect/reconnect presentation, maximum recording length
+  default/range/migration, Dock presence default/persistence/immediate
+  application, recording cache listing/clear/retention, reset behavior, and
+  ensuring logs do not contain the API key when implementation exists.
 
 ## Unknowns requiring confirmation
 

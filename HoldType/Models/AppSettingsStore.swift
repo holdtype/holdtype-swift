@@ -48,6 +48,8 @@ struct AppSettingsStore {
         static let recordingStopTailDuration = keyPrefix + "recordingStopTailDuration"
         static let recordingDurationLimitMinutes =
             keyPrefix + "recordingDurationLimitMinutes"
+        static let preferredAudioInputDeviceID = keyPrefix + "preferredAudioInputDeviceID"
+        static let preferredAudioInputDeviceName = keyPrefix + "preferredAudioInputDeviceName"
         static let showInDock = keyPrefix + "showInDock"
         static let saveTranscriptHistory = keyPrefix + "saveTranscriptHistory"
         static let recordingCachePolicyMode = keyPrefix + "recordingCachePolicyMode"
@@ -145,6 +147,7 @@ struct AppSettingsStore {
             recordingDurationLimit: loadRecordingDurationLimit(
                 defaultValue: defaultSettings.recordingDurationLimit
             ),
+            audioInputPreference: loadAudioInputPreference(),
             showInDock: optionalBool(forKey: Key.showInDock)
                 ?? defaultSettings.showInDock,
             saveTranscriptHistory: loadSaveTranscriptHistory(
@@ -211,6 +214,7 @@ struct AppSettingsStore {
             settings.recordingDurationLimit.minutes,
             forKey: Key.recordingDurationLimitMinutes
         )
+        saveAudioInputPreference(settings.audioInputPreference)
         userDefaults.set(settings.showInDock, forKey: Key.showInDock)
         userDefaults.set(settings.saveTranscriptHistory, forKey: Key.saveTranscriptHistory)
         saveRecordingCachePolicy(settings.recordingCachePolicy)
@@ -350,6 +354,28 @@ struct AppSettingsStore {
         }
 
         return RecordingDurationLimit(minutes: savedNumber.intValue)
+    }
+
+    private func loadAudioInputPreference() -> AudioInputPreference {
+        AudioInputPreference(
+            deviceID: userDefaults.string(forKey: Key.preferredAudioInputDeviceID),
+            deviceName: userDefaults.string(forKey: Key.preferredAudioInputDeviceName)
+        )
+    }
+
+    private func saveAudioInputPreference(_ preference: AudioInputPreference) {
+        guard let deviceID = preference.deviceID else {
+            userDefaults.removeObject(forKey: Key.preferredAudioInputDeviceID)
+            userDefaults.removeObject(forKey: Key.preferredAudioInputDeviceName)
+            return
+        }
+
+        userDefaults.set(deviceID, forKey: Key.preferredAudioInputDeviceID)
+        if let deviceName = preference.deviceName {
+            userDefaults.set(deviceName, forKey: Key.preferredAudioInputDeviceName)
+        } else {
+            userDefaults.removeObject(forKey: Key.preferredAudioInputDeviceName)
+        }
     }
 
     private func loadTextReplacementRules(defaultValue: [TextReplacementRule]) -> [TextReplacementRule] {

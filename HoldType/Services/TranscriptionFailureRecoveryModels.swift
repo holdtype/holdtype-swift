@@ -10,6 +10,7 @@ import Foundation
 import HoldTypeOpenAI
 
 enum FailedTranscriptionReason: Codable, Equatable {
+    case selectedMicrophoneUnavailable
     case missingAPIKey
     case apiKeyUnavailable
     case invalidAPIKey
@@ -36,6 +37,12 @@ enum FailedTranscriptionReason: Codable, Equatable {
     case other
 
     init(error: Error) {
+        if let recorderError = error as? AudioRecorderServiceError,
+           case .selectedMicrophoneUnavailable = recorderError {
+            self = .selectedMicrophoneUnavailable
+            return
+        }
+
         if let error = error as? OpenAITranscriptionServiceError {
             self = Self(error)
             return
@@ -91,6 +98,8 @@ enum FailedTranscriptionReason: Codable, Equatable {
 
     var title: String {
         switch self {
+        case .selectedMicrophoneUnavailable:
+            return "Selected microphone unavailable"
         case .missingAPIKey:
             return "API key missing"
         case .apiKeyUnavailable:
@@ -144,6 +153,8 @@ enum FailedTranscriptionReason: Codable, Equatable {
 
     var message: String {
         switch self {
+        case .selectedMicrophoneUnavailable:
+            return "Choose another microphone in Settings or use System Default."
         case .missingAPIKey:
             return "No OpenAI API key is available for transcription."
         case .apiKeyUnavailable:
@@ -197,6 +208,8 @@ enum FailedTranscriptionReason: Codable, Equatable {
 
     var settingsTarget: SettingsNavigationItem? {
         switch self {
+        case .selectedMicrophoneUnavailable:
+            return .behavior
         case .missingAPIKey, .apiKeyUnavailable, .invalidAPIKey:
             return .openAI
         case .invalidRequest, .badRequest, .dictionaryEcho, .contextEcho:
@@ -224,7 +237,8 @@ enum FailedTranscriptionReason: Codable, Equatable {
 
     var canRetry: Bool {
         switch self {
-        case .cancelled,
+        case .selectedMicrophoneUnavailable,
+             .cancelled,
              .invalidRecording,
              .recoveryOwnershipPersistenceFailed,
              .providerDispatchPersistenceFailed,
@@ -243,7 +257,7 @@ enum FailedTranscriptionReason: Codable, Equatable {
 
     var shouldRecordFailedAttempt: Bool {
         switch self {
-        case .missingAPIKey, .cancelled, .invalidRecording:
+        case .selectedMicrophoneUnavailable, .missingAPIKey, .cancelled, .invalidRecording:
             return false
         default:
             return true

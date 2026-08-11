@@ -44,6 +44,8 @@ private extension AudioRecorderServiceError {
             return "not_recording"
         case .microphonePermissionDenied:
             return "microphone_permission_denied"
+        case .selectedMicrophoneUnavailable:
+            return "selected_microphone_unavailable"
         case .recordingUnavailable:
             return "recording_unavailable"
         case .temporaryFileUnavailable:

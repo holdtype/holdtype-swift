@@ -10,6 +10,7 @@ import SwiftUI
 
 struct BehaviorSettingsSection: View {
     @Binding var settings: AppSettings
+    var availableAudioInputDevices: [AudioInputDevice] = []
     let launchAtLoginStatus: LaunchAtLoginStatus
     let transcriptHistoryCount: Int
     let transcriptHistoryError: String?
@@ -18,6 +19,45 @@ struct BehaviorSettingsSection: View {
     let onClearTranscriptHistory: () -> Void
 
     var body: some View {
+        Section("Audio Input") {
+            Picker("Microphone", selection: audioInputSelection) {
+                Text("System Default")
+                    .tag(AudioInputPickerSelection.systemDefault)
+
+                ForEach(availableAudioInputDevices) { device in
+                    Text(device.name)
+                        .tag(AudioInputPickerSelection.device(device.id))
+                }
+
+                if let unavailablePreference {
+                    Text("\(unavailablePreference.displayName) (Disconnected)")
+                        .tag(AudioInputPickerSelection.device(unavailablePreference.deviceID ?? ""))
+                }
+            }
+            .pickerStyle(.menu)
+
+            Text(
+                settings.audioInputPreference.isSystemDefault
+                    ? "Follows the audio input selected by macOS."
+                    : "HoldType will use only this microphone and will not switch silently."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+
+            if let unavailablePreference {
+                Label(
+                    "\(unavailablePreference.displayName) is disconnected. Recording is blocked until it reconnects or you choose another microphone.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(.footnote)
+                .foregroundStyle(.red)
+
+                Button("Use System Default") {
+                    settings.audioInputPreference = .systemDefault
+                }
+            }
+        }
+
         Section("Behavior") {
             LaunchAtLoginSettingsRows(
                 status: launchAtLoginStatus,
@@ -113,6 +153,43 @@ struct BehaviorSettingsSection: View {
                 .disabled(transcriptHistoryCount == 0)
         }
     }
+
+    private var audioInputSelection: Binding<AudioInputPickerSelection> {
+        Binding(
+            get: {
+                settings.audioInputPreference.deviceID.map(AudioInputPickerSelection.device)
+                    ?? .systemDefault
+            },
+            set: { selection in
+                switch selection {
+                case .systemDefault:
+                    settings.audioInputPreference = .systemDefault
+                case .device(let deviceID):
+                    guard let device = availableAudioInputDevices.first(where: { $0.id == deviceID }) else {
+                        return
+                    }
+                    settings.audioInputPreference = AudioInputPreference(
+                        deviceID: device.id,
+                        deviceName: device.name
+                    )
+                }
+            }
+        )
+    }
+
+    private var unavailablePreference: AudioInputPreference? {
+        let preference = settings.audioInputPreference
+        guard let deviceID = preference.deviceID,
+              !availableAudioInputDevices.contains(where: { $0.id == deviceID }) else {
+            return nil
+        }
+        return preference
+    }
+}
+
+private enum AudioInputPickerSelection: Hashable {
+    case systemDefault
+    case device(String)
 }
 
 #Preview {

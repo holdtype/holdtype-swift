@@ -80,6 +80,7 @@ enum AudioRecorderServiceError: Error, Equatable, LocalizedError {
     case alreadyRecording
     case notRecording
     case microphonePermissionDenied
+    case selectedMicrophoneUnavailable
     case recordingUnavailable
     case temporaryFileUnavailable
     case startFailed
@@ -97,6 +98,8 @@ enum AudioRecorderServiceError: Error, Equatable, LocalizedError {
             return "There is no active recording to stop."
         case .microphonePermissionDenied:
             return "Microphone access is required before recording can start."
+        case .selectedMicrophoneUnavailable:
+            return "The selected microphone is disconnected. Choose another microphone in Settings or use System Default."
         case .recordingUnavailable:
             return "Recording is unavailable on this Mac."
         case .temporaryFileUnavailable:

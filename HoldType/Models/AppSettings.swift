@@ -85,6 +85,7 @@ struct AppSettings: Equatable {
     var showFloatingIndicator: Bool
     var recordingStopTailDuration: RecordingStopTailDuration = .off
     var recordingDurationLimit: RecordingDurationLimit = .default
+    var audioInputPreference: AudioInputPreference = .systemDefault
     var showInDock: Bool = false
     var saveTranscriptHistory: Bool
     var recordingCachePolicy: RecordingCachePolicy = .deleteImmediately

@@ -21,6 +21,7 @@ struct SettingsDetailView: View {
     let microphonePermissionStatus: MicrophonePermissionStatus
     let accessibilityPermissionStatus: AccessibilityPermissionStatus
     let inputMonitoringPermissionStatus: InputMonitoringPermissionStatus
+    var availableAudioInputDevices: [AudioInputDevice] = []
     let showsInputMonitoringManualFallbackWarning: Bool
     let launchAtLoginStatus: LaunchAtLoginStatus
     let transcriptHistoryCount: Int
@@ -132,6 +133,7 @@ struct SettingsDetailView: View {
         case .behavior:
             BehaviorSettingsSection(
                 settings: $settings,
+                availableAudioInputDevices: availableAudioInputDevices,
                 launchAtLoginStatus: launchAtLoginStatus,
                 transcriptHistoryCount: transcriptHistoryCount,
                 transcriptHistoryError: transcriptHistoryError,

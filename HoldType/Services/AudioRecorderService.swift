@@ -7,7 +7,6 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         RecordingDurationLimit.default.duration
     static let defaultFinalizedMediaDurationTimeout =
         AudioRecordingArtifactFinalizer.defaultDurationTimeout
-
     private static let automaticLimitClassificationTolerance: TimeInterval = 0.5
 
     private struct AutomaticFinalizationContext {
@@ -17,6 +16,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
     }
 
     private let permissionStatusProvider: () -> MicrophonePermissionStatus
+    private let audioInputPreferenceProvider: () -> AudioInputPreference
     private let recorderFactory: any AudioRecorderEngineFactory
     private let makeRecordingFileURL: () throws -> URL
     private let fileManager: FileManager
@@ -44,6 +44,9 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         permissionStatusProvider: @escaping () -> MicrophonePermissionStatus = {
             MicrophonePermissionService().currentStatus()
         },
+        audioInputPreferenceProvider: @escaping () -> AudioInputPreference = {
+            AppSettingsStore().load().audioInputPreference
+        },
         recorderFactory: any AudioRecorderEngineFactory = AVFoundationAudioRecorderEngineFactory(),
         fileManager: FileManager = .default,
         minimumRecordingDuration: TimeInterval = 1,
@@ -67,6 +70,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         }
     ) {
         self.permissionStatusProvider = permissionStatusProvider
+        self.audioInputPreferenceProvider = audioInputPreferenceProvider
         self.recorderFactory = recorderFactory
         self.fileManager = fileManager
         self.artifactFinalizer = AudioRecordingArtifactFinalizer(
@@ -129,7 +133,8 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             let outputFileURL = try preparedOutputFileURL ?? makeRecordingFileURL()
             let recorder = try recorderFactory.makeRecorder(
                 outputFileURL: outputFileURL,
-                settings: Self.recordingSettings
+                settings: Self.recordingSettings,
+                inputPreference: audioInputPreferenceProvider()
             )
             let attemptID = UUID()
 
