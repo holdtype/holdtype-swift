@@ -77,13 +77,14 @@ struct DevVlogsPublishStoreTests {
         defer { fixture.remove() }
         let clipID = UUID()
         let buildID = UUID()
-        let sourceURL = fixture.mediaURL(for: clipID)
-        try Data("source".utf8).write(to: sourceURL)
+        let libraryClip = fixture.clip(id: clipID, offset: 10)
+        let sourceURL = try #require(libraryClip.mediaURL)
         let priorOutput = fixture.root.appendingPathComponent("prior-output.mov")
         try Data("prior".utf8).write(to: priorOutput)
         let builder = FakeMediaBuilder(outcomes: [.suspend])
-        let store = fixture.store(builder: builder, buildID: buildID)
-        store.synchronize(days: [fixture.day(clips: [fixture.clip(id: clipID, offset: 10)])])
+        let registry = DevVlogsClipOwnershipRegistry()
+        let store = fixture.store(builder: builder, buildID: buildID, registry: registry)
+        store.synchronize(days: [fixture.day(clips: [libraryClip])])
 
         store.createVideo()
         try await waitUntil { store.presentation.state.isBuilding }
@@ -96,6 +97,26 @@ struct DevVlogsPublishStoreTests {
         #expect(FileManager.default.fileExists(atPath: sourceURL.path))
         #expect(try Data(contentsOf: priorOutput) == Data("prior".utf8))
         #expect(!FileManager.default.fileExists(atPath: fixture.outputURL(for: buildID).path))
+        #expect(registry.operation(for: clipID) == nil)
+    }
+
+    @Test func probeTimeoutSavesFailureAndReleasesBuildOwnership() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let clipID = UUID()
+        let registry = DevVlogsClipOwnershipRegistry()
+        let store = fixture.store(
+            builder: FakeMediaBuilder(outcomes: [.failure(.timedOut)]),
+            registry: registry
+        )
+        store.synchronize(days: [fixture.day(clips: [fixture.clip(id: clipID, offset: 10)])])
+
+        store.createVideo()
+        try await waitUntil { store.presentation.enables(.retry) }
+
+        #expect(try #require(fixture.recipes().first).lifecycle == .failed)
+        #expect(registry.operation(for: clipID) == nil)
+        #expect(store.presentation.enables(.share) == false)
     }
 
     private func waitUntil(
@@ -127,13 +148,14 @@ struct DevVlogsPublishStoreTests {
 
         func store(
             builder: FakeMediaBuilder,
-            buildID: UUID = UUID()
+            buildID: UUID = UUID(),
+            registry: DevVlogsClipOwnershipRegistry? = nil
         ) -> DevVlogsPublishStore {
             DevVlogsPublishStore(
                 destinationAccessProvider: { DevVlogsCaptureDestinationAccess(url: self.root) },
                 recipeRepository: DevVlogsBuildRepository(),
                 mediaBuilder: builder,
-                ownershipRegistry: DevVlogsClipOwnershipRegistry(),
+                ownershipRegistry: registry ?? DevVlogsClipOwnershipRegistry(),
                 now: { self.date.addingTimeInterval(100) },
                 buildIDProvider: { buildID }
             )
@@ -160,7 +182,25 @@ struct DevVlogsPublishStoreTests {
             health: DevVlogsLibraryHealth = .ready,
             isExcluded: Bool = false
         ) -> DevVlogsLibraryClip {
-            DevVlogsLibraryClip(
+            let relativeDirectory = relativeDirectory(for: id, offset: offset)
+            let directoryURL = root.appendingPathComponent(relativeDirectory, isDirectory: true)
+            try! FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            let mediaURL = directoryURL.appendingPathComponent("clip.mov")
+            let metadataURL = directoryURL.appendingPathComponent("metadata.json")
+            if !FileManager.default.fileExists(atPath: mediaURL.path), health != .missing {
+                try! Data("source".utf8).write(to: mediaURL)
+            }
+            if !FileManager.default.fileExists(atPath: metadataURL.path) {
+                try! Data("metadata".utf8).write(to: metadataURL)
+            }
+            let resourceIdentity = health == .ready
+                ? DevVlogsClipResourceIdentity.capture(
+                    rootURL: root,
+                    relativeDirectory: relativeDirectory,
+                    reviewExists: false
+                )
+                : nil
+            return DevVlogsLibraryClip(
                 id: idString(id),
                 clipID: id,
                 createdAt: date.addingTimeInterval(offset),
@@ -170,13 +210,33 @@ struct DevVlogsPublishStoreTests {
                 byteCount: 10,
                 health: health,
                 isExcluded: isExcluded,
-                mediaURL: health == .missing ? nil : mediaURL(for: id),
-                relativeDirectory: idString(id)
+                mediaURL: health == .missing ? nil : mediaURL,
+                relativeDirectory: relativeDirectory,
+                resourceIdentity: resourceIdentity
             )
         }
 
         func mediaURL(for id: UUID) -> URL {
-            root.appendingPathComponent("\(idString(id)).mov")
+            root
+                .appendingPathComponent(relativeDirectory(for: id, offset: 10), isDirectory: true)
+                .appendingPathComponent("clip.mov")
+        }
+
+        private func relativeDirectory(for id: UUID, offset: TimeInterval) -> String {
+            let year = DevVlogsArchiveNaming.yearKey(for: date)
+            let day = DevVlogsArchiveNaming.dayKey(for: date)
+            let app = DevVlogsArchiveNaming.appFolder(
+                displayName: "Codex",
+                bundleIdentifier: "app.openai.codex"
+            )
+            let seconds = Int(offset).quotientAndRemainder(dividingBy: 60)
+            let clipName = String(
+                format: "12-%02d-%02d--%@",
+                seconds.quotient,
+                seconds.remainder,
+                idString(id)
+            )
+            return "\(year)/\(day)/apps/\(app)/clips/\(clipName)"
         }
 
         func outputURL(for buildID: UUID) -> URL {
@@ -222,6 +282,7 @@ private final class FakeMediaBuilder: DevVlogsMediaBuilding {
     func build(
         sources: [DevVlogsBuildSource],
         outputURL: URL,
+        outputPrepared: @escaping @MainActor (DevVlogsFileIdentity) async throws -> Void,
         progress: @escaping @MainActor (Double) -> Void
     ) async throws -> DevVlogsBuildOutput {
         calls += 1
@@ -232,6 +293,12 @@ private final class FakeMediaBuilder: DevVlogsMediaBuilding {
         switch outcome {
         case .success:
             try Data("valid-output".utf8).write(to: outputURL)
+            let identity = try #require(DevVlogsFileIdentity.capture(
+                at: outputURL,
+                kind: .regularFile,
+                requireSingleLink: true
+            ))
+            try await outputPrepared(identity)
             progress(1)
             return DevVlogsBuildOutput(fileURL: outputURL, duration: 2, byteCount: 12)
         case .failure(let error):

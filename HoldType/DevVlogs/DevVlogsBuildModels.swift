@@ -27,6 +27,7 @@ nonisolated struct DevVlogsBuildRecipe: Codable, Equatable, Identifiable {
 nonisolated struct DevVlogsBuildSource: Equatable {
     let clipID: UUID
     let fileURL: URL
+    let resourceIdentity: DevVlogsClipResourceIdentity
 }
 
 nonisolated struct DevVlogsBuildOutput: Equatable {
@@ -36,6 +37,7 @@ nonisolated struct DevVlogsBuildOutput: Equatable {
 }
 
 nonisolated struct DevVlogsBuildWorkspace: Equatable {
+    let buildID: UUID
     let directoryURL: URL
     let recipeURL: URL
     let temporaryOutputURL: URL
@@ -49,6 +51,7 @@ nonisolated enum DevVlogsBuildError: Error, Equatable, LocalizedError {
     case sourceInvalid
     case incompatibleSources
     case outputAlreadyExists
+    case workspaceChanged
     case cancelled
     case timedOut
     case exportFailed
@@ -68,6 +71,8 @@ nonisolated enum DevVlogsBuildError: Error, Equatable, LocalizedError {
             return "The selected clips cannot be combined without changing the source video. No output was created."
         case .outputAlreadyExists:
             return "This recipe already owns an output and it was not overwritten."
+        case .workspaceChanged:
+            return "The build folder changed, so HoldType left it and every source unchanged."
         case .cancelled:
             return "Video creation was cancelled. Sources and the recipe are unchanged."
         case .timedOut:
@@ -87,6 +92,7 @@ nonisolated enum DevVlogsBuildError: Error, Equatable, LocalizedError {
         case .sourceInvalid: return "source_invalid"
         case .incompatibleSources: return "incompatible_sources"
         case .outputAlreadyExists: return "output_exists"
+        case .workspaceChanged: return "workspace_changed"
         case .cancelled: return "cancelled"
         case .timedOut: return "timed_out"
         case .exportFailed: return "export_failed"

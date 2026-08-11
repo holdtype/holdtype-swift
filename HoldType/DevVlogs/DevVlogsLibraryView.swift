@@ -248,7 +248,8 @@ struct DevVlogsLibraryView: View {
         health: .ready,
         isExcluded: false,
         mediaURL: URL(fileURLWithPath: "/Preview/clip.mov"),
-        relativeDirectory: "2026/2026-08-11/apps/Codex/clips/clip"
+        relativeDirectory: "2026/2026-08-11/apps/Codex/clips/clip",
+        resourceIdentity: nil
     )
     DevVlogsLibraryView(
         store: DevVlogsLibraryStore(

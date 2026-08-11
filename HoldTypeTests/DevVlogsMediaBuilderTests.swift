@@ -25,13 +25,13 @@ struct DevVlogsMediaBuilderTests {
         )
         let output = fixture.root.appendingPathComponent("compatible-output.mov")
         var progress: [Double] = []
+        let firstSource = try await fixture.source(id: firstID, url: first)
+        let secondSource = try await fixture.source(id: secondID, url: second)
 
         let result = try await AVFoundationDevVlogsMediaBuilder().build(
-            sources: [
-                DevVlogsBuildSource(clipID: firstID, fileURL: first),
-                DevVlogsBuildSource(clipID: secondID, fileURL: second)
-            ],
+            sources: [firstSource, secondSource],
             outputURL: output,
+            outputPrepared: { _ in },
             progress: { progress.append($0) }
         )
 
@@ -61,14 +61,14 @@ struct DevVlogsMediaBuilderTests {
             size: CGSize(width: 96, height: 64)
         )
         let output = fixture.root.appendingPathComponent("incompatible-output.mov")
+        let firstSource = try await fixture.source(id: firstID, url: first)
+        let secondSource = try await fixture.source(id: secondID, url: second)
 
         await #expect(throws: DevVlogsBuildError.incompatibleSources) {
             _ = try await AVFoundationDevVlogsMediaBuilder().build(
-                sources: [
-                    DevVlogsBuildSource(clipID: firstID, fileURL: first),
-                    DevVlogsBuildSource(clipID: secondID, fileURL: second)
-                ],
+                sources: [firstSource, secondSource],
                 outputURL: output,
+                outputPrepared: { _ in },
                 progress: { _ in }
             )
         }
@@ -86,11 +86,13 @@ struct DevVlogsMediaBuilderTests {
         let output = fixture.root.appendingPathComponent("existing.mov")
         let sentinel = Data("prior-output".utf8)
         try sentinel.write(to: output)
+        let buildSource = try await fixture.source(id: clipID, url: source)
 
         await #expect(throws: DevVlogsBuildError.outputAlreadyExists) {
             _ = try await AVFoundationDevVlogsMediaBuilder().build(
-                sources: [DevVlogsBuildSource(clipID: clipID, fileURL: source)],
+                sources: [buildSource],
                 outputURL: output,
+                outputPrepared: { _ in },
                 progress: { _ in }
             )
         }
@@ -135,6 +137,16 @@ struct DevVlogsMediaBuilderTests {
                 size: size,
                 color: color,
                 duration: duration
+            )
+        }
+
+        func source(id: UUID, url: URL) async throws -> DevVlogsBuildSource {
+            let snapshot = try await DevVlogsLibraryRepository().load(rootURL: root)
+            let clip = try #require(snapshot.days.flatMap(\.clips).first { $0.clipID == id })
+            return DevVlogsBuildSource(
+                clipID: id,
+                fileURL: url,
+                resourceIdentity: try #require(clip.resourceIdentity)
             )
         }
 

@@ -68,9 +68,16 @@ struct DevVlogsLibraryTests {
         let siblingURL = try await fixture.clip(id: siblingID, date: fixture.date.addingTimeInterval(30))
         let exportURL = try fixture.makeHistoricalExport(on: fixture.date)
         let repository = DevVlogsLibraryRepository()
-        _ = try await repository.load(rootURL: fixture.root)
+        let snapshot = try await repository.load(rootURL: fixture.root)
+        let clip = try #require(snapshot.days.flatMap(\.clips).first { $0.clipID == clipID })
+        let confirmation = try #require(DevVlogsDeleteConfirmation(clip: clip))
 
-        try await repository.delete(clipID: clipID, rootURL: fixture.root)
+        try await repository.delete(
+            clipID: clipID,
+            displayedClipID: confirmation.displayedClipID,
+            resourceIdentity: confirmation.resourceIdentity,
+            rootURL: fixture.root
+        )
 
         #expect(!FileManager.default.fileExists(atPath: mediaURL.deletingLastPathComponent().path))
         #expect(FileManager.default.fileExists(atPath: siblingURL.path))
@@ -88,23 +95,46 @@ struct DevVlogsLibraryTests {
             date: fixture.date.addingTimeInterval(20)
         )
         let repository = DevVlogsLibraryRepository()
-        _ = try await repository.load(rootURL: fixture.root)
+        let snapshot = try await repository.load(rootURL: fixture.root)
+        let replacementClip = try #require(
+            snapshot.days.flatMap(\.clips).first { $0.clipID == replacementID }
+        )
+        let replacementConfirmation = try #require(DevVlogsDeleteConfirmation(clip: replacementClip))
+        let unknownClip = try #require(
+            snapshot.days.flatMap(\.clips).first { $0.clipID == unknownChildID }
+        )
+        let unknownConfirmation = try #require(DevVlogsDeleteConfirmation(clip: unknownClip))
 
         try FileManager.default.removeItem(at: replacementURL)
         try Data("replacement".utf8).write(to: replacementURL)
         await #expect(throws: DevVlogsLibraryError.identityChanged) {
-            try await repository.delete(clipID: replacementID, rootURL: fixture.root)
+            try await repository.delete(
+                clipID: replacementID,
+                displayedClipID: replacementConfirmation.displayedClipID,
+                resourceIdentity: replacementConfirmation.resourceIdentity,
+                rootURL: fixture.root
+            )
         }
 
         try Data("user sibling".utf8).write(
             to: unknownChildURL.deletingLastPathComponent().appendingPathComponent("notes.txt")
         )
         await #expect(throws: DevVlogsLibraryError.identityChanged) {
-            try await repository.delete(clipID: unknownChildID, rootURL: fixture.root)
+            try await repository.delete(
+                clipID: unknownChildID,
+                displayedClipID: unknownConfirmation.displayedClipID,
+                resourceIdentity: unknownConfirmation.resourceIdentity,
+                rootURL: fixture.root
+            )
         }
         #expect(FileManager.default.fileExists(atPath: unknownChildURL.path))
         await #expect(throws: DevVlogsLibraryError.clipNotOwned) {
-            try await repository.delete(clipID: UUID(), rootURL: fixture.root)
+            try await repository.delete(
+                clipID: UUID(),
+                displayedClipID: "unknown",
+                resourceIdentity: unknownConfirmation.resourceIdentity,
+                rootURL: fixture.root
+            )
         }
     }
 

@@ -1,6 +1,12 @@
 @preconcurrency import AVFoundation
 import Foundation
 
+nonisolated struct DevVlogsLibraryMediaProbeResult: Equatable, Sendable {
+    let isPlayable: Bool
+    let duration: TimeInterval
+    let byteCount: Int64
+}
+
 actor DevVlogsLibraryRepository {
     private struct ReviewPreference: Codable {
         let schemaVersion: Int
@@ -9,19 +15,9 @@ actor DevVlogsLibraryRepository {
     }
 
     private struct OwnedClipToken {
-        let rootURL: URL
-        let directoryURL: URL
-        let mediaURL: URL
-        let directoryIdentity: FileIdentity
-        let mediaIdentity: FileIdentity
+        let displayedClipID: String
+        let resourceIdentity: DevVlogsClipResourceIdentity
         let metadata: DevVlogsClipMetadata
-    }
-
-    private struct FileIdentity: Equatable {
-        let resourceIdentifier: String
-        let fileSize: Int?
-        let creationDate: Date?
-        let modificationDate: Date?
     }
 
     private struct GroupKey: Hashable {
@@ -29,64 +25,89 @@ actor DevVlogsLibraryRepository {
         let appFolder: String
     }
 
-    private let fileManager: FileManager
-    private var tokens: [UUID: OwnedClipToken] = [:]
+    private struct LoadedClip {
+        let key: GroupKey
+        var clip: DevVlogsLibraryClip
+        var token: OwnedClipToken?
+    }
 
-    init(fileManager: FileManager = .default) {
+    private let fileManager: FileManager
+    private let maximumProbeWait: Duration
+    private let mediaProbe: @Sendable (URL) async throws -> DevVlogsLibraryMediaProbeResult
+    private var tokens: [String: OwnedClipToken] = [:]
+
+    init(
+        fileManager: FileManager = .default,
+        maximumProbeWait: Duration = .seconds(10),
+        mediaProbe: (@Sendable (URL) async throws -> DevVlogsLibraryMediaProbeResult)? = nil
+    ) {
         self.fileManager = fileManager
+        self.maximumProbeWait = maximumProbeWait
+        self.mediaProbe = mediaProbe ?? Self.probeMedia
     }
 
     func load(rootURL: URL, calendar: Calendar = .current) async throws -> DevVlogsLibrarySnapshot {
         let root = rootURL.standardizedFileURL
-        var grouped: [GroupKey: [DevVlogsLibraryClip]] = [:]
-        var refreshedTokens: [UUID: OwnedClipToken] = [:]
-
+        guard DevVlogsFileIdentity.capture(at: root, kind: .directory) != nil else {
+            throw DevVlogsLibraryError.archiveUnreadable
+        }
+        var loaded: [LoadedClip] = []
         for yearURL in try directoryChildren(at: root) where isYear(yearURL.lastPathComponent) {
             for dayURL in try directoryChildren(at: yearURL) where isDay(dayURL.lastPathComponent) {
+                guard dayURL.lastPathComponent.hasPrefix(yearURL.lastPathComponent + "-") else { continue }
                 let appsURL = dayURL.appendingPathComponent("apps", isDirectory: true)
                 for appURL in (try? directoryChildren(at: appsURL)) ?? [] {
                     let clipsURL = appURL.appendingPathComponent("clips", isDirectory: true)
                     for clipDirectoryURL in (try? directoryChildren(at: clipsURL)) ?? [] {
-                        let key = GroupKey(
-                            dayKey: dayURL.lastPathComponent,
-                            appFolder: appURL.lastPathComponent
-                        )
-                        let result = await loadClip(
+                        try Task.checkCancellation()
+                        loaded.append(try await loadClip(
                             rootURL: root,
                             yearKey: yearURL.lastPathComponent,
                             dayKey: dayURL.lastPathComponent,
                             appFolder: appURL.lastPathComponent,
-                            directoryURL: clipDirectoryURL,
-                            calendar: calendar
-                        )
-                        grouped[key, default: []].append(result.clip)
-                        if let token = result.token {
-                            refreshedTokens[token.metadata.clipID] = token
-                        }
+                            directoryURL: clipDirectoryURL
+                        ))
                     }
                 }
             }
         }
 
+        let duplicateIDs = Set(
+            Dictionary(grouping: loaded.compactMap { $0.token?.metadata.clipID }, by: { $0 })
+                .filter { $0.value.count > 1 }
+                .keys
+        )
+        for index in loaded.indices {
+            guard let token = loaded[index].token,
+                  duplicateIDs.contains(token.metadata.clipID) else { continue }
+            loaded[index].clip = duplicateClip(from: loaded[index].clip)
+            loaded[index].token = nil
+        }
+
+        var grouped: [GroupKey: [DevVlogsLibraryClip]] = [:]
+        var refreshedTokens: [String: OwnedClipToken] = [:]
+        for item in loaded {
+            grouped[item.key, default: []].append(item.clip)
+            if let token = item.token {
+                refreshedTokens[token.displayedClipID] = token
+            }
+        }
         tokens = refreshedTokens
         return DevVlogsLibrarySnapshot(days: makeDays(grouped: grouped, calendar: calendar))
     }
 
-    func setExcluded(
-        _ isExcluded: Bool,
-        clipID: UUID,
-        rootURL: URL
-    ) throws {
-        let token = try validatedToken(clipID: clipID, rootURL: rootURL)
-        let reviewURL = token.directoryURL.appendingPathComponent("review.json")
-        if fileManager.fileExists(atPath: reviewURL.path), !isRegularFile(reviewURL) {
+    func setExcluded(_ isExcluded: Bool, clipID: UUID, rootURL: URL) throws {
+        let token = try validatedToken(clipID: clipID, displayedClipID: nil, rootURL: rootURL)
+        let reviewURL = token.resourceIdentity.reviewURL
+        if fileManager.fileExists(atPath: reviewURL.path),
+           DevVlogsFileIdentity.capture(
+               at: reviewURL,
+               kind: .regularFile,
+               requireSingleLink: true
+           ) == nil {
             throw DevVlogsLibraryError.exclusionUpdateFailed
         }
-        let preference = ReviewPreference(
-            schemaVersion: 1,
-            clipID: clipID,
-            isExcluded: isExcluded
-        )
+        let preference = ReviewPreference(schemaVersion: 1, clipID: clipID, isExcluded: isExcluded)
         do {
             try encoder.encode(preference).write(to: reviewURL, options: .atomic)
         } catch {
@@ -94,25 +115,47 @@ actor DevVlogsLibraryRepository {
         }
     }
 
-    func delete(clipID: UUID, rootURL: URL) throws {
-        let token = try validatedToken(clipID: clipID, rootURL: rootURL)
-        let allowedChildren = Set(["clip.mov", "metadata.json", "review.json"])
-        let actualChildren = try Set(
-            fileManager.contentsOfDirectory(
-                at: token.directoryURL,
-                includingPropertiesForKeys: [.isSymbolicLinkKey],
-                options: []
-            ).map(\.lastPathComponent)
+    func delete(
+        clipID: UUID,
+        displayedClipID: String,
+        resourceIdentity: DevVlogsClipResourceIdentity,
+        rootURL: URL
+    ) throws {
+        let token = try validatedToken(
+            clipID: clipID,
+            displayedClipID: displayedClipID,
+            rootURL: rootURL
         )
-        guard actualChildren.isSubset(of: allowedChildren),
-              actualChildren.contains("clip.mov"),
-              actualChildren.contains("metadata.json") else {
+        guard token.resourceIdentity == resourceIdentity,
+              resourceIdentity.validateAllExpectedChildren(fileManager: fileManager) else {
             throw DevVlogsLibraryError.identityChanged
         }
 
+        let orderedFiles = resourceIdentity.reviewIdentity == nil
+            ? [resourceIdentity.metadataURL, resourceIdentity.mediaURL]
+            : [resourceIdentity.reviewURL, resourceIdentity.metadataURL, resourceIdentity.mediaURL]
         do {
-            try fileManager.removeItem(at: token.directoryURL)
-            tokens.removeValue(forKey: clipID)
+            for url in orderedFiles {
+                let expected: DevVlogsFileIdentity
+                switch url.lastPathComponent {
+                case "review.json": expected = try required(resourceIdentity.reviewIdentity)
+                case "metadata.json": expected = resourceIdentity.metadataIdentity
+                default: expected = resourceIdentity.mediaIdentity
+                }
+                guard expected.matches(url, requireSingleLink: true),
+                      resourceIdentity.validateHierarchy() else {
+                    throw DevVlogsLibraryError.identityChanged
+                }
+                try fileManager.removeItem(at: url)
+            }
+            guard resourceIdentity.validateHierarchy(),
+                  (try fileManager.contentsOfDirectory(atPath: resourceIdentity.directoryURL.path)).isEmpty else {
+                throw DevVlogsLibraryError.identityChanged
+            }
+            try fileManager.removeItem(at: resourceIdentity.directoryURL)
+            tokens.removeValue(forKey: displayedClipID)
+        } catch let error as DevVlogsLibraryError {
+            throw error
         } catch {
             throw DevVlogsLibraryError.deleteFailed
         }
@@ -123,80 +166,120 @@ actor DevVlogsLibraryRepository {
         yearKey: String,
         dayKey: String,
         appFolder: String,
-        directoryURL: URL,
-        calendar: Calendar
-    ) async -> (clip: DevVlogsLibraryClip, token: OwnedClipToken?) {
+        directoryURL: URL
+    ) async throws -> LoadedClip {
         let relativeDirectory = [yearKey, dayKey, "apps", appFolder, "clips", directoryURL.lastPathComponent]
             .joined(separator: "/")
+        let key = GroupKey(dayKey: dayKey, appFolder: appFolder)
         let metadataURL = directoryURL.appendingPathComponent("metadata.json")
-        guard isDirectory(directoryURL),
-              isRegularFile(metadataURL),
-              let data = try? Data(contentsOf: metadataURL),
-              let metadata = try? decoder.decode(DevVlogsClipMetadata.self, from: data),
-              metadata.schemaVersion == 1,
-              metadata.clipID == metadata.attemptID,
-              yearKey == DevVlogsArchiveNaming.yearKey(for: metadata.createdAt, calendar: calendar),
-              dayKey == DevVlogsArchiveNaming.dayKey(for: metadata.createdAt, calendar: calendar),
-              appFolder == DevVlogsArchiveNaming.appFolder(
+        guard let metadataIdentity = DevVlogsFileIdentity.capture(
+            at: metadataURL,
+            kind: .regularFile,
+            requireSingleLink: true
+        ),
+            let data = try? Data(contentsOf: metadataURL),
+            metadataIdentity.matches(metadataURL, requireSingleLink: true),
+            let metadata = try? decoder.decode(DevVlogsClipMetadata.self, from: data),
+            metadata.schemaVersion == 1,
+            metadata.clipID == metadata.attemptID,
+            appFolder == DevVlogsArchiveNaming.appFolder(
                 displayName: metadata.triggerApplicationName,
                 bundleIdentifier: metadata.triggerBundleIdentifier
-              ),
-              directoryURL.lastPathComponent == DevVlogsArchiveNaming.clipDirectoryName(
-                startedAt: metadata.createdAt,
-                clipID: metadata.clipID,
-                calendar: calendar
-              ) else {
-            return (invalidClip(relativeDirectory: relativeDirectory, appFolder: appFolder), nil)
+            ),
+            validClipDirectoryName(directoryURL.lastPathComponent, clipID: metadata.clipID) else {
+            return LoadedClip(
+                key: key,
+                clip: invalidClip(relativeDirectory: relativeDirectory, appFolder: appFolder),
+                token: nil
+            )
         }
 
         let mediaURL = directoryURL.appendingPathComponent("clip.mov")
         guard fileManager.fileExists(atPath: mediaURL.path) else {
-            return (
-                clip(from: metadata, mediaURL: nil, relativeDirectory: relativeDirectory, health: .missing),
-                nil
+            return LoadedClip(
+                key: key,
+                clip: clip(
+                    from: metadata,
+                    mediaURL: nil,
+                    relativeDirectory: relativeDirectory,
+                    health: .missing,
+                    resourceIdentity: nil
+                ),
+                token: nil
             )
         }
-        guard isRegularFile(mediaURL),
-              let directoryIdentity = fileIdentity(directoryURL),
-              let mediaIdentity = fileIdentity(mediaURL) else {
-            return (
-                clip(from: metadata, mediaURL: nil, relativeDirectory: relativeDirectory, health: .invalid),
-                nil
-            )
-        }
-
-        let mediaState = await validateMedia(at: mediaURL)
-        guard mediaState.isPlayable else {
-            return (
-                clip(
+        let reviewURL = directoryURL.appendingPathComponent("review.json")
+        let reviewExists = fileManager.fileExists(atPath: reviewURL.path)
+        guard let resourceIdentity = DevVlogsClipResourceIdentity.capture(
+            rootURL: rootURL,
+            relativeDirectory: relativeDirectory,
+            reviewExists: reviewExists
+        ) else {
+            return LoadedClip(
+                key: key,
+                clip: clip(
                     from: metadata,
                     mediaURL: nil,
                     relativeDirectory: relativeDirectory,
                     health: .invalid,
-                    actualByteCount: mediaState.byteCount
+                    resourceIdentity: nil
                 ),
-                nil
+                token: nil
             )
         }
 
+        let mediaState: DevVlogsLibraryMediaProbeResult
+        do {
+            mediaState = try await boundedMediaProbe(at: mediaURL)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return LoadedClip(
+                key: key,
+                clip: clip(
+                    from: metadata,
+                    mediaURL: nil,
+                    relativeDirectory: relativeDirectory,
+                    health: .invalid,
+                    actualByteCount: resourceIdentity.mediaIdentity.size,
+                    resourceIdentity: nil
+                ),
+                token: nil
+            )
+        }
+        guard mediaState.isPlayable, resourceIdentity.validateSourceAndMetadata() else {
+            return LoadedClip(
+                key: key,
+                clip: clip(
+                    from: metadata,
+                    mediaURL: nil,
+                    relativeDirectory: relativeDirectory,
+                    health: .invalid,
+                    actualByteCount: mediaState.byteCount,
+                    resourceIdentity: nil
+                ),
+                token: nil
+            )
+        }
+
+        let displayedClipID = "clip:\(relativeDirectory)"
         let token = OwnedClipToken(
-            rootURL: rootURL,
-            directoryURL: directoryURL,
-            mediaURL: mediaURL,
-            directoryIdentity: directoryIdentity,
-            mediaIdentity: mediaIdentity,
+            displayedClipID: displayedClipID,
+            resourceIdentity: resourceIdentity,
             metadata: metadata
         )
-        return (
-            clip(
+        return LoadedClip(
+            key: key,
+            clip: clip(
                 from: metadata,
                 mediaURL: mediaURL,
                 relativeDirectory: relativeDirectory,
                 health: .ready,
                 actualDuration: mediaState.duration,
-                actualByteCount: mediaState.byteCount
+                actualByteCount: mediaState.byteCount,
+                resourceIdentity: resourceIdentity
             ),
-            token
+            token: token
         )
     }
 
@@ -206,10 +289,11 @@ actor DevVlogsLibraryRepository {
         relativeDirectory: String,
         health: DevVlogsLibraryHealth,
         actualDuration: TimeInterval? = nil,
-        actualByteCount: Int64? = nil
+        actualByteCount: Int64? = nil,
+        resourceIdentity: DevVlogsClipResourceIdentity?
     ) -> DevVlogsLibraryClip {
         DevVlogsLibraryClip(
-            id: metadata.clipID.uuidString.lowercased(),
+            id: "clip:\(relativeDirectory)",
             clipID: metadata.clipID,
             createdAt: metadata.createdAt,
             triggerBundleIdentifier: metadata.triggerBundleIdentifier,
@@ -219,7 +303,8 @@ actor DevVlogsLibraryRepository {
             health: health,
             isExcluded: exclusionPreference(in: mediaURL?.deletingLastPathComponent(), clipID: metadata.clipID),
             mediaURL: mediaURL,
-            relativeDirectory: relativeDirectory
+            relativeDirectory: relativeDirectory,
+            resourceIdentity: resourceIdentity
         )
     }
 
@@ -235,7 +320,25 @@ actor DevVlogsLibraryRepository {
             health: .invalid,
             isExcluded: true,
             mediaURL: nil,
-            relativeDirectory: relativeDirectory
+            relativeDirectory: relativeDirectory,
+            resourceIdentity: nil
+        )
+    }
+
+    private func duplicateClip(from clip: DevVlogsLibraryClip) -> DevVlogsLibraryClip {
+        DevVlogsLibraryClip(
+            id: "duplicate:\(clip.relativeDirectory)",
+            clipID: nil,
+            createdAt: clip.createdAt,
+            triggerBundleIdentifier: clip.triggerBundleIdentifier,
+            triggerApplicationName: clip.triggerApplicationName,
+            duration: clip.duration,
+            byteCount: clip.byteCount,
+            health: .invalid,
+            isExcluded: true,
+            mediaURL: nil,
+            relativeDirectory: clip.relativeDirectory,
+            resourceIdentity: nil
         )
     }
 
@@ -247,13 +350,8 @@ actor DevVlogsLibraryRepository {
         var days: [DevVlogsLibraryDay] = []
         for (dayKey, keys) in byDay {
             guard let date = date(from: dayKey, calendar: calendar) else { continue }
-            let unsortedAppGroups: [DevVlogsLibraryAppGroup] = keys.map { key in
-                let clips = (grouped[key] ?? []).sorted { left, right in
-                    if let leftDate = left.createdAt, let rightDate = right.createdAt, leftDate != rightDate {
-                        return leftDate < rightDate
-                    }
-                    return left.id < right.id
-                }
+            let groups = keys.map { key -> DevVlogsLibraryAppGroup in
+                let clips = (grouped[key] ?? []).sorted(by: clipComesBefore)
                 let first = clips.first
                 return DevVlogsLibraryAppGroup(
                     id: key.appFolder,
@@ -261,30 +359,32 @@ actor DevVlogsLibraryRepository {
                     bundleIdentifier: first?.triggerBundleIdentifier,
                     clips: clips
                 )
-            }
-            let appGroups = unsortedAppGroups.sorted {
-                $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending
-            }
-            days.append(DevVlogsLibraryDay(id: dayKey, date: date, appGroups: appGroups))
+            }.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
+            days.append(DevVlogsLibraryDay(id: dayKey, date: date, appGroups: groups))
         }
-        return days.sorted { $0.date > $1.date }
+        return days.sorted { $0.id > $1.id }
     }
 
-    private func validatedToken(clipID: UUID, rootURL: URL) throws -> OwnedClipToken {
-        guard let token = tokens[clipID],
-              token.rootURL == rootURL.standardizedFileURL else {
+    private func validatedToken(
+        clipID: UUID,
+        displayedClipID: String?,
+        rootURL: URL
+    ) throws -> OwnedClipToken {
+        let candidates = tokens.values.filter {
+            $0.metadata.clipID == clipID && (displayedClipID == nil || $0.displayedClipID == displayedClipID)
+        }
+        guard candidates.count == 1, let token = candidates.first,
+              token.resourceIdentity.rootURL == rootURL.standardizedFileURL else {
             throw DevVlogsLibraryError.clipNotOwned
         }
-        guard isDirectory(token.directoryURL), isRegularFile(token.mediaURL) else {
-            throw DevVlogsLibraryError.sourceMissing
-        }
-        guard fileIdentity(token.directoryURL) == token.directoryIdentity,
-              fileIdentity(token.mediaURL) == token.mediaIdentity else {
+        guard token.resourceIdentity.validateSourceAndMetadata() else {
             throw DevVlogsLibraryError.identityChanged
         }
-        let metadataURL = token.directoryURL.appendingPathComponent("metadata.json")
-        guard isRegularFile(metadataURL),
-              let data = try? Data(contentsOf: metadataURL),
+        guard let data = try? Data(contentsOf: token.resourceIdentity.metadataURL),
+              token.resourceIdentity.metadataIdentity.matches(
+                  token.resourceIdentity.metadataURL,
+                  requireSingleLink: true
+              ),
               let metadata = try? decoder.decode(DevVlogsClipMetadata.self, from: data),
               metadata == token.metadata else {
             throw DevVlogsLibraryError.identityChanged
@@ -292,81 +392,73 @@ actor DevVlogsLibraryRepository {
         return token
     }
 
+    private func boundedMediaProbe(at url: URL) async throws -> DevVlogsLibraryMediaProbeResult {
+        try await DevVlogsLibraryProbeGate().wait(timeout: maximumProbeWait) { [mediaProbe] in
+            try await mediaProbe(url)
+        }
+    }
+
+    nonisolated private static func probeMedia(at url: URL) async throws -> DevVlogsLibraryMediaProbeResult {
+        let byteCount = Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        let asset = AVURLAsset(url: url)
+        let playable = try await asset.load(.isPlayable)
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        let duration = try await asset.load(.duration).seconds
+        return DevVlogsLibraryMediaProbeResult(
+            isPlayable: playable && videoTracks.count == 1 && audioTracks.count == 1
+                && duration.isFinite && duration > 0,
+            duration: duration,
+            byteCount: byteCount
+        )
+    }
+
     private func exclusionPreference(in directoryURL: URL?, clipID: UUID) -> Bool {
         guard let directoryURL else { return true }
         let reviewURL = directoryURL.appendingPathComponent("review.json")
-        guard !fileManager.fileExists(atPath: reviewURL.path) else {
-            guard isRegularFile(reviewURL),
-                  let data = try? Data(contentsOf: reviewURL),
-                  let preference = try? decoder.decode(ReviewPreference.self, from: data),
-                  preference.schemaVersion == 1,
-                  preference.clipID == clipID else {
-                return true
-            }
-            return preference.isExcluded
+        guard fileManager.fileExists(atPath: reviewURL.path) else { return false }
+        guard DevVlogsFileIdentity.capture(
+            at: reviewURL,
+            kind: .regularFile,
+            requireSingleLink: true
+        ) != nil,
+            let data = try? Data(contentsOf: reviewURL),
+            let preference = try? decoder.decode(ReviewPreference.self, from: data),
+            preference.schemaVersion == 1,
+            preference.clipID == clipID else {
+            return true
         }
-        return false
-    }
-
-    private func validateMedia(at url: URL) async -> (isPlayable: Bool, duration: TimeInterval, byteCount: Int64) {
-        let byteCount = Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-        let asset = AVURLAsset(url: url)
-        do {
-            let playable = try await asset.load(.isPlayable)
-            let videoTracks = try await asset.loadTracks(withMediaType: .video)
-            let audioTracks = try await asset.loadTracks(withMediaType: .audio)
-            let duration = try await asset.load(.duration).seconds
-            return (
-                playable && videoTracks.count == 1 && audioTracks.count == 1 && duration.isFinite && duration > 0,
-                duration,
-                byteCount
-            )
-        } catch {
-            return (false, 0, byteCount)
-        }
+        return preference.isExcluded
     }
 
     private func directoryChildren(at url: URL) throws -> [URL] {
-        guard isDirectory(url) else { return [] }
+        guard DevVlogsFileIdentity.capture(at: url, kind: .directory) != nil else { return [] }
         return try fileManager.contentsOfDirectory(
             at: url,
-            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+            includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
-        ).filter(isDirectory)
+        ).filter { DevVlogsFileIdentity.capture(at: $0, kind: .directory) != nil }
     }
 
-    private func isDirectory(_ url: URL) -> Bool {
-        guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]) else {
-            return false
+    private func validClipDirectoryName(_ value: String, clipID: UUID) -> Bool {
+        let suffix = "--\(clipID.uuidString.lowercased())"
+        guard value.hasSuffix(suffix) else { return false }
+        let time = String(value.dropLast(suffix.count))
+        return time.count == 8 && time.enumerated().allSatisfy { index, character in
+            index == 2 || index == 5 ? character == "-" : character.isNumber
         }
-        return values.isDirectory == true && values.isSymbolicLink != true
     }
 
-    private func isRegularFile(_ url: URL) -> Bool {
-        guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]) else {
-            return false
-        }
-        return values.isRegularFile == true && values.isSymbolicLink != true
+    private func clipComesBefore(_ lhs: DevVlogsLibraryClip, _ rhs: DevVlogsLibraryClip) -> Bool {
+        if let left = lhs.createdAt, let right = rhs.createdAt, left != right { return left < right }
+        if lhs.createdAt != nil, rhs.createdAt == nil { return true }
+        if lhs.createdAt == nil, rhs.createdAt != nil { return false }
+        return lhs.id < rhs.id
     }
 
-    private func fileIdentity(_ url: URL) -> FileIdentity? {
-        let keys: Set<URLResourceKey> = [
-            .fileResourceIdentifierKey,
-            .fileSizeKey,
-            .creationDateKey,
-            .contentModificationDateKey
-        ]
-        guard let values = try? url.resourceValues(forKeys: keys),
-              let identifier = values.fileResourceIdentifier,
-              let attributes = try? fileManager.attributesOfItem(atPath: url.path) else {
-            return nil
-        }
-        return FileIdentity(
-            resourceIdentifier: String(describing: identifier),
-            fileSize: (attributes[.size] as? NSNumber)?.intValue,
-            creationDate: attributes[.creationDate] as? Date,
-            modificationDate: attributes[.modificationDate] as? Date
-        )
+    private func required<T>(_ value: T?) throws -> T {
+        guard let value else { throw DevVlogsLibraryError.identityChanged }
+        return value
     }
 
     private func isYear(_ value: String) -> Bool {

@@ -26,9 +26,10 @@ nonisolated struct DevVlogsLibraryClip: Identifiable, Equatable {
     let isExcluded: Bool
     let mediaURL: URL?
     let relativeDirectory: String
+    let resourceIdentity: DevVlogsClipResourceIdentity?
 
     var isBuildEligible: Bool {
-        health == .ready && clipID != nil && mediaURL != nil
+        health == .ready && clipID != nil && mediaURL != nil && resourceIdentity != nil
     }
 }
 

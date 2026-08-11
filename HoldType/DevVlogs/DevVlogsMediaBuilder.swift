@@ -7,6 +7,7 @@ protocol DevVlogsMediaBuilding {
     func build(
         sources: [DevVlogsBuildSource],
         outputURL: URL,
+        outputPrepared: @escaping @MainActor (DevVlogsFileIdentity) async throws -> Void,
         progress: @escaping @MainActor (Double) -> Void
     ) async throws -> DevVlogsBuildOutput
     func validateOutput(at url: URL) async throws -> DevVlogsBuildOutput
@@ -34,10 +35,32 @@ final class AVFoundationDevVlogsMediaBuilder: DevVlogsMediaBuilding {
     }
 
     private static let maximumExportWait: Duration = .seconds(60)
+    private let maximumProbeWait: Duration
+    private let sourceProbeBarrier: @MainActor () async throws -> Void
+    private let outputProbeBarrier: @MainActor () async throws -> Void
+
+    convenience init() {
+        self.init(
+            maximumProbeWait: .seconds(10),
+            sourceProbeBarrier: {},
+            outputProbeBarrier: {}
+        )
+    }
+
+    init(
+        maximumProbeWait: Duration,
+        sourceProbeBarrier: @escaping @MainActor () async throws -> Void,
+        outputProbeBarrier: @escaping @MainActor () async throws -> Void
+    ) {
+        self.maximumProbeWait = maximumProbeWait
+        self.sourceProbeBarrier = sourceProbeBarrier
+        self.outputProbeBarrier = outputProbeBarrier
+    }
 
     func build(
         sources: [DevVlogsBuildSource],
         outputURL: URL,
+        outputPrepared: @escaping @MainActor (DevVlogsFileIdentity) async throws -> Void,
         progress: @escaping @MainActor (Double) -> Void
     ) async throws -> DevVlogsBuildOutput {
         guard !sources.isEmpty else { throw DevVlogsBuildError.noSelectedClips }
@@ -82,37 +105,50 @@ final class AVFoundationDevVlogsMediaBuilder: DevVlogsMediaBuilding {
         session.outputFileType = .mov
         session.shouldOptimizeForNetworkUse = false
         try await export(session, progress: progress)
+        guard let outputIdentity = DevVlogsFileIdentity.capture(
+            at: outputURL,
+            kind: .regularFile,
+            requireSingleLink: true
+        ) else {
+            throw DevVlogsBuildError.outputInvalid
+        }
+        try await outputPrepared(outputIdentity)
         return try await validateOutput(at: outputURL)
     }
 
     private func loadSources(_ sources: [DevVlogsBuildSource]) async throws -> [LoadedSource] {
         var loaded: [LoadedSource] = []
         for source in sources {
-            guard FileManager.default.fileExists(atPath: source.fileURL.path) else {
-                throw DevVlogsBuildError.sourceMissing
-            }
-            let asset = AVURLAsset(url: source.fileURL)
-            let videoTracks = try await asset.loadTracks(withMediaType: .video)
-            let audioTracks = try await asset.loadTracks(withMediaType: .audio)
-            let duration = try await asset.load(.duration)
-            guard try await asset.load(.isPlayable),
-                  videoTracks.count == 1,
-                  audioTracks.count == 1,
-                  duration.isValid,
-                  duration.isNumeric,
-                  duration > .zero else {
-                throw DevVlogsBuildError.sourceInvalid
-            }
-            loaded.append(
-                LoadedSource(
+            loaded.append(try await DevVlogsMediaProbeGate<LoadedSource>().wait(
+                timeout: maximumProbeWait
+            ) { [sourceProbeBarrier] in
+                try await sourceProbeBarrier()
+                guard source.resourceIdentity.validateSourceAndMetadata(),
+                      source.resourceIdentity.mediaURL == source.fileURL else {
+                    throw DevVlogsBuildError.sourceInvalid
+                }
+                let asset = AVURLAsset(url: source.fileURL)
+                let videoTracks = try await asset.loadTracks(withMediaType: .video)
+                let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+                let duration = try await asset.load(.duration)
+                guard try await asset.load(.isPlayable),
+                      videoTracks.count == 1,
+                      audioTracks.count == 1,
+                      duration.isValid,
+                      duration.isNumeric,
+                      duration > .zero,
+                      source.resourceIdentity.validateSourceAndMetadata() else {
+                    throw DevVlogsBuildError.sourceInvalid
+                }
+                return LoadedSource(
                     source: source,
                     asset: asset,
                     videoTrack: videoTracks[0],
                     audioTrack: audioTracks[0],
                     duration: duration,
-                    signature: try await signature(video: videoTracks[0], audio: audioTracks[0])
+                    signature: try await self.signature(video: videoTracks[0], audio: audioTracks[0])
                 )
-            )
+            })
         }
         return loaded
     }
@@ -180,19 +216,31 @@ final class AVFoundationDevVlogsMediaBuilder: DevVlogsMediaBuilding {
     }
 
     func validateOutput(at url: URL) async throws -> DevVlogsBuildOutput {
-        let asset = AVURLAsset(url: url)
-        let videoTracks = try await asset.loadTracks(withMediaType: .video)
-        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
-        let duration = try await asset.load(.duration).seconds
-        guard try await asset.load(.isPlayable),
-              videoTracks.count == 1,
-              audioTracks.count == 1,
-              duration.isFinite,
-              duration > 0 else {
-            throw DevVlogsBuildError.outputInvalid
+        try await DevVlogsMediaProbeGate<DevVlogsBuildOutput>().wait(
+            timeout: maximumProbeWait
+        ) { [outputProbeBarrier] in
+            guard let identity = DevVlogsFileIdentity.capture(
+                at: url,
+                kind: .regularFile,
+                requireSingleLink: true
+            ) else {
+                throw DevVlogsBuildError.outputInvalid
+            }
+            try await outputProbeBarrier()
+            let asset = AVURLAsset(url: url)
+            let videoTracks = try await asset.loadTracks(withMediaType: .video)
+            let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+            let duration = try await asset.load(.duration).seconds
+            guard try await asset.load(.isPlayable),
+                  videoTracks.count == 1,
+                  audioTracks.count == 1,
+                  duration.isFinite,
+                  duration > 0,
+                  identity.matches(url, requireSingleLink: true) else {
+                throw DevVlogsBuildError.outputInvalid
+            }
+            return DevVlogsBuildOutput(fileURL: url, duration: duration, byteCount: identity.size)
         }
-        let byteCount = Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
-        return DevVlogsBuildOutput(fileURL: url, duration: duration, byteCount: byteCount)
     }
 }
 

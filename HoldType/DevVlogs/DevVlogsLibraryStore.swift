@@ -9,12 +9,18 @@ enum DevVlogsLibraryLoadState: Equatable {
 
 struct DevVlogsDeleteConfirmation: Equatable {
     let clipID: UUID
+    let displayedClipID: String
+    let resourceIdentity: DevVlogsClipResourceIdentity
     let title: String
     let scope: String
 
     init?(clip: DevVlogsLibraryClip) {
-        guard let clipID = clip.clipID, clip.health == .ready else { return nil }
+        guard let clipID = clip.clipID,
+              let resourceIdentity = clip.resourceIdentity,
+              clip.health == .ready else { return nil }
         self.clipID = clipID
+        displayedClipID = clip.id
+        self.resourceIdentity = resourceIdentity
         title = "Delete this vlog clip?"
         scope = "This removes only this clip's video and Dev Vlogs metadata. Dictation audio, History, Recording Cache, completed videos, and other clips stay unchanged."
     }
@@ -88,7 +94,12 @@ final class DevVlogsLibraryStore: ObservableObject {
 
         let access = try destinationAccessProvider()
         defer { access.release() }
-        try await repository.delete(clipID: confirmation.clipID, rootURL: access.url)
+        try await repository.delete(
+            clipID: confirmation.clipID,
+            displayedClipID: confirmation.displayedClipID,
+            resourceIdentity: confirmation.resourceIdentity,
+            rootURL: access.url
+        )
         snapshot = try await repository.load(rootURL: access.url)
         loadState = .ready
     }
