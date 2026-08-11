@@ -153,8 +153,8 @@ remains evidence under the dispositions below.
 | `DV-P0C-REVIEW` | `DV-ACTIVE-1` | `DV-P0C-CONTRACT@835c455` | accepted_with_residual | No material blocker; preserve the editorial residual below and do not open a repair cycle. |
 | `DV-P1-SETUP` | `DV-ACTIVE-1` | accepted `DV-P0C-REVIEW` | accepted_with_residual at `ceeee8b` | Release `Dev Vlogs…`, separate SwiftUI window, Overview default, truthful Off/Setup; focused tests/build accepted. Computer Use transport blocked the post-repair visual pass. |
 | `DV-P1-CAMERA-SETUP` | `DV-ACTIVE-1` | accepted `DV-P1-SETUP` source/build review | accepted_with_residual at `e2614c7` | Genuine Camera status/request/recovery and preferred-camera discovery/selection ship without passive request, preview, capture, fallback, or dictation dependency. Computer Use visual QA remains blocked. |
-| `DV-P1-APPLICATIONS` | `DV-ACTIVE-1` | accepted `DV-P1-CAMERA-SETUP` | next shipping packet | Selected-app default policy and explicit all-apps-with-exclusions policy, durable bundle-ID identity, app picker/editor; no capture integration. |
-| `DV-P1-STORAGE` | `DV-ACTIVE-1` | accepted `DV-P1-APPLICATIONS` | queued | Default/custom bookmark-backed destination and truthful availability; no numeric thresholds or capture writes. |
+| `DV-P1-APPLICATIONS` | `DV-ACTIVE-1` | accepted `DV-P1-CAMERA-SETUP` | accepted_with_residual at `b27d859` | Selected-app default and explicit all-apps-with-exclusions policy, durable bundle-ID identity, validated app picker/editor; no capture integration. Computer Use visual QA remains blocked. |
+| `DV-P1-STORAGE` | `DV-ACTIVE-1` | accepted `DV-P1-APPLICATIONS` | next shipping packet | Default/custom bookmark-backed destination, truthful availability, and complete Phase 1 readiness; no numeric thresholds or capture writes. |
 | `DV-P2-CAPTURE` | current Active epoch | accepted full Phase 1 plus dependent residual closure | queued | One playable exact-once clip without dictation regression. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
 | `DV-P4-BUILD` | current Active epoch | accepted Phase 3 and `DV-BUILD-6` when applicable | queued | Deterministic local Build, Export, Reveal, and Share. |
@@ -179,6 +179,10 @@ remains evidence under the dispositions below.
   and a persisted preferred stable identity with remembered-unavailable and no-
   fallback behavior. Release Camera purpose and entitlement are accepted; the
   inherited Computer Use visual residual remains explicit.
+- Applications setup delivered by `b27d859`: the safe selected-app default,
+  separately confirmed all-apps-with-exclusions mode, bundle-ID-owned lists,
+  and validated SwiftUI app import are accepted. No active-app observation or
+  capture integration was introduced.
 - Editorial residual: Dev Vlogs still calls the human-readable folder
   hierarchy "part of the draft contract" in one sentence. Active authority is
   otherwise unambiguous; correct that wording only during a later natural
@@ -187,10 +191,11 @@ remains evidence under the dispositions below.
 - Outcome plan remains 60/25/15: approximately 60% shipping implementation,
   25% verification/review/QA, and 15% discovery/diagnostics/tooling/
   coordination, adjusted only for demonstrated risk.
-- Exact next capability: dispatch `DV-P1-APPLICATIONS` as `shipping_product`.
-  It may add the selected-app default and explicit all-apps-with-exclusions
-  policy editor using bundle identifiers, but no trigger capture integration,
-  camera work, storage work, active-app probing, or Debug tooling.
+- Exact next capability: dispatch `DV-P1-STORAGE` as `shipping_product`. It may
+  add the default destination, explicit custom folder selection, bookmark-
+  backed identity, truthful availability, and the complete Phase 1 readiness
+  reducer, but no capture writes, external-drive runtime, guessed numeric
+  thresholds, cleanup/delete, or Debug tooling.
 - Direct publication remains outside the goal.
 
 ## Contract Delta — `DV-ACTIVE-1`
