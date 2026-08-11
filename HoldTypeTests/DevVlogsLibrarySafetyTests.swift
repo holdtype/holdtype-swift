@@ -90,6 +90,7 @@ struct DevVlogsLibrarySafetyTests {
 
         let publishStore = DevVlogsPublishStore(
             destinationAccessProvider: { DevVlogsCaptureDestinationAccess(url: fixture.root) },
+            archiveLoader: { _ in snapshot },
             recipeRepository: DevVlogsBuildRepository(),
             mediaBuilder: UnusedMediaBuilder(),
             ownershipRegistry: DevVlogsClipOwnershipRegistry(),
@@ -98,7 +99,8 @@ struct DevVlogsLibrarySafetyTests {
         )
         publishStore.synchronize(days: snapshot.days)
         #expect(!publishStore.presentation.enables(.createVideo))
-        #expect(publishStore.presentation.state.selection?.clips.count == 2)
+        #expect(publishStore.presentation.state.selection?.summary.clipCount == 0)
+        #expect(publishStore.presentation.state.selection?.summary.invalidCount == 2)
     }
 
     @Test func libraryProbeTimeoutAndCancellationAreBoundedAndInvalid() async throws {

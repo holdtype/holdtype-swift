@@ -42,7 +42,7 @@ nonisolated struct DevVlogsPublishSourceSummary: Equatable {
     let invalidCount: Int
 
     var isReady: Bool {
-        clipCount > 0 && invalidCount == 0
+        clipCount > 0
     }
 }
 

@@ -9,21 +9,23 @@ final class DevVlogsPublishStore: ObservableObject {
     @Published private(set) var lastRefreshAt: Date?
     @Published private(set) var isRefreshing = false
     @Published private(set) var refreshFailureMessage: String?
-
     private let destinationAccessProvider: () throws -> DevVlogsCaptureDestinationAccess
     private let archiveLoader: (URL) async throws -> DevVlogsLibrarySnapshot
     private let recipeRepository: DevVlogsBuildRepository
     private let mediaBuilder: any DevVlogsMediaBuilding
     private let ownershipRegistry: DevVlogsClipOwnershipRegistry
+    private let archiveObserver: any DevVlogsArchiveObserving
+    private let observationDebounce: Duration
     private let now: () -> Date
     private let buildIDProvider: () -> UUID
-
     private var days: [DevVlogsLibraryDay] = []
     private var recipe: DevVlogsBuildRecipe?
     private var workspace: DevVlogsBuildWorkspace?
     private var staging: DevVlogsBuildStaging?
     private var buildTask: Task<Void, Never>?
-
+    private var observedRefreshTask: Task<Void, Never>?
+    private var observationAccess: DevVlogsCaptureDestinationAccess?
+    private var isVisible = false
     convenience init(destinationStore: DevVlogsDestinationSetupStore) {
         let repository = DevVlogsLibraryRepository()
         self.init(
@@ -43,6 +45,8 @@ final class DevVlogsPublishStore: ObservableObject {
             recipeRepository: DevVlogsBuildRepository(),
             mediaBuilder: AVFoundationDevVlogsMediaBuilder(),
             ownershipRegistry: .shared,
+            archiveObserver: DevVlogsArchiveObserver(),
+            observationDebounce: .milliseconds(300),
             now: Date.init,
             buildIDProvider: UUID.init
         )
@@ -54,6 +58,8 @@ final class DevVlogsPublishStore: ObservableObject {
         recipeRepository: DevVlogsBuildRepository,
         mediaBuilder: any DevVlogsMediaBuilding,
         ownershipRegistry: DevVlogsClipOwnershipRegistry,
+        archiveObserver: (any DevVlogsArchiveObserving)? = nil,
+        observationDebounce: Duration = .milliseconds(300),
         now: @escaping () -> Date,
         buildIDProvider: @escaping () -> UUID
     ) {
@@ -62,19 +68,32 @@ final class DevVlogsPublishStore: ObservableObject {
         self.recipeRepository = recipeRepository
         self.mediaBuilder = mediaBuilder
         self.ownershipRegistry = ownershipRegistry
+        self.archiveObserver = archiveObserver ?? DevVlogsArchiveObserver()
+        self.observationDebounce = observationDebounce
         self.now = now
         self.buildIDProvider = buildIDProvider
     }
-
     var availableDays: [DevVlogsPublishDay] {
         days.map(presentationDay)
     }
-
     var availableApplications: [DevVlogsPublishApplication] {
         guard let day = selectedLibraryDay else { return [.all] }
         return [.all] + day.appGroups.map(presentationApplication)
     }
-
+    func appear() async {
+        guard !isVisible else { return }
+        isVisible = true
+        await refresh()
+        restartObservation()
+    }
+    func disappear() {
+        isVisible = false
+        observedRefreshTask?.cancel()
+        observedRefreshTask = nil
+        archiveObserver.stopObserving()
+        observationAccess?.release()
+        observationAccess = nil
+    }
     func refresh() async {
         guard !isRefreshing else { return }
         isRefreshing = true
@@ -104,7 +123,6 @@ final class DevVlogsPublishStore: ObservableObject {
             }
         }
     }
-
     func synchronize(days newDays: [DevVlogsLibraryDay]) {
         days = newDays
         guard buildTask == nil else { return }
@@ -122,8 +140,8 @@ final class DevVlogsPublishStore: ObservableObject {
         recipe = nil
         workspace = nil
         updateReadyPresentation()
+        if isVisible { restartObservation() }
     }
-
     func selectDay(id: String) {
         guard buildTask == nil, days.contains(where: { $0.id == id }) else { return }
         selectedDayID = id
@@ -131,8 +149,8 @@ final class DevVlogsPublishStore: ObservableObject {
         recipe = nil
         workspace = nil
         updateReadyPresentation()
+        if isVisible { restartObservation() }
     }
-
     func selectApplication(id: String) {
         guard buildTask == nil,
               availableApplications.contains(where: { $0.id == id }) else { return }
@@ -140,6 +158,7 @@ final class DevVlogsPublishStore: ObservableObject {
         recipe = nil
         workspace = nil
         updateReadyPresentation()
+        if isVisible { restartObservation() }
     }
 
     func openSourceInFinder(using fileActions: any DevVlogsFileActionPerforming) {
@@ -184,9 +203,8 @@ final class DevVlogsPublishStore: ObservableObject {
             guard let day = snapshot.days.first(where: { $0.id == selectedDayID }) else {
                 throw DevVlogsBuildError.sourceMissing
             }
-            let clips = scopedClips(in: day)
+            let clips = validScopedClips(in: day)
             guard !clips.isEmpty else { throw DevVlogsBuildError.sourceMissing }
-            guard clips.allSatisfy(\.isBuildEligible) else { throw DevVlogsBuildError.sourceInvalid }
             let orderedIDs = clips.compactMap(\.clipID)
             guard orderedIDs.count == clips.count, Set(orderedIDs).count == clips.count else {
                 throw DevVlogsBuildError.sourceInvalid
@@ -364,7 +382,7 @@ final class DevVlogsPublishStore: ObservableObject {
             return
         }
         let selection = selection(for: day)
-        if selection.summary.clipCount == 0 {
+        if selection.summary.clipCount == 0, selection.summary.invalidCount == 0 {
             presentation = DevVlogsPublishPresentation(
                 state: .emptyDay(selection), enabledActions: [.openInFinder, .refresh]
             )
@@ -385,16 +403,17 @@ final class DevVlogsPublishStore: ObservableObject {
     }
 
     private func selection(for day: DevVlogsLibraryDay) -> DevVlogsPublishSelection {
-        let clips = scopedClips(in: day)
+        let scopedClips = scopedClips(in: day)
+        let validClips = scopedClips.filter(\.isBuildEligible)
         return DevVlogsPublishSelection(
             day: presentationDay(day),
             application: selectedApplication(in: day),
             applications: [.all] + day.appGroups.map(presentationApplication),
             summary: .init(
-                clipCount: clips.count,
-                duration: clips.reduce(0) { $0 + $1.duration },
-                byteCount: clips.reduce(0) { $0 + $1.byteCount },
-                invalidCount: clips.filter { !$0.isBuildEligible }.count
+                clipCount: validClips.count,
+                duration: validClips.reduce(0) { $0 + $1.duration },
+                byteCount: validClips.reduce(0) { $0 + $1.byteCount },
+                invalidCount: scopedClips.count - validClips.count
             ),
             outputLocation: "Recorded day / Builds"
         )
@@ -403,6 +422,10 @@ final class DevVlogsPublishStore: ObservableObject {
     private func scopedClips(in day: DevVlogsLibraryDay) -> [DevVlogsLibraryClip] {
         guard selectedApplicationID != DevVlogsPublishApplication.all.id else { return day.clips }
         return day.appGroups.first(where: { applicationIdentifier($0) == selectedApplicationID })?.clips ?? []
+    }
+
+    private func validScopedClips(in day: DevVlogsLibraryDay) -> [DevVlogsLibraryClip] {
+        scopedClips(in: day).filter(\.isBuildEligible)
     }
 
     private func selectedApplication(in day: DevVlogsLibraryDay) -> DevVlogsPublishApplication {
@@ -443,6 +466,28 @@ final class DevVlogsPublishStore: ObservableObject {
 
     private func applicationIdentifier(_ group: DevVlogsLibraryAppGroup) -> String {
         "application:\(group.id)"
+    }
+
+    private func restartObservation() {
+        archiveObserver.stopObserving()
+        observationAccess?.release()
+        observationAccess = nil
+        guard isVisible, let access = try? destinationAccessProvider() else { return }
+        observationAccess = access
+        let scopeURL = selectedSourceURL(rootURL: access.url) ?? access.url
+        archiveObserver.startObserving(url: scopeURL) { [weak self] in
+            self?.scheduleObservedRefresh()
+        }
+    }
+
+    private func scheduleObservedRefresh() {
+        guard isVisible else { return }
+        observedRefreshTask?.cancel()
+        observedRefreshTask = Task { @MainActor [weak self, observationDebounce] in
+            do { try await Task.sleep(for: observationDebounce) } catch { return }
+            guard let self, self.isVisible else { return }
+            await self.refresh()
+        }
     }
 
     private var selectedLibraryDay: DevVlogsLibraryDay? {

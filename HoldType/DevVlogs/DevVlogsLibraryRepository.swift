@@ -453,6 +453,10 @@ actor DevVlogsLibraryRepository {
         if let left = lhs.createdAt, let right = rhs.createdAt, left != right { return left < right }
         if lhs.createdAt != nil, rhs.createdAt == nil { return true }
         if lhs.createdAt == nil, rhs.createdAt != nil { return false }
+        if let leftID = lhs.clipID?.uuidString.lowercased(),
+           let rightID = rhs.clipID?.uuidString.lowercased(), leftID != rightID {
+            return leftID < rightID
+        }
         return lhs.id < rhs.id
     }
 

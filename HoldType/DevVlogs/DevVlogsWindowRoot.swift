@@ -91,12 +91,17 @@ struct DevVlogsWindowRoot: View {
                     onSelectDay: publishStore.selectDay(id:),
                     onSelectApplication: publishStore.selectApplication(id:)
                 )
+                .task {
+                    await publishStore.appear()
+                }
+                .onDisappear {
+                    publishStore.disappear()
+                }
             }
         }
         .frame(minWidth: 760, minHeight: 520)
-        .task {
+        .onAppear {
             refreshReadinessInputs()
-            await publishStore.refresh()
         }
         .onReceive(cameraSetupStore.cameraDeviceChangePublisher()) { _ in
             refreshReadinessInputs()

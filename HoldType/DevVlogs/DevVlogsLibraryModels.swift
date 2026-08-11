@@ -79,6 +79,11 @@ nonisolated struct DevVlogsLibraryDay: Identifiable, Equatable {
         case (.none, .some):
             return false
         default:
+            if let leftID = lhs.clipID?.uuidString.lowercased(),
+               let rightID = rhs.clipID?.uuidString.lowercased(),
+               leftID != rightID {
+                return leftID < rightID
+            }
             return lhs.id < rhs.id
         }
     }

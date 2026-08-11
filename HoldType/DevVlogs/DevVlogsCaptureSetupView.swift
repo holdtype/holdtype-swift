@@ -4,6 +4,17 @@ struct DevVlogsCaptureSetupView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var settingsStore: DevVlogsSettingsStore
     @ObservedObject var cameraSetupStore: DevVlogsCameraSetupStore
+    @StateObject private var previewStore: DevVlogsCameraPreviewStore
+
+    init(
+        settingsStore: DevVlogsSettingsStore,
+        cameraSetupStore: DevVlogsCameraSetupStore,
+        previewStore: DevVlogsCameraPreviewStore? = nil
+    ) {
+        self.settingsStore = settingsStore
+        self.cameraSetupStore = cameraSetupStore
+        _previewStore = StateObject(wrappedValue: previewStore ?? DevVlogsCameraPreviewStore())
+    }
 
     var body: some View {
         Form {
@@ -16,6 +27,7 @@ struct DevVlogsCaptureSetupView: View {
 
             permissionSection
             cameraSection
+            previewSection
         }
         .formStyle(.grouped)
         .contentMargins(.horizontal, 0, for: .scrollContent)
@@ -31,10 +43,18 @@ struct DevVlogsCaptureSetupView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .active else {
+                Task { await previewStore.stopPreview() }
                 return
             }
 
             cameraSetupStore.refreshAfterApplicationActivation()
+        }
+        .onChange(of: settingsStore.isEnabled) { _, _ in reconcilePreview() }
+        .onChange(of: settingsStore.preferredCamera?.id) { _, _ in reconcilePreview() }
+        .onChange(of: cameraSetupStore.permissionStatus) { _, _ in reconcilePreview() }
+        .onChange(of: cameraSetupStore.cameras.map(\.id)) { _, _ in reconcilePreview() }
+        .onDisappear {
+            Task { await previewStore.stopPreview() }
         }
     }
 
@@ -111,6 +131,84 @@ struct DevVlogsCaptureSetupView: View {
         }
     }
 
+    private var previewSection: some View {
+        Section {
+            previewSurface
+
+            switch previewStore.state {
+            case .idle:
+                Button("Start Preview") {
+                    Task {
+                        await previewStore.startPreview(
+                            isEnabled: settingsStore.isEnabled,
+                            permissionStatus: cameraSetupStore.permissionStatus,
+                            preferredCamera: settingsStore.preferredCamera,
+                            availableCameras: cameraSetupStore.cameras
+                        )
+                    }
+                }
+                .disabled(!canStartPreview)
+            case .starting:
+                Button("Stop Preview") {
+                    Task { await previewStore.stopPreview() }
+                }
+            case .previewing:
+                Button("Stop Preview") {
+                    Task { await previewStore.stopPreview() }
+                }
+            case .failed(let message):
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Start Preview") {
+                    Task {
+                        await previewStore.startPreview(
+                            isEnabled: settingsStore.isEnabled,
+                            permissionStatus: cameraSetupStore.permissionStatus,
+                            preferredCamera: settingsStore.preferredCamera,
+                            availableCameras: cameraSetupStore.cameras
+                        )
+                    }
+                }
+                .disabled(!canStartPreview)
+            }
+        } header: {
+            Text("Preview")
+        } footer: {
+            Text("Preview starts only when you ask, is mirrored for framing, and never records video or opens a microphone.")
+        }
+    }
+
+    @ViewBuilder
+    private var previewSurface: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(.black)
+
+            if let frame = previewStore.frame {
+                Image(decorative: frame, scale: 1)
+                    .resizable()
+                    .scaledToFill()
+                    .scaleEffect(x: -1, y: 1)
+            } else if previewStore.state == .starting {
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text("Starting preferred camera…")
+                        .font(.footnote)
+                        .foregroundStyle(.white.opacity(0.8))
+                }
+            } else {
+                Label("Preview is off", systemImage: "video.slash")
+                    .foregroundStyle(.white.opacity(0.75))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 230)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .accessibilityLabel(previewStore.state == .previewing ? "Live camera preview" : "Camera preview off")
+    }
+
     private var permissionColor: Color {
         switch cameraSetupStore.permissionStatus {
         case .allowed:
@@ -119,6 +217,24 @@ struct DevVlogsCaptureSetupView: View {
             return .orange
         case .unavailable:
             return .secondary
+        }
+    }
+
+    private var canStartPreview: Bool {
+        guard settingsStore.isEnabled,
+              cameraSetupStore.permissionStatus == .allowed,
+              let preferredCamera = settingsStore.preferredCamera else { return false }
+        return cameraSetupStore.cameras.contains { $0.id == preferredCamera.id }
+    }
+
+    private func reconcilePreview() {
+        Task {
+            await previewStore.reconcile(
+                isEnabled: settingsStore.isEnabled,
+                permissionStatus: cameraSetupStore.permissionStatus,
+                preferredCamera: settingsStore.preferredCamera,
+                availableCameras: cameraSetupStore.cameras
+            )
         }
     }
 

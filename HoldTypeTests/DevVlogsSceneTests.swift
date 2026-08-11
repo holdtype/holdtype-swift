@@ -9,7 +9,7 @@ struct DevVlogsSceneTests {
         #expect(HoldTypeWindowTitle.titled("Dev Vlogs") == "HoldType: Dev Vlogs")
     }
 
-    @Test func libraryAndPublishAreTheFinalVisibleDevVlogsSections() throws {
+    @Test func publishIsFinalAndNoLibraryNavigationExists() throws {
         let sourceURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -20,18 +20,17 @@ struct DevVlogsSceneTests {
         let capture = try #require(source.range(of: "sidebarRow(title: \"Capture\""))
         let applications = try #require(source.range(of: "sidebarRow(title: \"Applications\""))
         let storage = try #require(source.range(of: "sidebarRow(title: \"Storage\""))
-        let library = try #require(source.range(of: "sidebarRow(title: \"Library\""))
         let publish = try #require(source.range(of: "sidebarRow(title: \"Publish\""))
 
         #expect(overview.lowerBound < capture.lowerBound)
         #expect(capture.lowerBound < applications.lowerBound)
         #expect(applications.lowerBound < storage.lowerBound)
-        #expect(storage.lowerBound < library.lowerBound)
-        #expect(library.lowerBound < publish.lowerBound)
-        #expect(source.contains("case .library:"))
-        #expect(source.contains("DevVlogsLibraryView(store: libraryStore)"))
+        #expect(storage.lowerBound < publish.lowerBound)
+        #expect(!source.contains("sidebarRow(title: \"Library\""))
+        #expect(!source.contains("case .library:"))
         #expect(source.contains("case .publish:"))
         #expect(source.contains("presentation: publishStore.presentation"))
+        #expect(source.contains("await publishStore.appear()"))
     }
 
     @Test func windowRootOwnsOnlyPassiveReadinessRefreshes() throws {

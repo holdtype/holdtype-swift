@@ -3,22 +3,22 @@ import Testing
 @testable import HoldType
 
 struct DevVlogsPublishPresentationTests {
-    @Test func releasePresentationIsTruthfulAndActionless() {
+    @Test func releasePresentationIsTruthfulAndOffersOnlyRefresh() {
         let presentation = DevVlogsPublishPresentation.releaseEmpty
 
         #expect(presentation.state == .noRecordings)
-        #expect(presentation.state.visibleSections == [.sourceDay, .clips, .output])
-        #expect(presentation.enabledActions.isEmpty)
+        #expect(presentation.state.visibleSections == [.source])
+        #expect(presentation.enabledActions == [.refresh])
     }
 
     @Test func emptyDayShowsPreparationHierarchyWithoutActions() {
         let presentation = DevVlogsPublishPresentation(
-            state: .emptyDay(day),
+            state: .emptyDay(selection),
             enabledActions: Set(DevVlogsPublishAction.allTestActions)
         )
 
-        #expect(presentation.state.visibleSections == [.sourceDay, .clips, .output])
-        #expect(presentation.enabledActions.isEmpty)
+        #expect(presentation.state.visibleSections == [.source])
+        #expect(presentation.enabledActions == [.openInFinder, .refresh])
     }
 
     @Test func readySelectionEnablesOnlyCreateVideo() {
@@ -27,8 +27,8 @@ struct DevVlogsPublishPresentationTests {
             enabledActions: Set(DevVlogsPublishAction.allTestActions)
         )
 
-        #expect(presentation.enabledActions == [.createVideo])
-        #expect(presentation.state.visibleSections == [.sourceDay, .clips, .output])
+        #expect(presentation.enabledActions == [.openInFinder, .refresh, .createVideo])
+        #expect(presentation.state.visibleSections == [.source])
     }
 
     @Test func unavailableSelectionRejectsEveryAction() {
@@ -37,8 +37,8 @@ struct DevVlogsPublishPresentationTests {
             enabledActions: Set(DevVlogsPublishAction.allTestActions)
         )
 
-        #expect(presentation.enabledActions.isEmpty)
-        #expect(presentation.state.visibleSections == [.sourceDay, .clips, .output])
+        #expect(presentation.enabledActions == [.openInFinder, .refresh])
+        #expect(presentation.state.visibleSections == [.source])
     }
 
     @Test func buildingShowsProgressAndEnablesOnlyCancel() {
@@ -51,7 +51,7 @@ struct DevVlogsPublishPresentationTests {
         )
 
         #expect(presentation.enabledActions == [.cancel])
-        #expect(presentation.state.visibleSections == [.sourceDay, .clips, .output, .buildProgress])
+        #expect(presentation.state.visibleSections == [.source, .buildProgress])
 
         guard case .building(_, let progress) = presentation.state else {
             Issue.record("Expected building presentation")
@@ -74,8 +74,8 @@ struct DevVlogsPublishPresentationTests {
             enabledActions: Set(DevVlogsPublishAction.allTestActions)
         )
 
-        #expect(presentation.enabledActions == [.retry])
-        #expect(presentation.state.visibleSections == [.sourceDay, .clips, .output, .result])
+        #expect(presentation.enabledActions == [.openInFinder, .refresh, .retry])
+        #expect(presentation.state.visibleSections == [.source, .result])
     }
 
     @Test func completedArtifactEnablesOnlyLocalResultActions() {
@@ -93,8 +93,8 @@ struct DevVlogsPublishPresentationTests {
             enabledActions: Set(DevVlogsPublishAction.allTestActions)
         )
 
-        #expect(presentation.enabledActions == [.play, .reveal, .share])
-        #expect(presentation.state.visibleSections == [.sourceDay, .clips, .output, .result])
+        #expect(presentation.enabledActions == [.openInFinder, .refresh, .play, .reveal, .share])
+        #expect(presentation.state.visibleSections == [.source, .result])
     }
 
     private let day = DevVlogsPublishDay(
@@ -106,24 +106,17 @@ struct DevVlogsPublishPresentationTests {
     private var selection: DevVlogsPublishSelection {
         DevVlogsPublishSelection(
             day: day,
-            clips: [
-                DevVlogsPublishClip(
-                    id: "clip-1",
-                    clipID: UUID(),
-                    title: "10:14 · Codex",
-                    detail: "32s · Ready",
-                    isSelected: true,
-                    health: .ready
-                ),
-                DevVlogsPublishClip(
-                    id: "clip-2",
-                    clipID: UUID(),
-                    title: "11:02 · Xcode",
-                    detail: "41s · Ready",
-                    isSelected: true,
-                    health: .ready
-                )
+            application: .all,
+            applications: [
+                .all,
+                DevVlogsPublishApplication(id: "application:codex", title: "Codex", detail: "2 clips")
             ],
+            summary: DevVlogsPublishSourceSummary(
+                clipCount: 2,
+                duration: 73,
+                byteCount: 1_024,
+                invalidCount: 0
+            ),
             outputLocation: "Movies"
         )
     }
@@ -131,6 +124,8 @@ struct DevVlogsPublishPresentationTests {
 
 private extension DevVlogsPublishAction {
     static let allTestActions: [DevVlogsPublishAction] = [
+        .openInFinder,
+        .refresh,
         .createVideo,
         .retry,
         .cancel,

@@ -4,7 +4,7 @@ import Testing
 
 @MainActor
 struct DevVlogsPublishStoreTests {
-    @Test func defaultsToReadyNonexcludedClipsAndAllowsSelectionAndReorder() throws {
+    @Test func selectedScopeSummaryCountsEveryValidRemainingClipWithoutEditorState() throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
         let first = UUID()
@@ -23,24 +23,16 @@ struct DevVlogsPublishStoreTests {
 
         store.synchronize(days: [day])
 
-        var selection = try #require(store.presentation.state.selection)
-        #expect(selection.clips.map(\.id) == [first, second, missing, excluded].map(idString))
-        #expect(selection.clips.filter(\.isSelected).map(\.id) == [first, second].map(idString))
-        #expect(store.presentation.enables(.createVideo))
-
-        store.setIncluded(true, clipID: excluded)
-        store.move(clipID: excluded, direction: -1)
-        store.setIncluded(true, clipID: missing)
-        #expect(!store.presentation.enables(.createVideo))
-
-        store.setIncluded(false, clipID: missing)
-        selection = try #require(store.presentation.state.selection)
-        #expect(selection.clips.map(\.id) == [first, second, excluded, missing].map(idString))
-        #expect(selection.clips.filter(\.isSelected).map(\.id) == [first, second, excluded].map(idString))
+        let selection = try #require(store.presentation.state.selection)
+        #expect(selection.summary.clipCount == 3)
+        #expect(selection.summary.duration == 3)
+        #expect(selection.summary.byteCount == 30)
+        #expect(selection.summary.invalidCount == 1)
+        #expect(selection.applications.map(\.title) == ["All Applications", "Codex"])
         #expect(store.presentation.enables(.createVideo))
     }
 
-    @Test func reconstructedLibraryRowsExposeCanonicalIncludeAndReorderActions() async throws {
+    @Test func actionTimeReconstructionBuildsEveryValidClipInTimestampOrder() async throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
         let first = UUID()
@@ -60,27 +52,39 @@ struct DevVlogsPublishStoreTests {
             bundleIdentifier: "app.openai.codex"
         )
         let snapshot = try await DevVlogsLibraryRepository().load(rootURL: fixture.root)
-        let store = fixture.store(builder: FakeMediaBuilder())
+        let initialClip = try #require(snapshot.days.first?.clips.first)
+        let initialDay = fixture.day(clips: [initialClip])
+        let invalid = fixture.clip(id: UUID(), offset: 30, health: .missing)
+        let actionTimeDay = fixture.day(clips: snapshot.days[0].clips + [invalid])
+        fixture.setActionTimeDays([actionTimeDay])
+        let builder = FakeMediaBuilder()
+        let store = fixture.store(builder: builder)
 
-        store.synchronize(days: snapshot.days)
+        store.synchronize(days: [initialDay])
+        #expect(store.presentation.state.selection?.summary.clipCount == 1)
+        store.createVideo()
+        try await waitUntil { store.presentation.enables(.share) }
 
-        var rows = try #require(store.presentation.state.selection).clips
-        #expect(rows.map(\.id).allSatisfy { $0.hasPrefix("clip:") })
-        #expect(rows.map(\.clipID) == [first, second].map(Optional.some))
-        #expect(rows.allSatisfy { $0.isActionable })
+        #expect(builder.builtSourceIDs == [[first, second]])
+    }
 
-        let secondActionID = try #require(rows[1].clipID)
-        store.setIncluded(false, clipID: secondActionID)
-        rows = try #require(store.presentation.state.selection).clips
-        #expect(rows.first { $0.clipID == second }?.isSelected == false)
+    @Test func equalTimestampsUseStableClipIDBeforeDisplayPath() throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let lowerID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+        let higherID = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let lower = fixture.clip(id: lowerID, offset: 10, displayedID: "z-path")
+        let higher = fixture.clip(id: higherID, offset: 10, displayedID: "a-path")
+        let day = DevVlogsLibraryDay(
+            id: "2025-08-11",
+            date: fixture.date,
+            appGroups: [
+                .init(id: "a-app", displayName: "A", bundleIdentifier: "a", clips: [higher]),
+                .init(id: "z-app", displayName: "Z", bundleIdentifier: "z", clips: [lower])
+            ]
+        )
 
-        store.move(clipID: secondActionID, direction: -1)
-        rows = try #require(store.presentation.state.selection).clips
-        #expect(rows.map(\.clipID) == [second, first].map(Optional.some))
-
-        store.move(clipID: secondActionID, direction: 1)
-        rows = try #require(store.presentation.state.selection).clips
-        #expect(rows.map(\.clipID) == [first, second].map(Optional.some))
+        #expect(day.clips.compactMap(\.clipID) == [lowerID, higherID])
     }
 
     @Test func persistsRecipeBeforeRenderAndRetriesTheSameIdentity() async throws {
@@ -162,6 +166,70 @@ struct DevVlogsPublishStoreTests {
         #expect(store.presentation.enables(.share) == false)
     }
 
+    @Test func visibleSelectedScopeCoalescesChangesAndRefreshMatchesExplicitFallback() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let firstDay = fixture.day(clips: [fixture.clip(id: UUID(), offset: 10)])
+        var loadedDays = [firstDay]
+        var loadCount = 0
+        let observer = ArchiveObserverFake()
+        let store = DevVlogsPublishStore(
+            destinationAccessProvider: { DevVlogsCaptureDestinationAccess(url: fixture.root) },
+            archiveLoader: { _ in
+                loadCount += 1
+                return DevVlogsLibrarySnapshot(days: loadedDays)
+            },
+            recipeRepository: DevVlogsBuildRepository(),
+            mediaBuilder: FakeMediaBuilder(),
+            ownershipRegistry: DevVlogsClipOwnershipRegistry(),
+            archiveObserver: observer,
+            observationDebounce: .milliseconds(20),
+            now: { fixture.date },
+            buildIDProvider: UUID.init
+        )
+
+        await store.appear()
+        #expect(loadCount == 1)
+        let dayURL = fixture.root.appendingPathComponent("2025/2025-08-11", isDirectory: true)
+        #expect(observer.observedURL == dayURL)
+
+        let application = try #require(store.availableApplications.dropFirst().first)
+        store.selectApplication(id: application.id)
+        let appURL = dayURL.appendingPathComponent("apps", isDirectory: true)
+            .appendingPathComponent(
+                DevVlogsArchiveNaming.appFolder(
+                    displayName: "Codex",
+                    bundleIdentifier: "app.openai.codex"
+                ),
+                isDirectory: true
+            )
+        #expect(observer.observedURL == appURL)
+
+        loadedDays = [fixture.day(clips: [
+            fixture.clip(id: UUID(), offset: 10),
+            fixture.clip(id: UUID(), offset: 20)
+        ])]
+        observer.sendChange()
+        observer.sendChange()
+        try await waitUntil { loadCount == 2 }
+        try await Task.sleep(for: .milliseconds(60))
+        #expect(loadCount == 2)
+        #expect(store.presentation.state.selection?.summary.clipCount == 2)
+
+        await store.refresh()
+        #expect(loadCount == 3)
+        #expect(store.presentation.state.selection?.summary.clipCount == 2)
+
+        let actions = FileActionsFake()
+        store.openSourceInFinder(using: actions)
+        #expect(actions.openedURLs == [appURL])
+
+        store.disappear()
+        observer.sendChange()
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(loadCount == 3)
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(2),
         condition: @escaping @MainActor () -> Bool
@@ -182,6 +250,7 @@ struct DevVlogsPublishStoreTests {
     private final class Fixture {
         let root: URL
         let date = Date(timeIntervalSince1970: 1_754_870_400)
+        private var actionTimeDays: [DevVlogsLibraryDay] = []
 
         init() throws {
             root = FileManager.default.temporaryDirectory
@@ -196,6 +265,7 @@ struct DevVlogsPublishStoreTests {
         ) -> DevVlogsPublishStore {
             DevVlogsPublishStore(
                 destinationAccessProvider: { DevVlogsCaptureDestinationAccess(url: self.root) },
+                archiveLoader: { _ in DevVlogsLibrarySnapshot(days: self.actionTimeDays) },
                 recipeRepository: DevVlogsBuildRepository(),
                 mediaBuilder: builder,
                 ownershipRegistry: registry ?? DevVlogsClipOwnershipRegistry(),
@@ -204,26 +274,36 @@ struct DevVlogsPublishStoreTests {
             )
         }
 
+        func setActionTimeDays(_ days: [DevVlogsLibraryDay]) {
+            actionTimeDays = days
+        }
+
         func day(clips: [DevVlogsLibraryClip]) -> DevVlogsLibraryDay {
-            DevVlogsLibraryDay(
+            let day = DevVlogsLibraryDay(
                 id: DevVlogsArchiveNaming.dayKey(for: date),
                 date: date,
                 appGroups: [
                     DevVlogsLibraryAppGroup(
-                        id: "app.openai.codex",
+                        id: DevVlogsArchiveNaming.appFolder(
+                            displayName: "Codex",
+                            bundleIdentifier: "app.openai.codex"
+                        ),
                         displayName: "Codex",
                         bundleIdentifier: "app.openai.codex",
                         clips: clips
                     )
                 ]
             )
+            actionTimeDays = [day]
+            return day
         }
 
         func clip(
             id: UUID,
             offset: TimeInterval,
             health: DevVlogsLibraryHealth = .ready,
-            isExcluded: Bool = false
+            isExcluded: Bool = false,
+            displayedID: String? = nil
         ) -> DevVlogsLibraryClip {
             let relativeDirectory = relativeDirectory(for: id, offset: offset)
             let directoryURL = root.appendingPathComponent(relativeDirectory, isDirectory: true)
@@ -244,7 +324,7 @@ struct DevVlogsPublishStoreTests {
                 )
                 : nil
             return DevVlogsLibraryClip(
-                id: idString(id),
+                id: displayedID ?? idString(id),
                 clipID: id,
                 createdAt: date.addingTimeInterval(offset),
                 triggerBundleIdentifier: "app.openai.codex",
@@ -316,6 +396,7 @@ private final class FakeMediaBuilder: DevVlogsMediaBuilding {
 
     private(set) var calls = 0
     private(set) var recipeExistedForEveryBuild = true
+    private(set) var builtSourceIDs: [[UUID]] = []
     private var outcomes: [Outcome]
 
     init(outcomes: [Outcome] = [.success]) {
@@ -329,6 +410,7 @@ private final class FakeMediaBuilder: DevVlogsMediaBuilding {
         progress: @escaping @MainActor (Double) -> Void
     ) async throws -> DevVlogsBuildOutput {
         calls += 1
+        builtSourceIDs.append(sources.map(\.clipID))
         let buildsURL = sources.first?.resourceIdentity.rootURL
             .appendingPathComponent("2025/2025-08-11/builds", isDirectory: true)
         let recipeExists = buildsURL.flatMap {
@@ -366,4 +448,35 @@ private final class FakeMediaBuilder: DevVlogsMediaBuilding {
 
 private func idString(_ id: UUID) -> String {
     id.uuidString.lowercased()
+}
+
+@MainActor
+private final class ArchiveObserverFake: DevVlogsArchiveObserving {
+    private(set) var observedURL: URL?
+    private var onChange: (@MainActor () -> Void)?
+
+    func startObserving(url: URL, onChange: @escaping @MainActor () -> Void) {
+        observedURL = url
+        self.onChange = onChange
+    }
+
+    func stopObserving() {
+        observedURL = nil
+        onChange = nil
+    }
+
+    func sendChange() {
+        onChange?()
+    }
+}
+
+@MainActor
+private final class FileActionsFake: DevVlogsFileActionPerforming {
+    private(set) var openedURLs: [URL] = []
+
+    func open(_ url: URL) {
+        openedURLs.append(url)
+    }
+
+    func reveal(_ url: URL) {}
 }
