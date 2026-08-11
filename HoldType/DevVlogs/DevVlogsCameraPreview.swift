@@ -43,28 +43,35 @@ enum DevVlogsCameraPreviewState: Equatable {
 @MainActor
 protocol DevVlogsCameraPreviewing: AnyObject {
     func start(
+        sessionID: UUID,
         cameraID: String,
         onFrame: @escaping @MainActor (CGImage) -> Void,
         onFailure: @escaping @MainActor (DevVlogsCameraPreviewError) -> Void
     ) async throws
-    func stop() async
+    func stop(sessionID: UUID) async
 }
 
 @MainActor
 final class AVFoundationDevVlogsCameraPreviewService: DevVlogsCameraPreviewing {
+    private struct OwnedGraph {
+        let sessionID: UUID
+        let graph: DevVlogsCameraPreviewGraph
+    }
+
     private let maximumStartWait: Duration
-    private var graph: DevVlogsCameraPreviewGraph?
+    private var ownedGraph: OwnedGraph?
 
     init(maximumStartWait: Duration = .seconds(15)) {
         self.maximumStartWait = maximumStartWait
     }
 
     func start(
+        sessionID: UUID,
         cameraID: String,
         onFrame: @escaping @MainActor (CGImage) -> Void,
         onFailure: @escaping @MainActor (DevVlogsCameraPreviewError) -> Void
     ) async throws {
-        guard graph == nil else { throw DevVlogsCameraPreviewError.startFailed }
+        guard ownedGraph == nil else { throw DevVlogsCameraPreviewError.startFailed }
         guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
             throw DevVlogsCameraPreviewError.notAuthorized
         }
@@ -82,20 +89,23 @@ final class AVFoundationDevVlogsCameraPreviewService: DevVlogsCameraPreviewing {
         }
 
         let graph = DevVlogsCameraPreviewGraph(device: device, maximumStartWait: maximumStartWait)
-        self.graph = graph
+        ownedGraph = OwnedGraph(sessionID: sessionID, graph: graph)
         do {
             try await graph.start(onFrame: onFrame, onFailure: onFailure)
         } catch {
-            self.graph = nil
-            await graph.stop()
+            await releaseGraph(ifOwnedBy: sessionID)
             throw error
         }
     }
 
-    func stop() async {
-        let graph = graph
-        self.graph = nil
-        await graph?.stop()
+    func stop(sessionID: UUID) async {
+        await releaseGraph(ifOwnedBy: sessionID)
+    }
+
+    private func releaseGraph(ifOwnedBy sessionID: UUID) async {
+        guard let ownedGraph, ownedGraph.sessionID == sessionID else { return }
+        self.ownedGraph = nil
+        await ownedGraph.graph.stop()
     }
 }
 
@@ -106,6 +116,7 @@ final class DevVlogsCameraPreviewStore: ObservableObject {
 
     private let client: any DevVlogsCameraPreviewing
     private var generation = 0
+    private var currentSessionID: UUID?
 
     convenience init() {
         self.init(client: AVFoundationDevVlogsCameraPreviewService())
@@ -138,30 +149,41 @@ final class DevVlogsCameraPreviewStore: ObservableObject {
 
         generation += 1
         let requestGeneration = generation
+        let sessionID = UUID()
+        currentSessionID = sessionID
         frame = nil
         state = .starting
         do {
             try await client.start(
+                sessionID: sessionID,
                 cameraID: preferredCamera.id,
                 onFrame: { [weak self] image in
-                    guard let self, self.generation == requestGeneration, self.state.isActive else { return }
+                    guard let self,
+                          self.generation == requestGeneration,
+                          self.currentSessionID == sessionID,
+                          self.state.isActive else { return }
                     self.frame = image
                 },
                 onFailure: { [weak self] error in
-                    self?.receiveFailure(error, generation: requestGeneration)
+                    self?.receiveFailure(
+                        error,
+                        generation: requestGeneration,
+                        sessionID: sessionID
+                    )
                 }
             )
-            guard generation == requestGeneration, state == .starting else {
-                await client.stop()
-                return
-            }
+            guard generation == requestGeneration,
+                  currentSessionID == sessionID,
+                  state == .starting else { return }
             state = .previewing
         } catch is CancellationError {
-            guard generation == requestGeneration else { return }
+            guard generation == requestGeneration, currentSessionID == sessionID else { return }
+            currentSessionID = nil
             state = .idle
             frame = nil
         } catch {
-            guard generation == requestGeneration else { return }
+            guard generation == requestGeneration, currentSessionID == sessionID else { return }
+            currentSessionID = nil
             state = .failed((error as? LocalizedError)?.errorDescription ?? "Camera preview failed.")
             frame = nil
         }
@@ -169,9 +191,13 @@ final class DevVlogsCameraPreviewStore: ObservableObject {
 
     func stopPreview() async {
         generation += 1
+        let sessionID = currentSessionID
+        currentSessionID = nil
         state = .idle
         frame = nil
-        await client.stop()
+        if let sessionID {
+            await client.stop(sessionID: sessionID)
+        }
     }
 
     func reconcile(
@@ -193,13 +219,18 @@ final class DevVlogsCameraPreviewStore: ObservableObject {
         }
     }
 
-    private func receiveFailure(_ error: DevVlogsCameraPreviewError, generation: Int) {
-        guard self.generation == generation else { return }
+    private func receiveFailure(
+        _ error: DevVlogsCameraPreviewError,
+        generation: Int,
+        sessionID: UUID
+    ) {
+        guard self.generation == generation, currentSessionID == sessionID else { return }
         self.generation += 1
+        currentSessionID = nil
         frame = nil
         state = .failed(error.localizedDescription)
         Task { @MainActor [client] in
-            await client.stop()
+            await client.stop(sessionID: sessionID)
         }
     }
 }
