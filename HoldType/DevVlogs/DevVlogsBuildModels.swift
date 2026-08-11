@@ -45,6 +45,10 @@ nonisolated struct DevVlogsBuildWorkspace: Equatable {
 }
 
 nonisolated final class DevVlogsBuildStaging: @unchecked Sendable {
+    let ownerDirectoryURL: URL
+    let ownerDirectoryIdentity: DevVlogsFileIdentity
+    let ownerDirectoryHandle: FileHandle
+    let directoryName: String
     let directoryURL: URL
     let outputURL: URL
     let directoryIdentity: DevVlogsFileIdentity
@@ -52,11 +56,19 @@ nonisolated final class DevVlogsBuildStaging: @unchecked Sendable {
     var outputIdentity: DevVlogsFileIdentity?
 
     init(
+        ownerDirectoryURL: URL,
+        ownerDirectoryIdentity: DevVlogsFileIdentity,
+        ownerDirectoryHandle: FileHandle,
+        directoryName: String,
         directoryURL: URL,
         outputURL: URL,
         directoryIdentity: DevVlogsFileIdentity,
         directoryHandle: FileHandle
     ) {
+        self.ownerDirectoryURL = ownerDirectoryURL
+        self.ownerDirectoryIdentity = ownerDirectoryIdentity
+        self.ownerDirectoryHandle = ownerDirectoryHandle
+        self.directoryName = directoryName
         self.directoryURL = directoryURL
         self.outputURL = outputURL
         self.directoryIdentity = directoryIdentity
@@ -66,6 +78,10 @@ nonisolated final class DevVlogsBuildStaging: @unchecked Sendable {
 
     var directoryDescriptor: Int32 {
         directoryHandle.fileDescriptor
+    }
+
+    var ownerDirectoryDescriptor: Int32 {
+        ownerDirectoryHandle.fileDescriptor
     }
 }
 

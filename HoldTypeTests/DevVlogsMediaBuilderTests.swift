@@ -134,6 +134,52 @@ struct DevVlogsMediaBuilderTests {
         #expect(try Data(contentsOf: source.fileURL) == Data("replacement".utf8))
     }
 
+    @Test func allSourcesRevalidateTogetherAfterEverySignatureProbe() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let firstID = UUID()
+        let secondID = UUID()
+        let firstURL = try await fixture.clip(id: firstID, date: fixture.date)
+        let secondURL = try await fixture.clip(
+            id: secondID,
+            date: fixture.date.addingTimeInterval(2)
+        )
+        let first = try await fixture.source(id: firstID, url: firstURL)
+        let second = try await fixture.source(id: secondID, url: secondURL)
+        let sibling = fixture.root.appendingPathComponent("collective-sibling.txt")
+        let output = fixture.root.appendingPathComponent("collective-output.mov")
+        try Data("keep".utf8).write(to: sibling)
+        let gate = MediaBuilderSuspensionGate()
+        var signatureCount = 0
+        let builder = AVFoundationDevVlogsMediaBuilder(
+            maximumProbeWait: .seconds(10),
+            sourceProbeBarrier: {},
+            signatureProbeBarrier: {
+                signatureCount += 1
+                if signatureCount == 2 { await gate.suspend() }
+            },
+            outputProbeBarrier: {}
+        )
+        let task = Task {
+            try await builder.build(
+                sources: [first, second],
+                outputURL: output,
+                outputPrepared: { _ in },
+                progress: { _ in }
+            )
+        }
+        try await waitUntil { gate.isSuspended }
+        try FileManager.default.removeItem(at: first.fileURL)
+        try Data("replacement".utf8).write(to: first.fileURL)
+        gate.resume()
+
+        await #expect(throws: DevVlogsBuildError.sourceInvalid) { _ = try await task.value }
+        #expect(!FileManager.default.fileExists(atPath: output.path))
+        #expect(try Data(contentsOf: first.fileURL) == Data("replacement".utf8))
+        #expect(FileManager.default.fileExists(atPath: second.fileURL.path))
+        #expect(try Data(contentsOf: sibling) == Data("keep".utf8))
+    }
+
     private func color(in asset: AVAsset, at seconds: TimeInterval) async throws -> NSColor {
         let generator = AVAssetImageGenerator(asset: asset)
         generator.requestedTimeToleranceBefore = .zero
@@ -142,6 +188,18 @@ struct DevVlogsMediaBuilderTests {
         let bitmap = NSBitmapImageRep(cgImage: image)
         let color = try #require(bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2))
         return try #require(color.usingColorSpace(.deviceRGB))
+    }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        condition: @escaping @MainActor () -> Bool
+    ) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        _ = try #require(condition())
     }
 
     private final class Fixture {
@@ -186,5 +244,22 @@ struct DevVlogsMediaBuilderTests {
         func remove() {
             try? FileManager.default.removeItem(at: root)
         }
+    }
+}
+
+@MainActor
+private final class MediaBuilderSuspensionGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private(set) var isSuspended = false
+
+    func suspend() async {
+        isSuspended = true
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func resume() {
+        isSuspended = false
+        continuation?.resume()
+        continuation = nil
     }
 }

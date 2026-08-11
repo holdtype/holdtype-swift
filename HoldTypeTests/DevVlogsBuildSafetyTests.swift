@@ -159,6 +159,72 @@ struct DevVlogsBuildSafetyTests {
         #expect(!FileManager.default.fileExists(atPath: staging.directoryURL.path))
     }
 
+    @Test func stagingSharesDestinationFilesystemAndAvoidsCrossDevicePromotion() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DevVlogsBuildFilesystem-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let date = Date(timeIntervalSince1970: 1_754_870_400)
+        let day = DevVlogsLibraryDay(id: "2025-08-11", date: date, appGroups: [])
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("2025/2025-08-11", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        let repository = DevVlogsBuildRepository()
+        let created = try await repository.createRecipe(
+            rootURL: root,
+            day: day,
+            orderedClipIDs: [UUID()],
+            buildID: UUID(),
+            createdAt: date
+        )
+        let staging = try await repository.prepareForBuild(workspace: created.workspace)
+        let workspaceIdentity = try #require(DevVlogsFileIdentity.capture(
+            at: created.workspace.directoryURL,
+            kind: .directory
+        ))
+
+        #expect(staging.directoryURL.deletingLastPathComponent() == created.workspace.directoryURL.deletingLastPathComponent())
+        #expect(staging.directoryIdentity.device == workspaceIdentity.device)
+        #expect(staging.ownerDirectoryIdentity.device == workspaceIdentity.device)
+
+        let simulatedCrossDeviceIdentity = DevVlogsFileIdentity(
+            device: workspaceIdentity.device &+ 1,
+            inode: staging.directoryIdentity.inode,
+            linkCount: staging.directoryIdentity.linkCount,
+            size: staging.directoryIdentity.size,
+            mode: staging.directoryIdentity.mode,
+            modificationSeconds: staging.directoryIdentity.modificationSeconds,
+            modificationNanoseconds: staging.directoryIdentity.modificationNanoseconds,
+            statusChangeSeconds: staging.directoryIdentity.statusChangeSeconds,
+            statusChangeNanoseconds: staging.directoryIdentity.statusChangeNanoseconds,
+            kind: staging.directoryIdentity.kind
+        )
+        #expect(!DevVlogsBuildRepository.stagingDeviceMatchesDestination(
+            stagingIdentity: simulatedCrossDeviceIdentity,
+            workspaceIdentity: workspaceIdentity
+        ))
+        #expect(DevVlogsBuildRepository.stagingDeviceMatchesDestination(
+            stagingIdentity: staging.directoryIdentity,
+            workspaceIdentity: workspaceIdentity
+        ))
+
+        try Data("same-device".utf8).write(to: staging.outputURL)
+        let stagedIdentity = try #require(DevVlogsFileIdentity.capture(
+            at: staging.outputURL,
+            kind: .regularFile,
+            requireSingleLink: true
+        ))
+        try await repository.registerStagedOutput(
+            workspace: created.workspace,
+            staging: staging,
+            expectedIdentity: stagedIdentity
+        )
+        try await repository.promoteOutput(workspace: created.workspace, staging: staging)
+
+        #expect(try Data(contentsOf: created.workspace.finalOutputURL) == Data("same-device".utf8))
+        #expect(!FileManager.default.fileExists(atPath: staging.directoryURL.path))
+    }
+
     @Test func buildsParentSymlinkAndTemporaryReplacementPreserveSentinels() async throws {
         let fixture = try await Fixture()
         defer { fixture.remove() }

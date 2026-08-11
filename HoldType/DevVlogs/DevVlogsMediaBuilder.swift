@@ -76,6 +76,12 @@ final class AVFoundationDevVlogsMediaBuilder: DevVlogsMediaBuilding {
         guard loaded.dropFirst().allSatisfy({ compatible($0.signature, loaded[0].signature) }) else {
             throw DevVlogsBuildError.incompatibleSources
         }
+        guard loaded.allSatisfy({ item in
+            item.source.resourceIdentity.validateSourceAndMetadata()
+                && item.source.resourceIdentity.mediaURL == item.source.fileURL
+        }) else {
+            throw DevVlogsBuildError.sourceInvalid
+        }
 
         let composition = AVMutableComposition()
         guard let compositionVideo = composition.addMutableTrack(

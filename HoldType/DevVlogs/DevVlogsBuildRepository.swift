@@ -9,6 +9,13 @@ actor DevVlogsBuildRepository {
         self.fileManager = fileManager
     }
 
+    nonisolated static func stagingDeviceMatchesDestination(
+        stagingIdentity: DevVlogsFileIdentity,
+        workspaceIdentity: DevVlogsFileIdentity
+    ) -> Bool {
+        stagingIdentity.device == workspaceIdentity.device
+    }
+
     func createRecipe(
         rootURL: URL,
         day: DevVlogsLibraryDay,
@@ -149,12 +156,12 @@ actor DevVlogsBuildRepository {
     }
 
     func prepareForBuild(workspace: DevVlogsBuildWorkspace) throws -> DevVlogsBuildStaging {
-        _ = try validatedIdentity(for: workspace)
+        let identity = try validatedIdentity(for: workspace)
         guard !fileManager.fileExists(atPath: workspace.temporaryOutputURL.path),
               !fileManager.fileExists(atPath: workspace.finalOutputURL.path) else {
             throw DevVlogsBuildError.outputAlreadyExists
         }
-        return try createStaging(for: workspace)
+        return try createStaging(for: workspace, workspaceIdentity: identity)
     }
 
     func registerStagedOutput(
@@ -303,26 +310,67 @@ actor DevVlogsBuildRepository {
         return identity
     }
 
-    private func createStaging(for workspace: DevVlogsBuildWorkspace) throws -> DevVlogsBuildStaging {
-        let directoryURL = fileManager.temporaryDirectory.appendingPathComponent(
-            "HoldType-DevVlogs-Build-\(workspace.buildID.uuidString)-\(UUID().uuidString)",
-            isDirectory: true
+    private func createStaging(
+        for workspace: DevVlogsBuildWorkspace,
+        workspaceIdentity: DevVlogsWorkspaceIdentity
+    ) throws -> DevVlogsBuildStaging {
+        guard workspaceIdentity.hierarchy.count >= 2,
+              let workspaceDirectoryIdentity = workspaceIdentity.hierarchy.last else {
+            throw DevVlogsBuildError.workspaceChanged
+        }
+        let ownerIndex = workspaceIdentity.hierarchy.count - 2
+        let ownerURL = workspaceIdentity.hierarchyURLs[ownerIndex]
+        let ownerIdentity = workspaceIdentity.hierarchy[ownerIndex]
+        let ownerDescriptor = Darwin.open(
+            ownerURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
         )
-        guard mkdir(directoryURL.path, S_IRWXU) == 0 else {
+        guard ownerDescriptor >= 0,
+              DevVlogsFileIdentity.capture(descriptor: ownerDescriptor, kind: .directory) == ownerIdentity,
+              ownerIdentity.device == workspaceDirectoryIdentity.device else {
+            if ownerDescriptor >= 0 { Darwin.close(ownerDescriptor) }
+            throw DevVlogsBuildError.workspaceChanged
+        }
+
+        let directoryName = ".holdtype-staging-\(workspace.buildID.uuidString)-\(UUID().uuidString)"
+        guard mkdirat(ownerDescriptor, directoryName, S_IRWXU) == 0,
+              let linkedIdentity = DevVlogsFileIdentity.capture(
+                atDirectoryDescriptor: ownerDescriptor,
+                name: directoryName,
+                kind: .directory
+              ),
+              Self.stagingDeviceMatchesDestination(
+                stagingIdentity: linkedIdentity,
+                workspaceIdentity: workspaceDirectoryIdentity
+              ) else {
+            Darwin.close(ownerDescriptor)
             throw DevVlogsBuildError.exportFailed
         }
-        let descriptor = Darwin.open(
-            directoryURL.path,
+        let descriptor = openat(
+            ownerDescriptor,
+            directoryName,
             O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
         )
         guard descriptor >= 0,
               let identity = DevVlogsFileIdentity.capture(descriptor: descriptor, kind: .directory),
-              identity.matches(directoryURL) else {
+              identity == linkedIdentity else {
             if descriptor >= 0 { Darwin.close(descriptor) }
-            _ = rmdir(directoryURL.path)
+            if DevVlogsFileIdentity.capture(
+                atDirectoryDescriptor: ownerDescriptor,
+                name: directoryName,
+                kind: .directory
+            ) == linkedIdentity {
+                _ = unlinkat(ownerDescriptor, directoryName, AT_REMOVEDIR)
+            }
+            Darwin.close(ownerDescriptor)
             throw DevVlogsBuildError.exportFailed
         }
+        let directoryURL = ownerURL.appendingPathComponent(directoryName, isDirectory: true)
         return DevVlogsBuildStaging(
+            ownerDirectoryURL: ownerURL,
+            ownerDirectoryIdentity: ownerIdentity,
+            ownerDirectoryHandle: FileHandle(fileDescriptor: ownerDescriptor, closeOnDealloc: true),
+            directoryName: directoryName,
             directoryURL: directoryURL,
             outputURL: directoryURL.appendingPathComponent("output.mov"),
             directoryIdentity: identity,
@@ -331,20 +379,22 @@ actor DevVlogsBuildRepository {
     }
 
     private func validate(_ staging: DevVlogsBuildStaging) -> Bool {
-        guard staging.directoryIdentity.matches(staging.directoryURL),
+        guard DevVlogsFileIdentity.capture(
+            descriptor: staging.ownerDirectoryDescriptor,
+            kind: .directory
+        ) == staging.ownerDirectoryIdentity,
+              DevVlogsFileIdentity.capture(
+                atDirectoryDescriptor: staging.ownerDirectoryDescriptor,
+                name: staging.directoryName,
+                kind: .directory
+              ) == staging.directoryIdentity,
               DevVlogsFileIdentity.capture(
                 descriptor: staging.directoryDescriptor,
                 kind: .directory
-              ) == staging.directoryIdentity,
-              let children = try? fileManager.contentsOfDirectory(
-                at: staging.directoryURL,
-                includingPropertiesForKeys: nil
-              ) else {
+              ) == staging.directoryIdentity else {
             return false
         }
-        return Set(children.map(\.lastPathComponent)).isSubset(
-            of: Set([staging.outputURL.lastPathComponent])
-        )
+        return true
     }
 
     private func entryIsAbsent(
@@ -376,8 +426,12 @@ actor DevVlogsBuildRepository {
         } else if errno != ENOENT {
             throw DevVlogsBuildError.workspaceChanged
         }
-        guard staging.directoryIdentity.matches(staging.directoryURL),
-              rmdir(staging.directoryURL.path) == 0 else {
+        guard validate(staging),
+              unlinkat(
+                staging.ownerDirectoryDescriptor,
+                staging.directoryName,
+                AT_REMOVEDIR
+              ) == 0 else {
             throw DevVlogsBuildError.workspaceChanged
         }
     }
