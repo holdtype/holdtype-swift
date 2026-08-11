@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import HoldType
 
@@ -59,21 +60,21 @@ struct DevVlogsPublishPresentationTests {
         #expect(progress.boundedFraction == 1)
     }
 
-    @Test func cancelledPresentationShowsResultWithoutActions() {
-        assertTerminalResult(.cancelled(selection, message: "Cancelled"))
+    @Test func cancelledPresentationShowsResultWithRetryOnly() {
+        assertRetryableResult(.cancelled(selection, message: "Cancelled"))
     }
 
-    @Test func failedPresentationShowsResultWithoutActions() {
-        assertTerminalResult(.failed(selection, message: "Failed"))
+    @Test func failedPresentationShowsResultWithRetryOnly() {
+        assertRetryableResult(.failed(selection, message: "Failed"))
     }
 
-    private func assertTerminalResult(_ state: DevVlogsPublishState) {
+    private func assertRetryableResult(_ state: DevVlogsPublishState) {
         let presentation = DevVlogsPublishPresentation(
             state: state,
             enabledActions: Set(DevVlogsPublishAction.allTestActions)
         )
 
-        #expect(presentation.enabledActions.isEmpty)
+        #expect(presentation.enabledActions == [.retry])
         #expect(presentation.state.visibleSections == [.sourceDay, .clips, .output, .result])
     }
 
@@ -82,9 +83,11 @@ struct DevVlogsPublishPresentationTests {
             state: .completed(
                 selection,
                 DevVlogsPublishArtifact(
+                    buildID: UUID(),
                     name: "Daily Vlog.mov",
                     detail: "1m 13s · Original",
-                    outputLocation: "Movies"
+                    outputLocation: "Movies",
+                    fileURL: URL(fileURLWithPath: "/Preview/Daily Vlog.mov")
                 )
             ),
             enabledActions: Set(DevVlogsPublishAction.allTestActions)
@@ -95,6 +98,7 @@ struct DevVlogsPublishPresentationTests {
     }
 
     private let day = DevVlogsPublishDay(
+        id: "2026-08-11",
         title: "Monday, August 11",
         detail: "2 clips · 1m 13s"
     )
@@ -126,6 +130,7 @@ struct DevVlogsPublishPresentationTests {
 private extension DevVlogsPublishAction {
     static let allTestActions: [DevVlogsPublishAction] = [
         .createVideo,
+        .retry,
         .cancel,
         .play,
         .reveal,

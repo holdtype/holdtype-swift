@@ -92,7 +92,7 @@ struct DevVlogsCaptureSnapshot: Equatable {
     let preferredCamera: DevVlogsCamera
 }
 
-struct DevVlogsRealizedVideoFormat: Codable, Equatable {
+nonisolated struct DevVlogsRealizedVideoFormat: Codable, Equatable {
     let width: Int
     let height: Int
     let nominalFrameRate: Double

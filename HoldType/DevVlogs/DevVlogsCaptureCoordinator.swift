@@ -43,17 +43,20 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
         var cameraCaptureID: UUID?
         var audioStartedAtUptime: TimeInterval?
         var audioLease: RecordingArtifactReadLease?
+        let ownershipLease: DevVlogsClipOwnershipLease
         var finalizationTask: Task<Void, Never>?
         var isTerminal = false
 
         init(
             snapshot: DevVlogsCaptureSnapshot,
             destinationAccess: DevVlogsCaptureDestinationAccess,
-            workspace: DevVlogsArchiveWorkspace
+            workspace: DevVlogsArchiveWorkspace,
+            ownershipLease: DevVlogsClipOwnershipLease
         ) {
             self.snapshot = snapshot
             self.destinationAccess = destinationAccess
             self.workspace = workspace
+            self.ownershipLease = ownershipLease
         }
     }
 
@@ -67,6 +70,7 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
     private let audioLeaseProvider: any DevVlogsAudioReadLeasing
     private let archive: any DevVlogsArchiving
     private let mediaFinalizer: any DevVlogsMediaFinalizing
+    private let ownershipRegistry: DevVlogsClipOwnershipRegistry
     private let now: () -> Date
     private let uptime: () -> TimeInterval
     private let attemptIDProvider: () -> UUID
@@ -92,7 +96,8 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
             cameraCapture: AVFoundationDevVlogsCameraCaptureService(),
             audioLeaseProvider: DefaultDevVlogsAudioReadLeaseProvider(),
             archive: FileSystemDevVlogsArchive(),
-            mediaFinalizer: AVFoundationDevVlogsMediaFinalizer()
+            mediaFinalizer: AVFoundationDevVlogsMediaFinalizer(),
+            ownershipRegistry: .shared
         )
     }
 
@@ -105,6 +110,7 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
         audioLeaseProvider: any DevVlogsAudioReadLeasing,
         archive: any DevVlogsArchiving,
         mediaFinalizer: any DevVlogsMediaFinalizing,
+        ownershipRegistry: DevVlogsClipOwnershipRegistry? = nil,
         now: @escaping () -> Date = Date.init,
         uptime: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         attemptIDProvider: @escaping () -> UUID = UUID.init
@@ -117,6 +123,7 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
         self.audioLeaseProvider = audioLeaseProvider
         self.archive = archive
         self.mediaFinalizer = mediaFinalizer
+        self.ownershipRegistry = ownershipRegistry ?? .shared
         self.now = now
         self.uptime = uptime
         self.attemptIDProvider = attemptIDProvider
@@ -186,10 +193,21 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
             return
         }
 
+        guard let ownershipLease = ownershipRegistry.acquire(
+            clipIDs: [attemptID],
+            operation: .active
+        ) else {
+            archive.abandonWorkspaceIfEmpty(workspace)
+            destinationAccess.release()
+            visibleAttemptID = attemptID
+            state = .skipped(attemptID: attemptID, reason: .captureAlreadyActive)
+            return
+        }
         let attempt = ActiveAttempt(
             snapshot: snapshot,
             destinationAccess: destinationAccess,
-            workspace: workspace
+            workspace: workspace,
+            ownershipLease: ownershipLease
         )
         activeAttempt = attempt
         visibleAttemptID = attemptID
@@ -231,6 +249,7 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
         if visibleAttemptID == attempt.snapshot.attemptID {
             state = .finalizing(attemptID: attempt.snapshot.attemptID)
         }
+        attempt.ownershipLease.transition(to: .finalizing)
         attempt.audioLease = audioLeaseProvider.acquireReadLease(for: audioArtifact)
         attempt.finalizationTask = Task { @MainActor [weak self, attempt] in
             await self?.finalizeAndPublish(attempt: attempt)
@@ -309,6 +328,7 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
         attempt.audioLease?.release()
         attempt.audioLease = nil
         attempt.destinationAccess.release()
+        attempt.ownershipLease.release()
         if visibleAttemptID == attempt.snapshot.attemptID {
             state = terminalState
         }

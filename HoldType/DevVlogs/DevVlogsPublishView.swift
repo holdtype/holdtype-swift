@@ -2,14 +2,55 @@ import SwiftUI
 
 struct DevVlogsPublishView: View {
     let presentation: DevVlogsPublishPresentation
+    let availableDays: [DevVlogsPublishDay]
+    let selectedDayID: String?
     let onAction: (DevVlogsPublishAction) -> Void
+    let onSelectDay: (String) -> Void
+    let onSetIncluded: (Bool, UUID) -> Void
+    let onMove: (UUID, Int) -> Void
+    let fileActions: any DevVlogsFileActionPerforming
+
+    @State private var playingURL: URL?
 
     init(
         presentation: DevVlogsPublishPresentation = .releaseEmpty,
-        onAction: @escaping (DevVlogsPublishAction) -> Void = { _ in }
+        availableDays: [DevVlogsPublishDay] = [],
+        selectedDayID: String? = nil,
+        onAction: @escaping (DevVlogsPublishAction) -> Void = { _ in },
+        onSelectDay: @escaping (String) -> Void = { _ in },
+        onSetIncluded: @escaping (Bool, UUID) -> Void = { _, _ in },
+        onMove: @escaping (UUID, Int) -> Void = { _, _ in }
+    ) {
+        self.init(
+            presentation: presentation,
+            availableDays: availableDays,
+            selectedDayID: selectedDayID,
+            onAction: onAction,
+            onSelectDay: onSelectDay,
+            onSetIncluded: onSetIncluded,
+            onMove: onMove,
+            fileActions: SystemDevVlogsFileActions()
+        )
+    }
+
+    init(
+        presentation: DevVlogsPublishPresentation,
+        availableDays: [DevVlogsPublishDay],
+        selectedDayID: String?,
+        onAction: @escaping (DevVlogsPublishAction) -> Void,
+        onSelectDay: @escaping (String) -> Void,
+        onSetIncluded: @escaping (Bool, UUID) -> Void,
+        onMove: @escaping (UUID, Int) -> Void,
+        fileActions: any DevVlogsFileActionPerforming
     ) {
         self.presentation = presentation
+        self.availableDays = availableDays
+        self.selectedDayID = selectedDayID
         self.onAction = onAction
+        self.onSelectDay = onSelectDay
+        self.onSetIncluded = onSetIncluded
+        self.onMove = onMove
+        self.fileActions = fileActions
     }
 
     var body: some View {
@@ -30,11 +71,23 @@ struct DevVlogsPublishView: View {
         .contentMargins(.bottom, 18, for: .scrollContent)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle(HoldTypeWindowTitle.titled("Dev Vlogs"))
+        .sheet(isPresented: playingBinding) {
+            if let playingURL {
+                DevVlogsPlayerView(url: playingURL)
+            }
+        }
     }
 
     private var sourceDaySection: some View {
         Section {
             if let day = presentation.state.day {
+                if availableDays.count > 1 {
+                    Picker("Recorded day", selection: daySelectionBinding) {
+                        ForEach(availableDays) { candidate in
+                            Text(candidate.title).tag(Optional(candidate.id))
+                        }
+                    }
+                }
                 VStack(alignment: .leading, spacing: 4) {
                     Label(day.title, systemImage: "calendar")
                         .font(.headline)
@@ -139,14 +192,16 @@ struct DevVlogsPublishView: View {
                 title: "Video creation cancelled",
                 detail: message,
                 systemImage: "xmark.circle",
-                color: .secondary
+                color: .secondary,
+                offersRetry: presentation.enables(.retry)
             )
         case .failed(_, let message):
             statusResult(
                 title: "Video not created",
                 detail: message,
                 systemImage: "exclamationmark.triangle",
-                color: .orange
+                color: .orange,
+                offersRetry: presentation.enables(.retry)
             )
         case .completed(_, let artifact):
             completedResult(artifact)
@@ -159,7 +214,8 @@ struct DevVlogsPublishView: View {
         title: String,
         detail: String,
         systemImage: String,
-        color: Color
+        color: Color,
+        offersRetry: Bool = false
     ) -> some View {
         Section {
             VStack(alignment: .leading, spacing: 4) {
@@ -171,6 +227,11 @@ struct DevVlogsPublishView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.vertical, 2)
+
+            if offersRetry {
+                Button("Retry") { onAction(.retry) }
+                    .buttonStyle(.borderedProminent)
+            }
         } header: {
             Text("Result")
         }
@@ -193,33 +254,23 @@ struct DevVlogsPublishView: View {
             .padding(.vertical, 2)
 
             HStack {
-                actionButton("Play", action: .play, prominent: true)
-                actionButton("Reveal in Finder", action: .reveal)
-                actionButton("Share…", action: .share)
+                if presentation.enables(.play) {
+                    Button("Play") { playingURL = artifact.fileURL }
+                        .buttonStyle(.borderedProminent)
+                }
+                if presentation.enables(.reveal) {
+                    Button("Reveal in Finder") { fileActions.reveal(artifact.fileURL) }
+                        .buttonStyle(.bordered)
+                }
+                if presentation.enables(.share) {
+                    ShareLink(item: artifact.fileURL) {
+                        Text("Share…")
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
         } header: {
             Text("Result")
-        }
-    }
-
-    @ViewBuilder
-    private func actionButton(
-        _ title: String,
-        action: DevVlogsPublishAction,
-        prominent: Bool = false
-    ) -> some View {
-        if presentation.enables(action) {
-            if prominent {
-                Button(title) {
-                    onAction(action)
-                }
-                .buttonStyle(.borderedProminent)
-            } else {
-                Button(title) {
-                    onAction(action)
-                }
-                .buttonStyle(.bordered)
-            }
         }
     }
 
@@ -237,9 +288,35 @@ struct DevVlogsPublishView: View {
             }
 
             Spacer()
-            Text(clipStatus(clip))
-                .font(.footnote)
-                .foregroundStyle(clipColor(clip))
+            if let clipID = UUID(uuidString: clip.id), clip.health == .ready {
+                Toggle(
+                    "Include",
+                    isOn: Binding(
+                        get: { clip.isSelected },
+                        set: { onSetIncluded($0, clipID) }
+                    )
+                )
+                .toggleStyle(.checkbox)
+                .disabled(presentation.state.isBuilding)
+                Button {
+                    onMove(clipID, -1)
+                } label: {
+                    Image(systemName: "arrow.up")
+                }
+                .help("Move earlier")
+                .disabled(presentation.state.isBuilding)
+                Button {
+                    onMove(clipID, 1)
+                } label: {
+                    Image(systemName: "arrow.down")
+                }
+                .help("Move later")
+                .disabled(presentation.state.isBuilding)
+            } else {
+                Text(clipStatus(clip))
+                    .font(.footnote)
+                    .foregroundStyle(clipColor(clip))
+            }
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
@@ -297,145 +374,23 @@ struct DevVlogsPublishView: View {
             return "Unavailable"
         }
     }
-}
 
-#if DEBUG
-private enum DevVlogsPublishPreviewFixtures {
-    static let day = DevVlogsPublishDay(
-        title: "Monday, August 11",
-        detail: "3 clips across Codex and Xcode · 1m 24s"
-    )
+    private var daySelectionBinding: Binding<String?> {
+        Binding(
+            get: { selectedDayID },
+            set: { if let value = $0 { onSelectDay(value) } }
+        )
+    }
 
-    static let selection = DevVlogsPublishSelection(
-        day: day,
-        clips: [
-            DevVlogsPublishClip(
-                id: "clip-1",
-                title: "10:14 · Codex",
-                detail: "32s · Ready",
-                isSelected: true,
-                health: .ready
-            ),
-            DevVlogsPublishClip(
-                id: "clip-2",
-                title: "11:02 · Xcode",
-                detail: "41s · Ready",
-                isSelected: true,
-                health: .ready
-            ),
-            DevVlogsPublishClip(
-                id: "clip-3",
-                title: "14:37 · Codex",
-                detail: "11s · Excluded",
-                isSelected: false,
-                health: .ready
-            )
-        ],
-        outputLocation: "Movies"
-    )
-
-    static let unavailableSelection = DevVlogsPublishSelection(
-        day: day,
-        clips: [
-            DevVlogsPublishClip(
-                id: "clip-missing",
-                title: "10:14 · Codex",
-                detail: "Source file is no longer available",
-                isSelected: true,
-                health: .missing
-            )
-        ],
-        outputLocation: "Movies"
-    )
+    private var playingBinding: Binding<Bool> {
+        Binding(
+            get: { playingURL != nil },
+            set: { if !$0 { playingURL = nil } }
+        )
+    }
 }
 
 #Preview("No recordings") {
     DevVlogsPublishView()
         .frame(width: 700, height: 520)
 }
-
-#Preview("Empty day") {
-    DevVlogsPublishView(
-        presentation: DevVlogsPublishPresentation(
-            state: .emptyDay(DevVlogsPublishPreviewFixtures.day)
-        )
-    )
-    .frame(width: 700, height: 520)
-}
-
-#Preview("Selection ready") {
-    DevVlogsPublishView(
-        presentation: DevVlogsPublishPresentation(
-            state: .selectionReady(DevVlogsPublishPreviewFixtures.selection),
-            enabledActions: [.createVideo]
-        )
-    )
-    .frame(width: 700, height: 520)
-}
-
-#Preview("Missing source") {
-    DevVlogsPublishView(
-        presentation: DevVlogsPublishPresentation(
-            state: .selectionUnavailable(
-                DevVlogsPublishPreviewFixtures.unavailableSelection,
-                message: "Replace or exclude missing clips before creating a video."
-            )
-        )
-    )
-    .frame(width: 700, height: 520)
-}
-
-#Preview("Building") {
-    DevVlogsPublishView(
-        presentation: DevVlogsPublishPresentation(
-            state: .building(
-                DevVlogsPublishPreviewFixtures.selection,
-                DevVlogsPublishBuildProgress(completedFraction: 0.58, detail: "Combining 2 clips…")
-            ),
-            enabledActions: [.cancel]
-        )
-    )
-    .frame(width: 700, height: 520)
-}
-
-#Preview("Cancelled") {
-    DevVlogsPublishView(
-        presentation: DevVlogsPublishPresentation(
-            state: .cancelled(
-                DevVlogsPublishPreviewFixtures.selection,
-                message: "Source clips are unchanged."
-            )
-        )
-    )
-    .frame(width: 700, height: 520)
-}
-
-#Preview("Failed") {
-    DevVlogsPublishView(
-        presentation: DevVlogsPublishPresentation(
-            state: .failed(
-                DevVlogsPublishPreviewFixtures.selection,
-                message: "The selected clips could not be combined without changing the source video."
-            )
-        )
-    )
-    .frame(width: 700, height: 520)
-}
-
-#Preview("Completed") {
-    DevVlogsPublishView(
-        presentation: DevVlogsPublishPresentation(
-            state: .completed(
-                DevVlogsPublishPreviewFixtures.selection,
-                DevVlogsPublishArtifact(
-                    name: "Dev Vlog — August 11.mov",
-                    detail: "1m 13s · Original",
-                    outputLocation: "/Preview/Movies/Dev Vlog — August 11.mov"
-                )
-            ),
-            enabledActions: [.play, .reveal, .share]
-        )
-    )
-    .frame(width: 700, height: 520)
-}
-#endif

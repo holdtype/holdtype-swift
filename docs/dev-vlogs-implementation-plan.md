@@ -6,7 +6,7 @@ the approved Publish presentation slice is current.
 Date: 2026-08-11
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-ACTIVE-3`.
+`DV-ACTIVE-4`.
 
 Active persistent-goal registry:
 [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
@@ -31,7 +31,7 @@ ambient recorder, or a second failure dependency for dictation.
 
 - Task: deliver Dev Vlogs through Phase 4, beginning with the smallest
   Release-path setup slice.
-- Change mode: scoped `evolve` under `DV-ACTIVE-3`; reconcile only when evidence
+- Change mode: scoped `evolve` under `DV-ACTIVE-4`; reconcile only when evidence
   proves a contract omission or discrepancy.
 - User-authorized outcome: Active Dev Vlogs implementation authority and
   outcome-first delivery, explicitly authorized on 2026-08-11.
@@ -59,9 +59,10 @@ ambient recorder, or a second failure dependency for dictation.
 - Forbidden specification delta: weakening normal audio cleanup, changing
   dictation exact-once behavior, adding hidden capture, moving feature toggles
   into Permissions, or changing iOS.
-- Material user decisions: only the `DV-BUILD-6` incompatible-source fallback
-  remains pending in Section 11; it gates Phase 4 fallback only.
-- Current contract revision: `DV-ACTIVE-3`.
+- Material user decisions: none inside the approved local Library/Delete/
+  Publish slice. `DV-BUILD-6` fails incompatible passthrough builds with no
+  output.
+- Current contract revision: `DV-ACTIVE-4`.
 - Required review and QA: proportional `DV-P0C-REVIEW` before Phase 1
   implementation acceptance; focused evidence per delivered capability; real
   macOS UI/device/storage QA before the corresponding acceptance or release
@@ -439,8 +440,9 @@ Exit:
 
 Goal: turn selected clips into one reproducible local video.
 
-Entry dependency: the user has resolved `DV-BUILD-6` for selected clips that
-cannot be composed through direct-compatible video passthrough.
+Entry dependency: `DV-ACTIVE-4` resolves `DV-BUILD-6`: selected clips that
+cannot be composed through direct-compatible video passthrough fail with no
+output.
 
 Work:
 
@@ -448,7 +450,7 @@ Work:
 - default to Ready, non-excluded clips for one selected day in chronological
   order;
 - provide the approved selection/reorder controls;
-- render according to the later accepted `DV-BUILD-6` export policy, with
+- render according to the accepted `DV-BUILD-6` passthrough-only export policy, with
   progress, cancellation, retry, and bounded media operations;
 - retain completed exports independently from later source deletion;
 - add playback, Reveal in Finder, and the macOS Share surface.
@@ -580,7 +582,7 @@ Use small master-branch checkpoints that leave a coherent, verified state:
 4. one-clip capture vertical slice under `DV-ACTIVE-3`; standalone forensic
    sample-reader residuals do not block it;
 5. library/review/delete;
-6. build/export/share after `DV-BUILD-6` is resolved where applicable.
+6. passthrough build/export/share under resolved `DV-BUILD-6`.
 
 Plan ordinary milestones around 60% shipping implementation, 25%
 verification/review/QA, and 15% discovery/diagnostics/tooling/coordination.
@@ -632,7 +634,7 @@ Source capture is resolved. One separate Build decision remains:
 
 | ID | Decision | Unranked alternatives | Status |
 | --- | --- | --- | --- |
-| `DV-BUILD-6` | Fallback when selected clips cannot be composed by direct-compatible video passthrough | (a) one final encode that preserves source resolution and nominal frame rate; (b) fail the Build with no output | Pending user decision; does not block source-capture evidence |
+| `DV-BUILD-6` | Result when selected clips cannot be composed by direct-compatible video passthrough | Fail the Build truthfully with no output; preserve recipe, sources, and prior outputs; never silently transcode | Resolved by the approved autonomous delivery plan and recorded in `DV-ACTIVE-4` |
 
 ## 12. Recommended First Release Cut
 
@@ -643,7 +645,7 @@ The smallest release worth shipping is Phases 0 through 4:
   destination;
 - short best-effort camera clips tied to eligible dictations;
 - day/app library with playback, Reveal, exclusion, and explicit Delete;
-- explicit daily build with selection/reorder, the later accepted
+- explicit daily build with selection/reorder, the passthrough-only
   `DV-BUILD-6` export policy, Reveal, and Share.
 
 Direct publication, captions, transcript search, trim, timelines, automatic

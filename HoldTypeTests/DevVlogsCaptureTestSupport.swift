@@ -20,6 +20,7 @@ final class DevVlogsCaptureFixture {
     let finalizer = DevVlogsMediaFinalizerFake()
     let bookmarks = DevVlogsDestinationBookmarkResolverFake()
     let fileAccess = DevVlogsDestinationFileAccessFake()
+    let ownershipRegistry = DevVlogsClipOwnershipRegistry()
     let destinationURL: URL
     let coordinator: DevVlogsCaptureCoordinator
 
@@ -66,6 +67,7 @@ final class DevVlogsCaptureFixture {
             audioLeaseProvider: leases,
             archive: archive,
             mediaFinalizer: finalizer,
+            ownershipRegistry: ownershipRegistry,
             now: { Date(timeIntervalSince1970: 1_700_000_000) },
             uptime: { 101 },
             attemptIDProvider: { Self.attemptID }

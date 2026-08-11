@@ -5,6 +5,7 @@ private enum DevVlogsNavigationItem: String {
     case capture
     case applications
     case storage
+    case library
     case publish
 }
 
@@ -15,12 +16,17 @@ struct DevVlogsWindowRoot: View {
     @StateObject private var settingsStore: DevVlogsSettingsStore
     @StateObject private var cameraSetupStore: DevVlogsCameraSetupStore
     @StateObject private var destinationStore: DevVlogsDestinationSetupStore
+    @StateObject private var libraryStore: DevVlogsLibraryStore
+    @StateObject private var publishStore: DevVlogsPublishStore
     @ObservedObject private var captureCoordinator: DevVlogsCaptureCoordinator
 
     init() {
+        let destinationStore = DevVlogsDestinationSetupStore()
         _settingsStore = StateObject(wrappedValue: DevVlogsSettingsStore())
         _cameraSetupStore = StateObject(wrappedValue: DevVlogsCameraSetupStore())
-        _destinationStore = StateObject(wrappedValue: DevVlogsDestinationSetupStore())
+        _destinationStore = StateObject(wrappedValue: destinationStore)
+        _libraryStore = StateObject(wrappedValue: DevVlogsLibraryStore(destinationStore: destinationStore))
+        _publishStore = StateObject(wrappedValue: DevVlogsPublishStore(destinationStore: destinationStore))
         _captureCoordinator = ObservedObject(wrappedValue: .shared)
     }
 
@@ -33,6 +39,8 @@ struct DevVlogsWindowRoot: View {
         _settingsStore = StateObject(wrappedValue: settingsStore)
         _cameraSetupStore = StateObject(wrappedValue: cameraSetupStore)
         _destinationStore = StateObject(wrappedValue: destinationStore)
+        _libraryStore = StateObject(wrappedValue: DevVlogsLibraryStore(destinationStore: destinationStore))
+        _publishStore = StateObject(wrappedValue: DevVlogsPublishStore(destinationStore: destinationStore))
         _captureCoordinator = ObservedObject(wrappedValue: captureCoordinator ?? .shared)
     }
 
@@ -47,6 +55,8 @@ struct DevVlogsWindowRoot: View {
                     .tag(DevVlogsNavigationItem.applications.rawValue)
                 sidebarRow(title: "Storage", systemImage: "externaldrive")
                     .tag(DevVlogsNavigationItem.storage.rawValue)
+                sidebarRow(title: "Library", systemImage: "books.vertical")
+                    .tag(DevVlogsNavigationItem.library.rawValue)
                 sidebarRow(title: "Publish", systemImage: "film.stack")
                     .tag(DevVlogsNavigationItem.publish.rawValue)
             }
@@ -74,13 +84,25 @@ struct DevVlogsWindowRoot: View {
                 DevVlogsApplicationsView(settingsStore: settingsStore)
             case .storage:
                 DevVlogsStorageView(settingsStore: settingsStore, destinationStore: destinationStore)
+            case .library:
+                DevVlogsLibraryView(store: libraryStore)
             case .publish:
-                DevVlogsPublishView()
+                DevVlogsPublishView(
+                    presentation: publishStore.presentation,
+                    availableDays: publishStore.availableDays,
+                    selectedDayID: publishStore.selectedDayID,
+                    onAction: handlePublishAction,
+                    onSelectDay: publishStore.selectDay(id:),
+                    onSetIncluded: publishStore.setIncluded(_:clipID:),
+                    onMove: publishStore.move(clipID:direction:)
+                )
             }
         }
         .frame(minWidth: 760, minHeight: 520)
         .task {
             refreshReadinessInputs()
+            await libraryStore.refresh()
+            publishStore.synchronize(days: libraryStore.snapshot.days)
         }
         .onReceive(cameraSetupStore.cameraDeviceChangePublisher()) { _ in
             refreshReadinessInputs()
@@ -95,6 +117,9 @@ struct DevVlogsWindowRoot: View {
             if !isEnabled {
                 captureCoordinator.featureDidDisable()
             }
+        }
+        .onReceive(libraryStore.$snapshot) { snapshot in
+            publishStore.synchronize(days: snapshot.days)
         }
     }
 
@@ -117,6 +142,19 @@ struct DevVlogsWindowRoot: View {
             selectedSection = DevVlogsNavigationItem.applications.rawValue
         case .storage:
             selectedSection = DevVlogsNavigationItem.storage.rawValue
+        }
+    }
+
+    private func handlePublishAction(_ action: DevVlogsPublishAction) {
+        switch action {
+        case .createVideo:
+            publishStore.createVideo()
+        case .retry:
+            publishStore.retry()
+        case .cancel:
+            publishStore.cancel()
+        case .play, .reveal, .share:
+            break
         }
     }
 

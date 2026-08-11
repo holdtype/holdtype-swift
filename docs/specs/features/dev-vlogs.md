@@ -3,7 +3,16 @@
 Status: Active / Evolving implementation authority. Capability acceptance is
 gated by the acceptance map and explicit residuals below.
 
-Contract revision: `DV-ACTIVE-3`.
+Contract revision: `DV-ACTIVE-4`.
+
+Revision note: `DV-ACTIVE-4` records the user-approved Iteration 3 outcome in
+the autonomous delivery plan: Library, explicit exact Delete, and local Publish
+are one Release-path workflow. Build uses Apple-native compatible video
+passthrough only. If the ordered selected clips cannot be composed through that
+path, the Build fails with no output; HoldType never silently transcodes. This
+revision resolves the former `DV-BUILD-6` fork and leaves source capture,
+ordinary dictation, retained audio, and remote publication boundaries
+unchanged.
 
 Revision note: `DV-ACTIVE-3` records the user's direct 2026-08-11 authority:
 “Записала и записала... Просто не нужно дополнительно обрабатывать видео.”
@@ -68,7 +77,7 @@ reviewable source material than continuous background capture.
 ## Contract boundary
 
 The user has authorized implementation of the accepted V1 domain under
-`DV-ACTIVE-3`. An Active/Evolving label is not proof that a capability is
+`DV-ACTIVE-4`. An Active/Evolving label is not proof that a capability is
 implemented, accepted, or released; each capability remains governed by its
 acceptance scenarios and current residuals.
 
@@ -168,6 +177,42 @@ ownership, or cleanup behavior.
   plan.
 - Independent review: pending the Phase 2 capture integration review.
 - New contract revision or epoch: `DV-ACTIVE-3`.
+
+### Contract Delta — `DV-ACTIVE-4`
+
+- Change ID: `DV-DELTA-ACTIVE-4-LIBRARY-PUBLISH`.
+- Change mode: scoped `evolve` for Library, Delete, and Publish plus narrow
+  `reconcile` for `DV-BUILD-6`.
+- Authorized by: the user-approved autonomous delivery plan dated 2026-08-11
+  and the authorized Iteration 3 implementation packet.
+- Domain and clause IDs: `DV-FOLDER-1` through `DV-FOLDER-6`, `DV-REVIEW-1`
+  through `DV-REVIEW-5`, `DV-BUILD-1` through `DV-BUILD-9`, `DV-SHARE-1`,
+  `DV-UI-3`, `DV-UI-5`, `DV-UI-6`, `DV-UI-8`, `DV-UI-9`, and the directly
+  related durability/privacy archive clauses.
+- Previous behavior: Library and Build/share were implementation-ready but
+  absent, and `DV-BUILD-6` still described incompatible-source behavior as a
+  pending user fork.
+- New or reconciled behavior: the Release window exposes a real local Library;
+  exclusion is persistent and non-destructive; exact Delete is limited to one
+  identity-validated eligible vlog clip; Publish persists an ordered Original
+  recipe before rendering and creates a new validated local output using
+  Apple-native compatible video passthrough only. Incompatible selected clips
+  fail with no output and never trigger hidden transcoding.
+- Evidence basis: the approved autonomous delivery plan, accepted Phase 1 and
+  Publish presentation baselines, accepted one-clip capture/archive owner, and
+  the Iteration 3 Contract Change Envelope.
+- Compatibility classification: additive evolution inside the unreleased Dev
+  Vlogs domain. Existing dictation, History, Recording Cache, Settings,
+  Keychain, permissions, iOS, source capture, and completed exports remain
+  protected.
+- QA and design impact: reconstruction, exclusion, exact Delete, durable recipe,
+  compatible/incompatible media, cancellation/retry, immutable output,
+  validated-result action gating, and real SwiftUI Library/Publish workflows
+  require focused tests and bounded runtime QA.
+- Specification paths changed: this contract and the Dev Vlogs implementation
+  plan.
+- Independent review: required after the Iteration 3 shipping checkpoint.
+- New contract revision or epoch: `DV-ACTIVE-4`.
 
 ### Contract Delta — `DV-ACTIVE-2`
 
@@ -505,13 +550,11 @@ active contract.
   clips or an earlier successful export.
 - `DV-BUILD-5`: A failed or cancelled build leaves source clips unchanged and
   may be retried from its existing recipe.
-- `DV-BUILD-6`: Direct-compatible video passthrough is desirable and may be
-  measured, but no fallback is authorized when selected clips cannot be
-  composed without video re-encoding. Before Build implementation, the user
-  must choose between (a) one final encode that does not reduce source
-  resolution or nominal frame rate and (b) failing that Build without an
-  output. `DV-ACTIVE-2` chooses neither outcome. The pending Build fork does not
-  block native-source capture evidence.
+- `DV-BUILD-6`: Build uses Apple-native compatible video passthrough only. If
+  the ordered selected clips cannot be composed without video re-encoding,
+  HoldType fails that Build truthfully with no output. It preserves the recipe,
+  sources, and prior outputs, and never silently transcodes, downscales, or
+  reduces nominal frame rate.
 - `DV-BUILD-7`: V1 provides selection and reorder, but no trim or timeline.
   Square, portrait, captions, title cards, transitions, silence trimming, and
   automatic highlights are deferred.
@@ -614,7 +657,7 @@ authority to begin publication work.
 
 ## Adjacent contract reconciliation
 
-Phase 0C is complete and preserved through `DV-ACTIVE-3`:
+Phase 0C is complete and preserved through `DV-ACTIVE-4`:
 
 - `privacy-and-permissions.md` makes Camera optional to core HoldType and adds
   the explicit local Dev Vlogs camera/same-dictation-audio archive exception.
@@ -736,9 +779,8 @@ failure behavior before this becomes contract text.
   dimensions, nominal frame rate, and codec/media subtype. Standalone encoded-
   sample equality or sample-size/timing inspection may support diagnostics but
   is not required for product acceptance.
-- Direct-compatible Build passthrough is worth measuring, but composition of
-  incompatible source clips remains governed by the unresolved `DV-BUILD-6`
-  fork.
+- Build composition uses direct-compatible passthrough and fails without an
+  output when selected source clips are incompatible under `DV-BUILD-6`.
 - FFmpeg remains a useful development/reference tool, but shipping it in the
   first product version adds binary size, licensing, update, and subprocess
   boundaries that the native path does not yet require.
@@ -865,7 +907,7 @@ prototype rather than copying an established end-to-end pattern.
 
 ### Phase 0: contract and feasibility — complete with preserved residuals
 
-- `DV-D01` through `DV-D13` are accepted and `DV-ACTIVE-3` is active.
+- `DV-D01` through `DV-D13` are accepted and `DV-ACTIVE-4` is active.
 - Phase 0B established bounded supporting evidence but did not accept capture,
   protected-scope storage, live preview, or quantitative thresholds.
 - No Phase 0B expansion is admitted without separate explicit user approval.
@@ -913,7 +955,7 @@ prototype rather than copying an established end-to-end pattern.
 
 - saved recipes, selection/reorder, deterministic output, retry/cancel, Reveal,
   and macOS Share;
-- no incompatible-source fallback until the user resolves `DV-BUILD-6`;
+- incompatible selected clips fail with no output under `DV-BUILD-6`;
 - direct publication remains outside the goal.
 
 ### Needs deeper research
@@ -926,8 +968,7 @@ prototype rather than copying an established end-to-end pattern.
 - broader camera-matrix coverage beyond the corrected one-device result; this
   does not block the first shipping capture slice when configured passthrough,
   playable tracks, and truthful realized format pass for the selected camera;
-- which final Build behavior the user chooses under `DV-BUILD-6` when
-  selected clips cannot be composed by passthrough;
+- broader compatible-input coverage for the selected passthrough Build path;
 - the right preview/indicator balance during frequent short captures;
 - real Continuity Camera and multi-camera device identity behavior;
 - the SwiftUI-first preview lifecycle on supported macOS targets; the required
@@ -947,13 +988,13 @@ accepted, or released.
 | Storage: `DV-ACC-STORAGE-1` | Mechanics may be implemented incrementally; protected-scope and numeric-policy acceptance remain gated. | Bookmark/destination/no-fallback/interruption/recovery product QA with protected adjacent owners unchanged; measured safe inputs before numeric warnings or hard stops. | Controlled mechanics succeeded, but R05 changed protected metadata and the cause is unknown. No protected-scope pass; byte-rate and overhead dataset incomplete. |
 | Library: `DV-ACC-LIBRARY-1` | Ready only after its archive owners exist; separate ownership clauses are active now. | Product QA for day/app hierarchy, stable IDs, truthful size/health, Finder reconciliation, active-file protection, explicit exact Delete, reconstruction, and absence of transcript persistence. | No product library or exact-delete acceptance exists. |
 | Publish UI: `DV-ACC-PUBLISH-UI-1` | Ready independently for a final navigation row, truthful no-recordings Release state, and deterministic presentation inputs. | Focused navigation/state/action tests, macOS build, Computer Use navigation to Publish, and visual comparison with the accepted Settings-quality baseline. | Library/media/build owners remain absent, so Release runtime must not expose fake days, clips, progress, results, or actions. |
-| Build/share: `DV-ACC-BUILD-1`, `DV-ACC-SHARE-1` | Phase 4 only after accepted library/capture inputs; direct-compatible path may proceed under later packet. | Deterministic order/output, cancel/retry, missing sources, no overwrite, playable result, unchanged sources, Reveal, Share, and absence of publication state. | `DV-BUILD-6` still requires the user only for incompatible-source fallback; no Build/share product QA exists. |
+| Build/share: `DV-ACC-BUILD-1`, `DV-ACC-SHARE-1` | Ready for the compatible-passthrough Iteration 3 slice after accepted archive inputs. | Deterministic order/output, cancel/retry, missing and incompatible sources, recipe-before-render, no overwrite, playable result, unchanged sources, Reveal, Share, and absence of publication state. | Incompatible selected clips must fail with no output under `DV-BUILD-6`; no Build/share product QA exists yet. |
 
 ## Resolved decisions and remaining unknowns
 
 The user resolved the source-quality portion of `DV-D05` on 2026-08-08.
-The incompatible-source Build fallback in `DV-BUILD-6` remains a separate
-material product fork:
+The incompatible-source Build result in `DV-BUILD-6` is resolved by the
+approved autonomous delivery plan:
 
 | Decision | Accepted V1 result |
 | --- | --- |
@@ -987,11 +1028,10 @@ remaining unknowns are:
   is resolved; UI R01 remains terminal `not_available` without live-frame,
   Stop, mirroring, release, or reacquisition evidence.
 
-`DV-BUILD-6` remains a real user decision: when direct-compatible passthrough
-cannot compose the selected clips, choose either one final encode without
-reducing source resolution or nominal frame rate, or fail the Build. Phase 0B
-may gather compatibility evidence but must not choose this fallback.
+`DV-BUILD-6` requires a truthful failed Build with no output when compatible
+passthrough cannot compose the selected clips. No final encode fallback is
+authorized.
 
-Phase 0B records these results without inventing thresholds. `DV-ACTIVE-3`
+Phase 0B records these results without inventing thresholds. `DV-ACTIVE-4`
 classifies them as capability-scoped residuals; none blocks the independent
 Phase 1 Off/Setup slice.

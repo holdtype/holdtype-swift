@@ -1,14 +1,15 @@
 import Foundation
 
-enum DevVlogsPublishAction: Hashable {
+nonisolated enum DevVlogsPublishAction: Hashable {
     case createVideo
+    case retry
     case cancel
     case play
     case reveal
     case share
 }
 
-enum DevVlogsPublishSection: Hashable {
+nonisolated enum DevVlogsPublishSection: Hashable {
     case sourceDay
     case clips
     case output
@@ -16,12 +17,13 @@ enum DevVlogsPublishSection: Hashable {
     case result
 }
 
-struct DevVlogsPublishDay: Equatable {
+nonisolated struct DevVlogsPublishDay: Identifiable, Equatable {
+    let id: String
     let title: String
     let detail: String
 }
 
-struct DevVlogsPublishClip: Identifiable, Equatable {
+nonisolated struct DevVlogsPublishClip: Identifiable, Equatable {
     enum Health: Equatable {
         case ready
         case missing
@@ -35,7 +37,7 @@ struct DevVlogsPublishClip: Identifiable, Equatable {
     let health: Health
 }
 
-struct DevVlogsPublishSelection: Equatable {
+nonisolated struct DevVlogsPublishSelection: Equatable {
     let day: DevVlogsPublishDay
     let clips: [DevVlogsPublishClip]
     let outputLocation: String
@@ -45,7 +47,7 @@ struct DevVlogsPublishSelection: Equatable {
     }
 }
 
-struct DevVlogsPublishBuildProgress: Equatable {
+nonisolated struct DevVlogsPublishBuildProgress: Equatable {
     let completedFraction: Double
     let detail: String
 
@@ -54,13 +56,15 @@ struct DevVlogsPublishBuildProgress: Equatable {
     }
 }
 
-struct DevVlogsPublishArtifact: Equatable {
+nonisolated struct DevVlogsPublishArtifact: Equatable {
+    let buildID: UUID
     let name: String
     let detail: String
     let outputLocation: String
+    let fileURL: URL
 }
 
-enum DevVlogsPublishState: Equatable {
+nonisolated enum DevVlogsPublishState: Equatable {
     case noRecordings
     case emptyDay(DevVlogsPublishDay)
     case selectionReady(DevVlogsPublishSelection)
@@ -87,9 +91,11 @@ enum DevVlogsPublishState: Equatable {
             return [.createVideo]
         case .building:
             return [.cancel]
+        case .cancelled, .failed:
+            return [.retry]
         case .completed:
             return [.play, .reveal, .share]
-        case .noRecordings, .emptyDay, .selectionUnavailable, .cancelled, .failed:
+        case .noRecordings, .emptyDay, .selectionUnavailable:
             return []
         }
     }
@@ -118,9 +124,14 @@ enum DevVlogsPublishState: Equatable {
             return nil
         }
     }
+
+    var isBuilding: Bool {
+        if case .building = self { return true }
+        return false
+    }
 }
 
-struct DevVlogsPublishPresentation: Equatable {
+nonisolated struct DevVlogsPublishPresentation: Equatable {
     static let releaseEmpty = DevVlogsPublishPresentation(state: .noRecordings)
 
     let state: DevVlogsPublishState

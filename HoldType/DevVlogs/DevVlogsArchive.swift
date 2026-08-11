@@ -41,21 +41,6 @@ protocol DevVlogsArchiving {
 
 @MainActor
 final class FileSystemDevVlogsArchive: DevVlogsArchiving {
-    private struct ClipMetadata: Codable {
-        let schemaVersion: Int
-        let clipID: UUID
-        let attemptID: UUID
-        let createdAt: Date
-        let triggerBundleIdentifier: String
-        let triggerApplicationName: String
-        let cameraID: String
-        let cameraName: String
-        let duration: TimeInterval
-        let byteCount: Int64
-        let mediaHealth: String
-        let realizedVideoFormat: DevVlogsRealizedVideoFormat
-    }
-
     private let fileManager: FileManager
 
     init(fileManager: FileManager = .default) {
@@ -110,9 +95,12 @@ final class FileSystemDevVlogsArchive: DevVlogsArchiving {
         media: DevVlogsFinalizedMedia
     ) throws -> DevVlogsPublishedClip {
         let calendar = Calendar.current
-        let year = String(calendar.component(.year, from: snapshot.startedAt))
-        let day = Self.dayFormatter.string(from: snapshot.startedAt)
-        let appFolder = "\(Self.sanitize(snapshot.triggerApplication.displayName))--\(Self.sanitize(snapshot.triggerApplication.bundleIdentifier))"
+        let year = DevVlogsArchiveNaming.yearKey(for: snapshot.startedAt, calendar: calendar)
+        let day = DevVlogsArchiveNaming.dayKey(for: snapshot.startedAt, calendar: calendar)
+        let appFolder = DevVlogsArchiveNaming.appFolder(
+            displayName: snapshot.triggerApplication.displayName,
+            bundleIdentifier: snapshot.triggerApplication.bundleIdentifier
+        )
         let clipsURL = workspace.rootURL
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -121,7 +109,11 @@ final class FileSystemDevVlogsArchive: DevVlogsArchiving {
             .appendingPathComponent("apps", isDirectory: true)
             .appendingPathComponent(appFolder, isDirectory: true)
             .appendingPathComponent("clips", isDirectory: true)
-        let clipName = "\(Self.timeFormatter.string(from: snapshot.startedAt))--\(snapshot.attemptID.uuidString.lowercased())"
+        let clipName = DevVlogsArchiveNaming.clipDirectoryName(
+            startedAt: snapshot.startedAt,
+            clipID: snapshot.attemptID,
+            calendar: calendar
+        )
         let clipDirectoryURL = clipsURL.appendingPathComponent(clipName, isDirectory: true)
 
         guard !fileManager.fileExists(atPath: clipDirectoryURL.path) else {
@@ -134,7 +126,7 @@ final class FileSystemDevVlogsArchive: DevVlogsArchiving {
             try removeIntermediateIfPresent(workspace.cameraURL)
             try removeIntermediateIfPresent(workspace.audioURL)
 
-            let metadata = ClipMetadata(
+            let metadata = DevVlogsClipMetadata(
                 schemaVersion: 1,
                 clipID: snapshot.attemptID,
                 attemptID: snapshot.attemptID,
@@ -173,26 +165,4 @@ final class FileSystemDevVlogsArchive: DevVlogsArchiving {
         try fileManager.removeItem(at: url)
     }
 
-    private static func sanitize(_ value: String) -> String {
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
-        let scalars = value.unicodeScalars.map { allowed.contains($0) ? Character(String($0)) : "-" }
-        let sanitized = String(scalars).trimmingCharacters(in: CharacterSet(charactersIn: "-."))
-        return sanitized.isEmpty ? "Unknown" : sanitized
-    }
-
-    private static let dayFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = .current
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
-
-    private static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = .current
-        formatter.dateFormat = "HH-mm-ss"
-        return formatter
-    }()
 }
