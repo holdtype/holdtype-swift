@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated enum DevVlogsPublishAction: Hashable {
+    case openInFinder
+    case refresh
     case createVideo
     case retry
     case cancel
@@ -10,8 +12,7 @@ nonisolated enum DevVlogsPublishAction: Hashable {
 }
 
 nonisolated enum DevVlogsPublishSection: Hashable {
-    case sourceDay
-    case clips
+    case source
     case output
     case buildProgress
     case result
@@ -23,33 +24,35 @@ nonisolated struct DevVlogsPublishDay: Identifiable, Equatable {
     let detail: String
 }
 
-nonisolated struct DevVlogsPublishClip: Identifiable, Equatable {
-    enum Health: Equatable {
-        case ready
-        case missing
-        case invalid
-    }
+nonisolated struct DevVlogsPublishApplication: Identifiable, Equatable {
+    static let all = DevVlogsPublishApplication(
+        id: "all-applications",
+        title: "All Applications",
+        detail: "Every application recorded that day"
+    )
 
     let id: String
-    let clipID: UUID?
     let title: String
     let detail: String
-    let isSelected: Bool
-    let health: Health
+}
 
-    var isActionable: Bool {
-        clipID != nil && health == .ready
+nonisolated struct DevVlogsPublishSourceSummary: Equatable {
+    let clipCount: Int
+    let duration: TimeInterval
+    let byteCount: Int64
+    let invalidCount: Int
+
+    var isReady: Bool {
+        clipCount > 0 && invalidCount == 0
     }
 }
 
 nonisolated struct DevVlogsPublishSelection: Equatable {
     let day: DevVlogsPublishDay
-    let clips: [DevVlogsPublishClip]
+    let application: DevVlogsPublishApplication
+    let applications: [DevVlogsPublishApplication]
+    let summary: DevVlogsPublishSourceSummary
     let outputLocation: String
-
-    var selectedClipCount: Int {
-        clips.filter(\.isSelected).count
-    }
 }
 
 nonisolated struct DevVlogsPublishBuildProgress: Equatable {
@@ -71,7 +74,7 @@ nonisolated struct DevVlogsPublishArtifact: Equatable {
 
 nonisolated enum DevVlogsPublishState: Equatable {
     case noRecordings
-    case emptyDay(DevVlogsPublishDay)
+    case emptyDay(DevVlogsPublishSelection)
     case selectionReady(DevVlogsPublishSelection)
     case selectionUnavailable(DevVlogsPublishSelection, message: String)
     case building(DevVlogsPublishSelection, DevVlogsPublishBuildProgress)
@@ -82,49 +85,41 @@ nonisolated enum DevVlogsPublishState: Equatable {
     var visibleSections: [DevVlogsPublishSection] {
         switch self {
         case .noRecordings, .emptyDay, .selectionReady, .selectionUnavailable:
-            return [.sourceDay, .clips, .output]
+            return [.source, .output]
         case .building:
-            return [.sourceDay, .clips, .output, .buildProgress]
+            return [.source, .output, .buildProgress]
         case .cancelled, .failed, .completed:
-            return [.sourceDay, .clips, .output, .result]
+            return [.source, .output, .result]
         }
     }
 
     var permittedActions: Set<DevVlogsPublishAction> {
         switch self {
+        case .noRecordings:
+            return [.refresh]
+        case .emptyDay, .selectionUnavailable:
+            return [.openInFinder, .refresh]
         case .selectionReady:
-            return [.createVideo]
+            return [.openInFinder, .refresh, .createVideo]
         case .building:
             return [.cancel]
         case .cancelled, .failed:
-            return [.retry]
+            return [.openInFinder, .refresh, .retry]
         case .completed:
-            return [.play, .reveal, .share]
-        case .noRecordings, .emptyDay, .selectionUnavailable:
-            return []
+            return [.openInFinder, .refresh, .play, .reveal, .share]
         }
     }
 
     var selection: DevVlogsPublishSelection? {
         switch self {
-        case .selectionReady(let selection),
+        case .emptyDay(let selection),
+             .selectionReady(let selection),
              .selectionUnavailable(let selection, _),
              .building(let selection, _),
              .cancelled(let selection, _),
              .failed(let selection, _),
              .completed(let selection, _):
             return selection
-        case .noRecordings, .emptyDay:
-            return nil
-        }
-    }
-
-    var day: DevVlogsPublishDay? {
-        switch self {
-        case .emptyDay(let day):
-            return day
-        case .selectionReady, .selectionUnavailable, .building, .cancelled, .failed, .completed:
-            return selection?.day
         case .noRecordings:
             return nil
         }
@@ -137,15 +132,15 @@ nonisolated enum DevVlogsPublishState: Equatable {
 }
 
 nonisolated struct DevVlogsPublishPresentation: Equatable {
-    static let releaseEmpty = DevVlogsPublishPresentation(state: .noRecordings)
+    static let releaseEmpty = DevVlogsPublishPresentation(
+        state: .noRecordings,
+        enabledActions: [.refresh]
+    )
 
     let state: DevVlogsPublishState
     let enabledActions: Set<DevVlogsPublishAction>
 
-    init(
-        state: DevVlogsPublishState,
-        enabledActions: Set<DevVlogsPublishAction> = []
-    ) {
+    init(state: DevVlogsPublishState, enabledActions: Set<DevVlogsPublishAction> = []) {
         self.state = state
         self.enabledActions = enabledActions.intersection(state.permittedActions)
     }

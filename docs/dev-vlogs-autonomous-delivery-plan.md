@@ -2,7 +2,7 @@
 
 Status: approved for execution by the user on 2026-08-11.
 
-Pinned product contract: [`DV-ACTIVE-1`](specs/features/dev-vlogs.md).
+Pinned product contract: [`DV-ACTIVE-5`](specs/features/dev-vlogs.md).
 
 Coordination state: [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
 
@@ -22,8 +22,9 @@ Deliver a local macOS Dev Vlogs workflow in which:
    read lease and never opens a second microphone owner;
 3. one dictation creates zero or one truthful, playable local source clip;
 4. clips are organized and reviewed by day and trigger app;
-5. the user can select one day, choose and order its clips, and create one
-   publication-ready local video artifact;
+5. the user can select one day and All Applications or one application, then
+   create one publication-ready local video from every remaining clip in that
+   scope;
 6. the resulting artifact can be played, revealed in Finder, or passed to the
    macOS Share surface;
 7. direct social-network publication and social-format transforms remain
@@ -43,8 +44,7 @@ sidebar/detail structure. Its complete product sequence becomes:
 2. Capture
 3. Applications
 4. Storage
-5. Library
-6. Publish
+5. Publish
 
 `Publish` is the final primary section. A separate user-facing `Builds`
 section is unnecessary: a build recipe remains an internal durable product
@@ -58,9 +58,11 @@ V1 `Publish` means local artifact preparation, not direct remote publication.
 The user can:
 
 - choose a recorded local day;
-- inspect that day's app groups and clips;
-- include or exclude clips;
-- keep the default chronological order or reorder the selection;
+- choose All Applications or one application present that day;
+- open that exact day or application folder in Finder and review clips with
+  Quick Look;
+- delete unwanted source clips only in Finder;
+- rely on automatic disk refresh or request an explicit Refresh;
 - choose the local output folder;
 - create one video;
 - monitor progress or cancel;
@@ -74,11 +76,11 @@ The only initial output policy is `Original`:
 - no Twitter, Facebook, square, portrait, caption, or other social presets;
 - no provider account, credential, upload, or public-post action.
 
-If selected clips cannot be assembled through the accepted compatible
-passthrough path, V1 fails the Build truthfully without an output. It does not
-silently transcode. This plan treats that as the recommended resolution of the
-previous `DV-BUILD-6` fork, subject to the contract delta recorded before its
-dependent Phase 4 implementation.
+If the selected scope's remaining clips cannot be assembled through the
+accepted compatible passthrough path, V1 fails the Build truthfully without an
+output. It does not silently transcode. This plan treats that as the recommended
+resolution of the previous `DV-BUILD-6` fork, subject to the contract delta
+recorded before its dependent Phase 4 implementation.
 
 ### 2.3 Visual basis
 
@@ -98,14 +100,14 @@ All visible content and interaction remain SwiftUI.
 
 - Task: complete the Release-path Dev Vlogs workflow from accepted setup
   through local Publish artifact creation.
-- Change mode: scoped `evolve` under `DV-ACTIVE-1`; `reconcile` only for the
+- Change mode: scoped `evolve` under `DV-ACTIVE-5`; `reconcile` only for the
   accepted `Builds` to `Publish` information-architecture change and the
   selected no-transcode incompatible-source policy.
 - User-authorized outcome: autonomous completion with a connected camera and
   minimal operator participation, explicitly approved on 2026-08-11.
 - Authorized domains: Dev Vlogs UI, enablement, app eligibility, preferred
   camera capture, destination resolution, capture lifecycle, bounded shared
-  audio lease, vlog archive, Library, explicit vlog Delete, compatible local
+  audio lease, vlog archive, Finder-owned daily source review, compatible local
   Build, Publish artifact, Reveal, and macOS Share.
 - Authorized clauses: `DV-APP-*`, `DV-CAPTURE-*`, `DV-CAMERA-*`,
   `DV-STORAGE-*`, `DV-FOLDER-*`, `DV-REVIEW-*`, `DV-BUILD-*`, `DV-SHARE-1`,
@@ -131,8 +133,8 @@ All visible content and interaction remain SwiftUI.
 - Material decisions still requiring the user: none inside the approved V1
   plan unless new evidence proves an unavoidable product fork outside this
   envelope.
-- Contract epoch: `DV-ACTIVE-1` until the approved Publish delta is recorded;
-  dependent packets then pin the new revision.
+- Contract epoch: `DV-ACTIVE-5` for the Finder-owned day/application Publish
+  workflow.
 
 ## 4. Operator-Minimization Contract
 
@@ -215,12 +217,12 @@ Work classification: `shipping_product`.
 ### Shipping outcome
 
 - Add Publish as the final sidebar section.
-- Implement a polished Settings-quality screen with Source Day, Clips,
-  Output, Build Progress, and Result groups.
+- Implement a polished Settings-quality screen with Source Day, day summary,
+  Finder/Refresh, Output, Build Progress, and Result groups.
 - Provide truthful product states:
   - no recordings;
   - empty selected day;
-  - populated selection;
+  - populated day;
   - invalid or missing sources;
   - ready to build;
   - building;
@@ -231,7 +233,7 @@ Work classification: `shipping_product`.
   owning capability/state exists.
 - Show only the `Original` output policy; do not display future social
   profiles.
-- Keep the empty shipping state truthful until real Library data exists.
+- Keep the empty shipping state truthful until real archive data exists.
 
 ### Supporting work
 
@@ -251,7 +253,7 @@ media operation or future-provider behavior is falsely implied.
 
 - a new product decision outside the approved brief is required;
 - implementation requires a new AppKit visible surface;
-- the work expands into Library or media-engine implementation;
+- the work expands into a clip editor or media-engine implementation;
 - runtime QA needs an unavailable system authorization after a bounded
   attempt; record a residual rather than expanding tooling.
 
@@ -341,29 +343,21 @@ failure leaves ordinary dictation usable and unchanged.
 - a new Debug subsystem is proposed;
 - the iteration exceeds eight hours without a working release-path clip.
 
-## 8. Iteration 3 — Library, Delete, And Real Publish
+## 8. Iteration 3 — Simple Finder-Owned Daily Publish
 
 Expected effort: 6–8 hours.
 
 Work classification: `shipping_product`.
 
-### Library outcome
-
-- Index local days newest first and group clips by trigger app.
-- Display clip count, duration, byte size, media health, and missing state.
-- Provide SwiftUI playback, Reveal in Finder, inclusion/exclusion, and
-  explicit exact Delete.
-- Reconcile Finder-side missing files without recreating them.
-- Protect active, finalizing, recovering, and Build-owned sources from Delete.
-- Keep vlog media separate from Transcript History, Recording Cache, and
-  dictation recovery owners.
-
 ### Publish outcome
 
-- Feed real Library days and clips into Publish.
-- Default selection to Ready, non-excluded clips for one day in chronological
-  order.
-- Allow selection and reorder before confirmation.
+- Show real archive days newest first, offer All Applications plus applications
+  present that day, and summarize the selected scope.
+- Open the exact selected day or application folder in Finder for source
+  review and deletion.
+- Observe the selected scope while Publish is visible and provide Refresh.
+- Reconstruct every remaining valid clip in that scope at action time and order
+  by recorded timestamp with stable ID tie-breaking.
 - Save the build recipe before rendering.
 - Assemble compatible clips into one immutable local video without
   source-video re-encoding or source overwrite.
@@ -374,16 +368,18 @@ Work classification: `shipping_product`.
 
 ### Completion
 
-The user can record several clips, understand and control them in Library, and
-create one playable original-quality local Publish artifact for a selected
-day.
+The user can record several clips, review/remove them in the selected day or
+application folder using Finder, see Publish refresh from disk, and create one
+playable original-quality local artifact from every remaining clip in that
+scope.
 
 ### Stop conditions
 
 - compatible passthrough cannot produce the selected output;
 - implementation proposes automatic deletion or source overwrite;
 - a remote provider/account or social-format transform is introduced;
-- exact Delete scope or user-data ownership is uncertain.
+- selected day/application-scope reconstruction or observation cannot be made
+  truthful.
 
 ## 9. Iteration 4 — Autonomous Final Acceptance
 
@@ -397,9 +393,10 @@ Work classification: `verification` after the shipping product exists.
 2. Verify zero-or-one clip identity for each attempt.
 3. Exercise more than one app/day grouping through deterministic setup where
    practical.
-4. Open Library and play retained clips.
-5. Exclude one clip from a build without deleting it.
-6. Create one Publish artifact from the remaining selection.
+4. Select a day in Publish and open its exact folder in Finder.
+5. Remove one exact task-owned source through Finder/CLI and verify automatic
+   or explicit Refresh reconstructs the day without recreation.
+6. Create one Publish artifact from every remaining clip in timestamp order.
 7. Play and reveal the result.
 8. Open the macOS Share surface without completing an external share.
 9. Exercise a vlog failure and prove ordinary dictation remains usable.
@@ -453,4 +450,3 @@ The goal pauses and returns to the user only when:
 Otherwise execution proceeds across the four iterations without intermediate
 operator approval. Each iteration ends in a scoped master checkpoint and a
 compact progress receipt before the next dependency-ready iteration begins.
-

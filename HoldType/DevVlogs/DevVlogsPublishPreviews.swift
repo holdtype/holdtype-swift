@@ -5,48 +5,30 @@ private enum DevVlogsPublishPreviewFixtures {
     static let day = DevVlogsPublishDay(
         id: "2026-08-11",
         title: "Monday, August 11",
-        detail: "3 clips across Codex and Xcode · 1m 24s"
+        detail: "3 clips across 2 apps"
     )
+
+    static let applications: [DevVlogsPublishApplication] = [
+        .all,
+        .init(id: "application:codex", title: "Codex", detail: "2 clips"),
+        .init(id: "application:xcode", title: "Xcode", detail: "1 clip")
+    ]
 
     static let selection = DevVlogsPublishSelection(
         day: day,
-        clips: [
-            clip(id: "00000000-0000-0000-0000-000000000001", title: "10:14 · Codex"),
-            clip(id: "00000000-0000-0000-0000-000000000002", title: "11:02 · Xcode"),
-            clip(
-                id: "00000000-0000-0000-0000-000000000003",
-                title: "14:37 · Codex",
-                selected: false
-            )
-        ],
+        application: .all,
+        applications: applications,
+        summary: .init(clipCount: 3, duration: 84, byteCount: 128_000_000, invalidCount: 0),
         outputLocation: "Recorded day / Builds"
     )
 
     static let unavailableSelection = DevVlogsPublishSelection(
         day: day,
-        clips: [
-            DevVlogsPublishClip(
-                id: "00000000-0000-0000-0000-000000000004",
-                clipID: nil,
-                title: "10:14 · Codex",
-                detail: "Source file is no longer available",
-                isSelected: true,
-                health: .missing
-            )
-        ],
+        application: applications[1],
+        applications: applications,
+        summary: .init(clipCount: 2, duration: 42, byteCount: 64_000_000, invalidCount: 1),
         outputLocation: "Recorded day / Builds"
     )
-
-    private static func clip(id: String, title: String, selected: Bool = true) -> DevVlogsPublishClip {
-        DevVlogsPublishClip(
-            id: id,
-            clipID: UUID(uuidString: id),
-            title: title,
-            detail: "32s · Ready",
-            isSelected: selected,
-            health: .ready
-        )
-    }
 }
 
 #Preview("No recordings") {
@@ -55,7 +37,7 @@ private enum DevVlogsPublishPreviewFixtures {
 
 #Preview("Empty day") {
     DevVlogsPublishView(
-        presentation: DevVlogsPublishPresentation(state: .emptyDay(DevVlogsPublishPreviewFixtures.day))
+        presentation: DevVlogsPublishPresentation(state: .emptyDay(DevVlogsPublishPreviewFixtures.selection))
     ).frame(width: 700, height: 520)
 }
 
@@ -63,7 +45,7 @@ private enum DevVlogsPublishPreviewFixtures {
     DevVlogsPublishView(
         presentation: DevVlogsPublishPresentation(
             state: .selectionReady(DevVlogsPublishPreviewFixtures.selection),
-            enabledActions: [.createVideo]
+            enabledActions: [.openInFinder, .refresh, .createVideo]
         )
     ).frame(width: 700, height: 520)
 }
@@ -73,8 +55,9 @@ private enum DevVlogsPublishPreviewFixtures {
         presentation: DevVlogsPublishPresentation(
             state: .selectionUnavailable(
                 DevVlogsPublishPreviewFixtures.unavailableSelection,
-                message: "Exclude missing clips before creating a video."
-            )
+                message: "Review unavailable source files in Finder, then refresh."
+            ),
+            enabledActions: [.openInFinder, .refresh]
         )
     ).frame(width: 700, height: 520)
 }

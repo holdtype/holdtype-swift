@@ -5,8 +5,13 @@ import Foundation
 final class DevVlogsPublishStore: ObservableObject {
     @Published private(set) var presentation: DevVlogsPublishPresentation = .releaseEmpty
     @Published private(set) var selectedDayID: String?
+    @Published private(set) var selectedApplicationID = DevVlogsPublishApplication.all.id
+    @Published private(set) var lastRefreshAt: Date?
+    @Published private(set) var isRefreshing = false
+    @Published private(set) var refreshFailureMessage: String?
 
     private let destinationAccessProvider: () throws -> DevVlogsCaptureDestinationAccess
+    private let archiveLoader: (URL) async throws -> DevVlogsLibrarySnapshot
     private let recipeRepository: DevVlogsBuildRepository
     private let mediaBuilder: any DevVlogsMediaBuilding
     private let ownershipRegistry: DevVlogsClipOwnershipRegistry
@@ -14,24 +19,27 @@ final class DevVlogsPublishStore: ObservableObject {
     private let buildIDProvider: () -> UUID
 
     private var days: [DevVlogsLibraryDay] = []
-    private var orderedClipIDs: [UUID] = []
-    private var selectedClipIDs: Set<UUID> = []
     private var recipe: DevVlogsBuildRecipe?
     private var workspace: DevVlogsBuildWorkspace?
     private var staging: DevVlogsBuildStaging?
     private var buildTask: Task<Void, Never>?
 
     convenience init(destinationStore: DevVlogsDestinationSetupStore) {
+        let repository = DevVlogsLibraryRepository()
         self.init(
-            destinationAccessProvider: { try destinationStore.acquireCaptureDestination() }
+            destinationAccessProvider: { try destinationStore.acquireCaptureDestination() },
+            archiveLoader: { try await repository.load(rootURL: $0) }
         )
     }
 
     convenience init(
-        destinationAccessProvider: @escaping () throws -> DevVlogsCaptureDestinationAccess
+        destinationAccessProvider: @escaping () throws -> DevVlogsCaptureDestinationAccess,
+        archiveLoader: ((URL) async throws -> DevVlogsLibrarySnapshot)? = nil
     ) {
+        let repository = DevVlogsLibraryRepository()
         self.init(
             destinationAccessProvider: destinationAccessProvider,
+            archiveLoader: archiveLoader ?? { try await repository.load(rootURL: $0) },
             recipeRepository: DevVlogsBuildRepository(),
             mediaBuilder: AVFoundationDevVlogsMediaBuilder(),
             ownershipRegistry: .shared,
@@ -42,6 +50,7 @@ final class DevVlogsPublishStore: ObservableObject {
 
     init(
         destinationAccessProvider: @escaping () throws -> DevVlogsCaptureDestinationAccess,
+        archiveLoader: @escaping (URL) async throws -> DevVlogsLibrarySnapshot,
         recipeRepository: DevVlogsBuildRepository,
         mediaBuilder: any DevVlogsMediaBuilding,
         ownershipRegistry: DevVlogsClipOwnershipRegistry,
@@ -49,6 +58,7 @@ final class DevVlogsPublishStore: ObservableObject {
         buildIDProvider: @escaping () -> UUID
     ) {
         self.destinationAccessProvider = destinationAccessProvider
+        self.archiveLoader = archiveLoader
         self.recipeRepository = recipeRepository
         self.mediaBuilder = mediaBuilder
         self.ownershipRegistry = ownershipRegistry
@@ -60,49 +70,90 @@ final class DevVlogsPublishStore: ObservableObject {
         days.map(presentationDay)
     }
 
+    var availableApplications: [DevVlogsPublishApplication] {
+        guard let day = selectedLibraryDay else { return [.all] }
+        return [.all] + day.appGroups.map(presentationApplication)
+    }
+
+    func refresh() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        refreshFailureMessage = nil
+        defer { isRefreshing = false }
+        do {
+            let access = try destinationAccessProvider()
+            defer { access.release() }
+            let snapshot = try await archiveLoader(access.url)
+            synchronize(days: snapshot.days)
+            lastRefreshAt = now()
+        } catch is CancellationError {
+            return
+        } catch {
+            refreshFailureMessage = "Refresh failed. Reconnect the Dev Vlogs destination and try again."
+            guard buildTask == nil else { return }
+            if let selection = presentation.state.selection {
+                presentation = DevVlogsPublishPresentation(
+                    state: .selectionUnavailable(
+                        selection,
+                        message: "The selected source is unavailable. Reconnect it or open it in Finder, then refresh."
+                    ),
+                    enabledActions: [.openInFinder, .refresh]
+                )
+            } else {
+                presentation = .releaseEmpty
+            }
+        }
+    }
+
     func synchronize(days newDays: [DevVlogsLibraryDay]) {
         days = newDays
         guard buildTask == nil else { return }
-        guard let selectedDay = newDays.first(where: { $0.id == selectedDayID }) ?? newDays.first else {
+        guard let day = newDays.first(where: { $0.id == selectedDayID }) ?? newDays.first else {
             selectedDayID = nil
-            orderedClipIDs = []
-            selectedClipIDs = []
+            selectedApplicationID = DevVlogsPublishApplication.all.id
             presentation = .releaseEmpty
             return
         }
-        if selectedDayID != selectedDay.id {
-            selectDay(selectedDay)
-        } else {
-            let availableIDs = Set(selectedDay.clips.compactMap(\.clipID))
-            orderedClipIDs = orderedClipIDs.filter(availableIDs.contains)
-            selectedClipIDs.formIntersection(availableIDs)
-            appendNewClips(from: selectedDay)
-            updateReadyPresentation()
+        selectedDayID = day.id
+        if selectedApplicationID != DevVlogsPublishApplication.all.id,
+           !day.appGroups.contains(where: { applicationIdentifier($0) == selectedApplicationID }) {
+            selectedApplicationID = DevVlogsPublishApplication.all.id
         }
+        recipe = nil
+        workspace = nil
+        updateReadyPresentation()
     }
 
     func selectDay(id: String) {
-        guard buildTask == nil, let day = days.first(where: { $0.id == id }) else { return }
-        selectDay(day)
-    }
-
-    func setIncluded(_ isIncluded: Bool, clipID: UUID) {
-        guard buildTask == nil else { return }
-        if isIncluded {
-            selectedClipIDs.insert(clipID)
-        } else {
-            selectedClipIDs.remove(clipID)
-        }
+        guard buildTask == nil, days.contains(where: { $0.id == id }) else { return }
+        selectedDayID = id
+        selectedApplicationID = DevVlogsPublishApplication.all.id
+        recipe = nil
+        workspace = nil
         updateReadyPresentation()
     }
 
-    func move(clipID: UUID, direction: Int) {
+    func selectApplication(id: String) {
         guard buildTask == nil,
-              let index = orderedClipIDs.firstIndex(of: clipID) else { return }
-        let destination = index + direction
-        guard orderedClipIDs.indices.contains(destination) else { return }
-        orderedClipIDs.swapAt(index, destination)
+              availableApplications.contains(where: { $0.id == id }) else { return }
+        selectedApplicationID = id
+        recipe = nil
+        workspace = nil
         updateReadyPresentation()
+    }
+
+    func openSourceInFinder(using fileActions: any DevVlogsFileActionPerforming) {
+        do {
+            let access = try destinationAccessProvider()
+            defer { access.release() }
+            guard let sourceURL = selectedSourceURL(rootURL: access.url),
+                  DevVlogsFileIdentity.capture(at: sourceURL, kind: .directory) != nil else {
+                throw DevVlogsLibraryError.sourceMissing
+            }
+            fileActions.open(sourceURL)
+        } catch {
+            Task { await refresh() }
+        }
     }
 
     func createVideo() {
@@ -125,68 +176,47 @@ final class DevVlogsPublishStore: ObservableObject {
         buildTask?.cancel()
     }
 
-    private func selectDay(_ day: DevVlogsLibraryDay) {
-        selectedDayID = day.id
-        orderedClipIDs = uniqueClipIDs(in: day)
-        selectedClipIDs = Set(
-            uniqueClips(in: day)
-                .filter { $0.isBuildEligible && !$0.isExcluded }
-                .compactMap(\.clipID)
-        )
-        recipe = nil
-        workspace = nil
-        updateReadyPresentation()
-    }
-
-    private func appendNewClips(from day: DevVlogsLibraryDay) {
-        let existing = Set(orderedClipIDs)
-        for clip in uniqueClips(in: day)
-        where clip.clipID.map({ !existing.contains($0) }) == true {
-            guard let clipID = clip.clipID else { continue }
-            orderedClipIDs.append(clipID)
-            if clip.isBuildEligible && !clip.isExcluded {
-                selectedClipIDs.insert(clipID)
-            }
-        }
-    }
-
     private func runNewBuild() async {
-        guard let day = selectedLibraryDay else { return }
-        let selectedIDs = orderedClipIDs.filter(selectedClipIDs.contains)
-        guard !selectedIDs.isEmpty else {
-            updateReadyPresentation()
-            return
-        }
-
         do {
             let access = try destinationAccessProvider()
             defer { access.release() }
+            let snapshot = try await archiveLoader(access.url)
+            guard let day = snapshot.days.first(where: { $0.id == selectedDayID }) else {
+                throw DevVlogsBuildError.sourceMissing
+            }
+            let clips = scopedClips(in: day)
+            guard !clips.isEmpty else { throw DevVlogsBuildError.sourceMissing }
+            guard clips.allSatisfy(\.isBuildEligible) else { throw DevVlogsBuildError.sourceInvalid }
+            let orderedIDs = clips.compactMap(\.clipID)
+            guard orderedIDs.count == clips.count, Set(orderedIDs).count == clips.count else {
+                throw DevVlogsBuildError.sourceInvalid
+            }
+            days = snapshot.days
             let created = try await recipeRepository.createRecipe(
                 rootURL: access.url,
                 day: day,
-                orderedClipIDs: selectedIDs,
+                orderedClipIDs: orderedIDs,
                 buildID: buildIDProvider(),
                 createdAt: now()
             )
             recipe = created.recipe
             workspace = created.workspace
-            try await render(
-                recipe: created.recipe,
-                workspace: created.workspace,
-                day: day
-            )
+            try await render(recipe: created.recipe, workspace: created.workspace, day: day)
         } catch {
             await finishFailure(error)
         }
     }
 
     private func runRetry() async {
-        guard let recipe, let workspace, let day = days.first(where: { $0.id == recipe.dayKey }) else {
-            return
-        }
+        guard let recipe, let workspace else { return }
         do {
             let access = try destinationAccessProvider()
             defer { access.release() }
+            let snapshot = try await archiveLoader(access.url)
+            guard let day = snapshot.days.first(where: { $0.id == recipe.dayKey }) else {
+                throw DevVlogsBuildError.sourceMissing
+            }
+            days = snapshot.days
             if let outputURL = try await recipeRepository.completedOutputURL(workspace: workspace) {
                 let existing = try await mediaBuilder.validateOutput(at: outputURL)
                 try await complete(existing, recipe: recipe, workspace: workspace, day: day)
@@ -212,35 +242,23 @@ final class DevVlogsPublishStore: ObservableObject {
         workspace: DevVlogsBuildWorkspace,
         day: DevVlogsLibraryDay
     ) async throws {
-        let clipsByID = Dictionary(uniqueKeysWithValues: uniqueClips(in: day).compactMap { clip in
+        let clipsByID = Dictionary(uniqueKeysWithValues: day.clips.compactMap { clip in
             clip.clipID.map { ($0, clip) }
         })
         let sources = try recipe.orderedClipIDs.map { clipID -> DevVlogsBuildSource in
-            guard let clip = clipsByID[clipID],
-                  clip.health == .ready,
-                  let mediaURL = clip.mediaURL,
-                  let resourceIdentity = clip.resourceIdentity else {
+            guard let clip = clipsByID[clipID], clip.isBuildEligible,
+                  let mediaURL = clip.mediaURL, let identity = clip.resourceIdentity else {
                 throw DevVlogsBuildError.sourceMissing
             }
-            return DevVlogsBuildSource(
-                clipID: clipID,
-                fileURL: mediaURL,
-                resourceIdentity: resourceIdentity
-            )
+            return DevVlogsBuildSource(clipID: clipID, fileURL: mediaURL, resourceIdentity: identity)
         }
         guard let lease = ownershipRegistry.acquire(
-            clipIDs: Set(recipe.orderedClipIDs),
-            operation: .building
-        ) else {
-            throw DevVlogsLibraryError.clipBusy
-        }
+            clipIDs: Set(recipe.orderedClipIDs), operation: .building
+        ) else { throw DevVlogsLibraryError.clipBusy }
         defer { lease.release() }
 
         presentation = DevVlogsPublishPresentation(
-            state: .building(
-                selection(for: day),
-                DevVlogsPublishBuildProgress(completedFraction: 0, detail: "Preparing compatible clips…")
-            ),
+            state: .building(selection(for: day), .init(completedFraction: 0, detail: "Preparing compatible clips…")),
             enabledActions: [.cancel]
         )
         let staging = try await recipeRepository.prepareForBuild(workspace: workspace)
@@ -253,9 +271,7 @@ final class DevVlogsPublishStore: ObservableObject {
             outputURL: staging.outputURL,
             outputPrepared: { [recipeRepository] identity in
                 try await recipeRepository.registerStagedOutput(
-                    workspace: workspace,
-                    staging: staging,
-                    expectedIdentity: identity
+                    workspace: workspace, staging: staging, expectedIdentity: identity
                 )
             }
         ) { [weak self] fraction in
@@ -263,10 +279,7 @@ final class DevVlogsPublishStore: ObservableObject {
             self.presentation = DevVlogsPublishPresentation(
                 state: .building(
                     self.selection(for: day),
-                    DevVlogsPublishBuildProgress(
-                        completedFraction: fraction,
-                        detail: "Combining \(sources.count) clips…"
-                    )
+                    .init(completedFraction: fraction, detail: "Combining \(sources.count) clips…")
                 ),
                 enabledActions: [.cancel]
             )
@@ -274,12 +287,12 @@ final class DevVlogsPublishStore: ObservableObject {
         try Task.checkCancellation()
         try await recipeRepository.promoteOutput(workspace: workspace, staging: staging)
         self.staging = nil
-        let promoted = DevVlogsBuildOutput(
-            fileURL: workspace.finalOutputURL,
-            duration: output.duration,
-            byteCount: output.byteCount
+        try await complete(
+            .init(fileURL: workspace.finalOutputURL, duration: output.duration, byteCount: output.byteCount),
+            recipe: recipe,
+            workspace: workspace,
+            day: day
         )
-        try await complete(promoted, recipe: recipe, workspace: workspace, day: day)
     }
 
     private func complete(
@@ -305,31 +318,26 @@ final class DevVlogsPublishStore: ObservableObject {
         )
         presentation = DevVlogsPublishPresentation(
             state: .completed(selection(for: day), artifact),
-            enabledActions: [.play, .reveal, .share]
+            enabledActions: [.openInFinder, .refresh, .play, .reveal, .share]
         )
     }
 
     private func finishFailure(_ error: Error) async {
-        guard let day = selectedLibraryDay else { return }
-        let buildError: DevVlogsBuildError
-        if error is CancellationError || Task.isCancelled {
-            buildError = .cancelled
-        } else {
-            buildError = (error as? DevVlogsBuildError) ?? .exportFailed
+        guard let day = selectedLibraryDay else {
+            presentation = .releaseEmpty
+            return
         }
+        let buildError: DevVlogsBuildError = error is CancellationError || Task.isCancelled
+            ? .cancelled
+            : (error as? DevVlogsBuildError) ?? .exportFailed
         var canRetry = false
         if let recipe, let workspace {
             do {
                 try await recipeRepository.removeStagedOutput(workspace: workspace, staging: staging)
                 staging = nil
-            } catch {
-                canRetry = false
-            }
-            let lifecycle: DevVlogsBuildLifecycle = buildError == .cancelled ? .cancelled : .failed
-            do {
                 self.recipe = try await recipeRepository.update(
                     recipe,
-                    lifecycle: lifecycle,
+                    lifecycle: buildError == .cancelled ? .cancelled : .failed,
                     failureCategory: buildError.persistenceCategory,
                     outputFileName: nil,
                     workspace: workspace
@@ -339,13 +347,15 @@ final class DevVlogsPublishStore: ObservableObject {
                 canRetry = false
             }
         }
+        let message = buildError == .sourceMissing || buildError == .sourceInvalid
+            ? "The selected source changed or is unavailable. Open it in Finder, then refresh and try again."
+            : buildError.localizedDescription
         let state: DevVlogsPublishState = buildError == .cancelled
-            ? .cancelled(selection(for: day), message: buildError.localizedDescription)
-            : .failed(selection(for: day), message: buildError.localizedDescription)
-        presentation = DevVlogsPublishPresentation(
-            state: state,
-            enabledActions: canRetry ? [.retry] : []
-        )
+            ? .cancelled(selection(for: day), message: message)
+            : .failed(selection(for: day), message: message)
+        var actions: Set<DevVlogsPublishAction> = [.openInFinder, .refresh]
+        if canRetry { actions.insert(.retry) }
+        presentation = DevVlogsPublishPresentation(state: state, enabledActions: actions)
     }
 
     private func updateReadyPresentation() {
@@ -353,98 +363,86 @@ final class DevVlogsPublishStore: ObservableObject {
             presentation = .releaseEmpty
             return
         }
-        guard !day.clips.isEmpty else {
-            presentation = DevVlogsPublishPresentation(state: .emptyDay(presentationDay(day)))
-            return
-        }
         let selection = selection(for: day)
-        let selected = orderedClips(in: day).filter { clip in
-            guard let clipID = clip.clipID else { return false }
-            return selectedClipIDs.contains(clipID)
-        }
-        if selected.isEmpty || selected.contains(where: { !$0.isBuildEligible }) {
+        if selection.summary.clipCount == 0 {
+            presentation = DevVlogsPublishPresentation(
+                state: .emptyDay(selection), enabledActions: [.openInFinder, .refresh]
+            )
+        } else if !selection.summary.isReady {
             presentation = DevVlogsPublishPresentation(
                 state: .selectionUnavailable(
                     selection,
-                    message: selected.isEmpty
-                        ? "Include at least one Ready clip before creating a video."
-                        : "Exclude missing or unavailable clips before creating a video."
-                )
+                    message: "Some source files are missing or unavailable. Review them in Finder, then refresh."
+                ),
+                enabledActions: [.openInFinder, .refresh]
             )
         } else {
             presentation = DevVlogsPublishPresentation(
                 state: .selectionReady(selection),
-                enabledActions: [.createVideo]
+                enabledActions: [.openInFinder, .refresh, .createVideo]
             )
         }
     }
 
     private func selection(for day: DevVlogsLibraryDay) -> DevVlogsPublishSelection {
-        DevVlogsPublishSelection(
+        let clips = scopedClips(in: day)
+        return DevVlogsPublishSelection(
             day: presentationDay(day),
-            clips: orderedClips(in: day).map { clip in
-                DevVlogsPublishClip(
-                    id: clip.id,
-                    clipID: uniqueActionableClipID(clip, in: day),
-                    title: "\(clip.createdAt?.formatted(date: .omitted, time: .shortened) ?? "Unknown time") · \(clip.triggerApplicationName)",
-                    detail: "\(DevVlogsFormatting.duration(clip.duration)) · \(clip.health.title)",
-                    isSelected: clip.clipID.map(selectedClipIDs.contains) ?? false,
-                    health: publishHealth(clip.health)
-                )
-            },
+            application: selectedApplication(in: day),
+            applications: [.all] + day.appGroups.map(presentationApplication),
+            summary: .init(
+                clipCount: clips.count,
+                duration: clips.reduce(0) { $0 + $1.duration },
+                byteCount: clips.reduce(0) { $0 + $1.byteCount },
+                invalidCount: clips.filter { !$0.isBuildEligible }.count
+            ),
             outputLocation: "Recorded day / Builds"
         )
     }
 
-    private func orderedClips(in day: DevVlogsLibraryDay) -> [DevVlogsLibraryClip] {
-        let unique = uniqueClips(in: day)
-        let ordered = orderedClipIDs.compactMap { clipID in
-            unique.first { $0.clipID == clipID }
-        }
-        let orderedIDs = Set(ordered.map(\.id))
-        let remaining = day.clips.filter { !orderedIDs.contains($0.id) }
-        return ordered + remaining
+    private func scopedClips(in day: DevVlogsLibraryDay) -> [DevVlogsLibraryClip] {
+        guard selectedApplicationID != DevVlogsPublishApplication.all.id else { return day.clips }
+        return day.appGroups.first(where: { applicationIdentifier($0) == selectedApplicationID })?.clips ?? []
     }
 
-    private func uniqueClips(in day: DevVlogsLibraryDay) -> [DevVlogsLibraryClip] {
-        let counts = Dictionary(grouping: day.clips.compactMap(\.clipID), by: { $0 })
-            .mapValues(\.count)
-        return day.clips.filter { clip in
-            guard let clipID = clip.clipID else { return false }
-            return counts[clipID] == 1
-        }
+    private func selectedApplication(in day: DevVlogsLibraryDay) -> DevVlogsPublishApplication {
+        guard let group = day.appGroups.first(where: {
+            applicationIdentifier($0) == selectedApplicationID
+        }) else { return .all }
+        return presentationApplication(group)
     }
 
-    private func uniqueClipIDs(in day: DevVlogsLibraryDay) -> [UUID] {
-        uniqueClips(in: day).compactMap(\.clipID)
-    }
-
-    private func uniqueActionableClipID(
-        _ clip: DevVlogsLibraryClip,
-        in day: DevVlogsLibraryDay
-    ) -> UUID? {
-        guard clip.isBuildEligible,
-              let clipID = clip.clipID,
-              day.clips.filter({ $0.clipID == clipID }).count == 1 else {
-            return nil
-        }
-        return clipID
+    private func selectedSourceURL(rootURL: URL) -> URL? {
+        guard let day = selectedLibraryDay else { return nil }
+        let dayURL = rootURL
+            .appendingPathComponent(String(day.id.prefix(4)), isDirectory: true)
+            .appendingPathComponent(day.id, isDirectory: true)
+        guard selectedApplicationID != DevVlogsPublishApplication.all.id else { return dayURL }
+        guard let group = day.appGroups.first(where: {
+            applicationIdentifier($0) == selectedApplicationID
+        }) else { return nil }
+        return dayURL.appendingPathComponent("apps", isDirectory: true)
+            .appendingPathComponent(group.id, isDirectory: true)
     }
 
     private func presentationDay(_ day: DevVlogsLibraryDay) -> DevVlogsPublishDay {
         DevVlogsPublishDay(
             id: day.id,
             title: day.date.formatted(date: .long, time: .omitted),
-            detail: "\(day.clipCount) clips across \(day.appGroups.count) apps · \(DevVlogsFormatting.duration(day.duration))"
+            detail: "\(day.clipCount) clips across \(day.appGroups.count) apps"
         )
     }
 
-    private func publishHealth(_ health: DevVlogsLibraryHealth) -> DevVlogsPublishClip.Health {
-        switch health {
-        case .ready: return .ready
-        case .missing: return .missing
-        case .invalid: return .invalid
-        }
+    private func presentationApplication(_ group: DevVlogsLibraryAppGroup) -> DevVlogsPublishApplication {
+        .init(
+            id: applicationIdentifier(group),
+            title: group.displayName,
+            detail: "\(group.clips.count) clips"
+        )
+    }
+
+    private func applicationIdentifier(_ group: DevVlogsLibraryAppGroup) -> String {
+        "application:\(group.id)"
     }
 
     private var selectedLibraryDay: DevVlogsLibraryDay? {

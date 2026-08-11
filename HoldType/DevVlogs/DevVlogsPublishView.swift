@@ -1,13 +1,17 @@
 import SwiftUI
 
+@MainActor
 struct DevVlogsPublishView: View {
     let presentation: DevVlogsPublishPresentation
     let availableDays: [DevVlogsPublishDay]
     let selectedDayID: String?
+    let selectedApplicationID: String
+    let lastRefreshAt: Date?
+    let isRefreshing: Bool
+    let refreshFailureMessage: String?
     let onAction: (DevVlogsPublishAction) -> Void
     let onSelectDay: (String) -> Void
-    let onSetIncluded: (Bool, UUID) -> Void
-    let onMove: (UUID, Int) -> Void
+    let onSelectApplication: (String) -> Void
     let fileActions: any DevVlogsFileActionPerforming
 
     @State private var playingURL: URL?
@@ -16,19 +20,25 @@ struct DevVlogsPublishView: View {
         presentation: DevVlogsPublishPresentation = .releaseEmpty,
         availableDays: [DevVlogsPublishDay] = [],
         selectedDayID: String? = nil,
+        selectedApplicationID: String = DevVlogsPublishApplication.all.id,
+        lastRefreshAt: Date? = nil,
+        isRefreshing: Bool = false,
+        refreshFailureMessage: String? = nil,
         onAction: @escaping (DevVlogsPublishAction) -> Void = { _ in },
         onSelectDay: @escaping (String) -> Void = { _ in },
-        onSetIncluded: @escaping (Bool, UUID) -> Void = { _, _ in },
-        onMove: @escaping (UUID, Int) -> Void = { _, _ in }
+        onSelectApplication: @escaping (String) -> Void = { _ in }
     ) {
         self.init(
             presentation: presentation,
             availableDays: availableDays,
             selectedDayID: selectedDayID,
+            selectedApplicationID: selectedApplicationID,
+            lastRefreshAt: lastRefreshAt,
+            isRefreshing: isRefreshing,
+            refreshFailureMessage: refreshFailureMessage,
             onAction: onAction,
             onSelectDay: onSelectDay,
-            onSetIncluded: onSetIncluded,
-            onMove: onMove,
+            onSelectApplication: onSelectApplication,
             fileActions: SystemDevVlogsFileActions()
         )
     }
@@ -37,32 +47,36 @@ struct DevVlogsPublishView: View {
         presentation: DevVlogsPublishPresentation,
         availableDays: [DevVlogsPublishDay],
         selectedDayID: String?,
+        selectedApplicationID: String,
+        lastRefreshAt: Date?,
+        isRefreshing: Bool,
+        refreshFailureMessage: String?,
         onAction: @escaping (DevVlogsPublishAction) -> Void,
         onSelectDay: @escaping (String) -> Void,
-        onSetIncluded: @escaping (Bool, UUID) -> Void,
-        onMove: @escaping (UUID, Int) -> Void,
+        onSelectApplication: @escaping (String) -> Void,
         fileActions: any DevVlogsFileActionPerforming
     ) {
         self.presentation = presentation
         self.availableDays = availableDays
         self.selectedDayID = selectedDayID
+        self.selectedApplicationID = selectedApplicationID
+        self.lastRefreshAt = lastRefreshAt
+        self.isRefreshing = isRefreshing
+        self.refreshFailureMessage = refreshFailureMessage
         self.onAction = onAction
         self.onSelectDay = onSelectDay
-        self.onSetIncluded = onSetIncluded
-        self.onMove = onMove
+        self.onSelectApplication = onSelectApplication
         self.fileActions = fileActions
     }
 
     var body: some View {
         Form {
-            sourceDaySection
-            clipsSection
+            sourceSection
             outputSection
 
             if case .building(_, let progress) = presentation.state {
                 buildProgressSection(progress)
             }
-
             resultSection
         }
         .formStyle(.grouped)
@@ -72,49 +86,40 @@ struct DevVlogsPublishView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .navigationTitle(HoldTypeWindowTitle.titled("Dev Vlogs"))
         .sheet(isPresented: playingBinding) {
-            if let playingURL {
-                DevVlogsPlayerView(url: playingURL)
-            }
+            if let playingURL { DevVlogsPlayerView(url: playingURL) }
         }
     }
 
-    private var sourceDaySection: some View {
-        Section {
-            if let day = presentation.state.day {
-                if availableDays.count > 1 {
-                    Picker("Recorded day", selection: daySelectionBinding) {
-                        ForEach(availableDays) { candidate in
-                            Text(candidate.title).tag(Optional(candidate.id))
-                        }
-                    }
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    Label(day.title, systemImage: "calendar")
-                        .font(.headline)
-                    Text(day.detail)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 2)
-            } else {
-                emptyMessage(
-                    title: "No recordings yet",
-                    detail: "Recorded days will appear here after Dev Vlogs saves its first clip.",
-                    systemImage: "calendar.badge.clock"
-                )
-            }
-        } header: {
-            Text("Source Day")
-        } footer: {
-            Text("Publish prepares one local video from clips recorded on a single day.")
-        }
-    }
-
-    private var clipsSection: some View {
+    private var sourceSection: some View {
         Section {
             if let selection = presentation.state.selection {
-                ForEach(selection.clips) { clip in
-                    clipRow(clip)
+                Picker("Recorded day", selection: daySelectionBinding) {
+                    ForEach(availableDays) { day in
+                        Text(day.title).tag(Optional(day.id))
+                    }
+                }
+                .disabled(presentation.state.isBuilding)
+
+                Picker("Application", selection: applicationSelectionBinding) {
+                    ForEach(selection.applications) { application in
+                        Text(application.title).tag(application.id)
+                    }
+                }
+                .disabled(presentation.state.isBuilding)
+
+                sourceSummary(selection)
+
+                HStack {
+                    if presentation.enables(.openInFinder) {
+                        Button("Open in Finder") { onAction(.openInFinder) }
+                    }
+                    if presentation.enables(.refresh) {
+                        refreshButton
+                        Spacer()
+                        Text(refreshStatus)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 if case .selectionUnavailable(_, let message) = presentation.state {
@@ -124,60 +129,67 @@ struct DevVlogsPublishView: View {
                 }
             } else {
                 emptyMessage(
-                    title: emptyClipsTitle,
-                    detail: emptyClipsDetail,
-                    systemImage: "film.stack"
+                    title: "No recordings yet",
+                    detail: "Recorded days will appear here after Dev Vlogs saves its first clip.",
+                    systemImage: "calendar.badge.clock"
                 )
+                if presentation.enables(.refresh) {
+                    refreshButton
+                }
+                if let refreshFailureMessage {
+                    Label(refreshFailureMessage, systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                }
             }
         } header: {
-            Text("Clips")
+            Text("Source")
         } footer: {
-            if let selection = presentation.state.selection {
-                Text("\(selection.selectedClipCount) of \(selection.clips.count) clips selected in chronological order.")
-            } else {
-                Text("Clip selection becomes available when the Library has a recorded day.")
-            }
+            Text("Review clips with Finder and Quick Look. Publish uses every remaining clip in the selected scope.")
         }
+    }
+
+    private func sourceSummary(_ selection: DevVlogsPublishSelection) -> some View {
+        let summary = selection.summary
+        return VStack(alignment: .leading, spacing: 7) {
+            Label(selection.application.title, systemImage: "folder")
+                .font(.headline)
+            LabeledContent("Clips", value: "\(summary.clipCount)")
+            LabeledContent("Final video duration", value: DevVlogsFormatting.duration(summary.duration))
+            LabeledContent("Source size", value: DevVlogsFormatting.byteCount(summary.byteCount))
+            LabeledContent("Availability", value: summary.invalidCount == 0 ? "Ready" : "\(summary.invalidCount) unavailable")
+        }
+        .padding(.vertical, 2)
     }
 
     private var outputSection: some View {
         Section {
             LabeledContent("Quality", value: "Original")
-
             LabeledContent("Location") {
-                Text(presentation.state.selection?.outputLocation ?? "Choose after selecting a day")
+                Text(presentation.state.selection?.outputLocation ?? "Select a recorded day")
                     .foregroundStyle(presentation.state.selection == nil ? .secondary : .primary)
             }
-
             if presentation.enables(.createVideo) {
-                Button("Create Video") {
-                    onAction(.createVideo)
-                }
-                .buttonStyle(.borderedProminent)
+                Button("Create Video") { onAction(.createVideo) }
+                    .buttonStyle(.borderedProminent)
+                    .keyboardShortcut(.return, modifiers: [.command])
             }
         } header: {
             Text("Output")
         } footer: {
-            Text("Original keeps source dimensions and nominal frame rate. Publish creates a local artifact; it does not upload or post to a social service.")
+            Text("Original uses compatible video passthrough. Publish creates a local artifact and never uploads it.")
         }
     }
 
     private func buildProgressSection(_ progress: DevVlogsPublishBuildProgress) -> some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
-                Label("Creating video", systemImage: "film.stack")
-                    .font(.headline)
+                Label("Creating video", systemImage: "film.stack").font(.headline)
                 ProgressView(value: progress.boundedFraction)
-                Text(progress.detail)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Text(progress.detail).font(.footnote).foregroundStyle(.secondary)
             }
-            .padding(.vertical, 2)
-
             if presentation.enables(.cancel) {
-                Button("Cancel") {
-                    onAction(.cancel)
-                }
+                Button("Cancel") { onAction(.cancel) }
             }
         } header: {
             Text("Build Progress")
@@ -188,53 +200,28 @@ struct DevVlogsPublishView: View {
     private var resultSection: some View {
         switch presentation.state {
         case .cancelled(_, let message):
-            statusResult(
-                title: "Video creation cancelled",
-                detail: message,
-                systemImage: "xmark.circle",
-                color: .secondary,
-                offersRetry: presentation.enables(.retry)
-            )
+            statusResult(title: "Video creation cancelled", detail: message, color: .secondary)
         case .failed(_, let message):
-            statusResult(
-                title: "Video not created",
-                detail: message,
-                systemImage: "exclamationmark.triangle",
-                color: .orange,
-                offersRetry: presentation.enables(.retry)
-            )
+            statusResult(title: "Video not created", detail: message, color: .orange)
         case .completed(_, let artifact):
             completedResult(artifact)
-        case .noRecordings, .emptyDay, .selectionReady, .selectionUnavailable, .building:
+        default:
             EmptyView()
         }
     }
 
-    private func statusResult(
-        title: String,
-        detail: String,
-        systemImage: String,
-        color: Color,
-        offersRetry: Bool = false
-    ) -> some View {
+    private func statusResult(title: String, detail: String, color: Color) -> some View {
         Section {
             VStack(alignment: .leading, spacing: 4) {
-                Label(title, systemImage: systemImage)
+                Label(title, systemImage: "exclamationmark.triangle")
                     .font(.headline)
                     .foregroundStyle(color)
-                Text(detail)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                Text(detail).font(.footnote).foregroundStyle(.secondary)
             }
-            .padding(.vertical, 2)
-
-            if offersRetry {
-                Button("Retry") { onAction(.retry) }
-                    .buttonStyle(.borderedProminent)
+            if presentation.enables(.retry) {
+                Button("Retry") { onAction(.retry) }.buttonStyle(.borderedProminent)
             }
-        } header: {
-            Text("Result")
-        }
+        } header: { Text("Result") }
     }
 
     private func completedResult(_ artifact: DevVlogsPublishArtifact) -> some View {
@@ -244,153 +231,66 @@ struct DevVlogsPublishView: View {
                     .font(.headline)
                     .foregroundStyle(.green)
                 Text(artifact.name)
-                Text(artifact.detail)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                Text(artifact.outputLocation)
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.tertiary)
+                Text(artifact.detail).font(.footnote).foregroundStyle(.secondary)
             }
-            .padding(.vertical, 2)
-
             HStack {
                 if presentation.enables(.play) {
-                    Button("Play") { playingURL = artifact.fileURL }
-                        .buttonStyle(.borderedProminent)
+                    Button("Play") { playingURL = artifact.fileURL }.buttonStyle(.borderedProminent)
                 }
                 if presentation.enables(.reveal) {
                     Button("Reveal in Finder") { fileActions.reveal(artifact.fileURL) }
-                        .buttonStyle(.bordered)
                 }
                 if presentation.enables(.share) {
-                    ShareLink(item: artifact.fileURL) {
-                        Text("Share…")
-                    }
-                    .buttonStyle(.bordered)
+                    ShareLink(item: artifact.fileURL) { Text("Share…") }
                 }
             }
-        } header: {
-            Text("Result")
-        }
-    }
-
-    private func clipRow(_ clip: DevVlogsPublishClip) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: clipSystemImage(clip))
-                .foregroundStyle(clipColor(clip))
-                .frame(width: 20)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(clip.title)
-                Text(clip.detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-            if let clipID = clip.clipID, clip.isActionable {
-                Toggle(
-                    "Include",
-                    isOn: Binding(
-                        get: { clip.isSelected },
-                        set: { onSetIncluded($0, clipID) }
-                    )
-                )
-                .toggleStyle(.checkbox)
-                .disabled(presentation.state.isBuilding)
-                Button {
-                    onMove(clipID, -1)
-                } label: {
-                    Image(systemName: "arrow.up")
-                }
-                .help("Move earlier")
-                .disabled(presentation.state.isBuilding)
-                Button {
-                    onMove(clipID, 1)
-                } label: {
-                    Image(systemName: "arrow.down")
-                }
-                .help("Move later")
-                .disabled(presentation.state.isBuilding)
-            } else {
-                Text(clipStatus(clip))
-                    .font(.footnote)
-                    .foregroundStyle(clipColor(clip))
-            }
-        }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
+        } header: { Text("Result") }
     }
 
     private func emptyMessage(title: String, detail: String, systemImage: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Label(title, systemImage: systemImage)
-                .foregroundStyle(.secondary)
-            Text(detail)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            Label(title, systemImage: systemImage).foregroundStyle(.secondary)
+            Text(detail).font(.footnote).foregroundStyle(.secondary)
         }
         .padding(.vertical, 2)
     }
 
-    private var emptyClipsTitle: String {
-        presentation.state.day == nil ? "No clips available" : "No clips recorded"
-    }
-
-    private var emptyClipsDetail: String {
-        presentation.state.day == nil
-            ? "There are no local recordings to prepare yet."
-            : "This day has no clips that can be included in a video."
-    }
-
-    private func clipSystemImage(_ clip: DevVlogsPublishClip) -> String {
-        switch clip.health {
-        case .ready:
-            return clip.isSelected ? "checkmark.circle.fill" : "circle"
-        case .missing:
-            return "questionmark.circle"
-        case .invalid:
-            return "exclamationmark.circle"
-        }
-    }
-
-    private func clipColor(_ clip: DevVlogsPublishClip) -> Color {
-        switch clip.health {
-        case .ready:
-            return clip.isSelected ? .accentColor : .secondary
-        case .missing, .invalid:
-            return .orange
-        }
-    }
-
-    private func clipStatus(_ clip: DevVlogsPublishClip) -> String {
-        switch clip.health {
-        case .ready:
-            return clip.isSelected ? "Included" : "Excluded"
-        case .missing:
-            return "Missing"
-        case .invalid:
-            return "Unavailable"
-        }
-    }
-
     private var daySelectionBinding: Binding<String?> {
-        Binding(
-            get: { selectedDayID },
-            set: { if let value = $0 { onSelectDay(value) } }
-        )
+        Binding(get: { selectedDayID }, set: { if let id = $0 { onSelectDay(id) } })
+    }
+
+    private var applicationSelectionBinding: Binding<String> {
+        Binding(get: { selectedApplicationID }, set: { onSelectApplication($0) })
+    }
+
+    private var refreshStatus: String {
+        if isRefreshing { return "Refreshing source…" }
+        if refreshFailureMessage != nil { return "Refresh unavailable" }
+        guard let lastRefreshAt else { return "Not refreshed yet" }
+        return "Updated \(lastRefreshAt.formatted(date: .omitted, time: .shortened))"
+    }
+
+    private var refreshButton: some View {
+        Button {
+            onAction(.refresh)
+        } label: {
+            if isRefreshing {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text("Refreshing…")
+                }
+            } else {
+                Text("Refresh")
+            }
+        }
+        .disabled(isRefreshing)
     }
 
     private var playingBinding: Binding<Bool> {
-        Binding(
-            get: { playingURL != nil },
-            set: { if !$0 { playingURL = nil } }
-        )
+        Binding(get: { playingURL != nil }, set: { if !$0 { playingURL = nil } })
     }
 }
 
 #Preview("No recordings") {
-    DevVlogsPublishView()
-        .frame(width: 700, height: 520)
+    DevVlogsPublishView().frame(width: 700, height: 520)
 }

@@ -6,7 +6,7 @@ the approved Publish presentation slice is current.
 Date: 2026-08-11
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-ACTIVE-4`.
+`DV-ACTIVE-5`.
 
 Active persistent-goal registry:
 [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
@@ -20,8 +20,9 @@ Phase 0C is the Release-path Phase 1 menu/window/Off/Setup slice.
 
 Add an optional macOS-only workflow that records a short camera clip alongside
 an eligible HoldType dictation, stores clips locally by day and trigger app,
-lets the user review and remove source material, and explicitly builds selected
-clips into a shareable video.
+lets the user review and remove source material in Finder, and explicitly
+builds every remaining clip for one selected day/application scope into a
+shareable video.
 
 The product should feel like a developer journal attached to a workflow the
 user already performs. It must not become a general screen recorder, a hidden
@@ -31,7 +32,7 @@ ambient recorder, or a second failure dependency for dictation.
 
 - Task: deliver Dev Vlogs through Phase 4, beginning with the smallest
   Release-path setup slice.
-- Change mode: scoped `evolve` under `DV-ACTIVE-4`; reconcile only when evidence
+- Change mode: scoped `evolve` under `DV-ACTIVE-5`; reconcile only when evidence
   proves a contract omission or discrepancy.
 - User-authorized outcome: Active Dev Vlogs implementation authority and
   outcome-first delivery, explicitly authorized on 2026-08-11.
@@ -59,10 +60,10 @@ ambient recorder, or a second failure dependency for dictation.
 - Forbidden specification delta: weakening normal audio cleanup, changing
   dictation exact-once behavior, adding hidden capture, moving feature toggles
   into Permissions, or changing iOS.
-- Material user decisions: none inside the approved local Library/Delete/
-  Publish slice. `DV-BUILD-6` fails incompatible passthrough builds with no
+- Material user decisions: none inside the approved Finder-owned daily Publish
+  slice. `DV-BUILD-6` fails incompatible passthrough builds with no
   output.
-- Current contract revision: `DV-ACTIVE-4`.
+- Current contract revision: `DV-ACTIVE-5`.
 - Required review and QA: proportional `DV-P0C-REVIEW` before Phase 1
   implementation acceptance; focused evidence per delivered capability; real
   macOS UI/device/storage QA before the corresponding acceptance or release
@@ -144,8 +145,7 @@ navigation, controls, state, overlays, and feedback stay in SwiftUI.
 | Capture | Preferred camera, bounded preview, visible recording behavior | Later Phase 1 setup increment after its lifecycle is truthful |
 | Applications | Selected-app allowlist or all-apps-with-exclusions policy | Later Phase 1 setup increment |
 | Storage | Destination, bookmark health, free space, archive size, Finder actions | Later Phase 1 setup increment; no numeric thresholds without evidence |
-| Library | Days, app groups, clips, playback, inclusion, Reveal, Delete | Local clip MVP; hidden until usable |
-| Publish | Source day, clip selection, Original output, build progress/result, Reveal, and Share | Empty Release presentation now; real Library-backed workflow in the build/export phase |
+| Publish | Day and application scope, Finder review/Refresh, Original output, build progress/result, Reveal, and Share | Real archive-backed workflow; no separate Library or clip editor |
 
 The first implementation should not render empty placeholder sections for work
 that is not delivered. Stable navigation entries become visible when their
@@ -412,25 +412,27 @@ Exit:
 - logging and diagnostics contain no media, transcript, app content, or full
   local path.
 
-### Phase 3 — Library, review, and deletion
+### Phase 3 — Finder-owned daily source review
 
-Goal: make accumulated clips understandable and controllable before build is
-introduced.
+Goal: make accumulated daily sources understandable and controllable through
+Finder without adding an in-app editor.
 
 Work:
 
-- index days newest first and group clips by trigger app;
-- show clip count, duration, byte size, media health, and missing-file state;
-- add SwiftUI local playback, Reveal in Finder, inclusion/exclusion, and
-  explicit Delete;
-- reconcile Finder-side moves/deletions and rebuild local indexes;
-- protect active/finalizing/build-owned sources from destructive actions;
+- index days newest first while preserving app folders as on-disk organization;
+- show selected-scope clip count, duration, byte size, and health;
+- open the exact selected day or application folder in Finder for Quick Look
+  and source deletion;
+- observe/coalesce selected-scope changes and provide explicit Refresh;
+- reconcile Finder-side additions, moves, deletions, and corrupt sources;
 - show aggregate archive usage and capacity warnings.
 
 Exit:
 
 - every displayed state is derived from a validated local owner;
-- exclusion is non-destructive and Delete has exact scope;
+- Publish exposes no Library, Delete, exclusion, reorder, or per-clip editor;
+- Publish offers All Applications or one application present for the selected
+  day;
 - a deleted or moved Finder file becomes Missing without recreation;
 - no cleanup action can touch Recording Cache, History, exports, or unrelated
   files;
@@ -438,18 +440,18 @@ Exit:
 
 ### Phase 4 — Build, export, and Share
 
-Goal: turn selected clips into one reproducible local video.
+Goal: turn every remaining valid clip in one selected day/application scope
+into one reproducible local video.
 
-Entry dependency: `DV-ACTIVE-4` resolves `DV-BUILD-6`: selected clips that
-cannot be composed through direct-compatible video passthrough fail with no
-output.
+Entry dependency: `DV-ACTIVE-5` preserves `DV-BUILD-6`: selected-scope clips
+that cannot be composed through direct-compatible video passthrough fail with
+no output.
 
 Work:
 
 - create saved build recipes before rendering;
-- default to Ready, non-excluded clips for one selected day in chronological
-  order;
-- provide the approved selection/reorder controls;
+- reconstruct the selected day/application scope from disk at action time;
+- order every remaining valid clip by recorded timestamp and stable clip ID;
 - render according to the accepted `DV-BUILD-6` passthrough-only export policy, with
   progress, cancellation, retry, and bounded media operations;
 - retain completed exports independently from later source deletion;
@@ -616,15 +618,15 @@ or override individual items.
 
 | ID | Decision | Recommended V1 answer | Why |
 | --- | --- | --- | --- |
-| `DV-D01` | Default section and sidebar order | Overview first; then Capture, Applications, Storage, Library, Publish | Publish is the final local artifact-preparation workflow; permission recovery stays with its owning section and direct publication remains absent. |
+| `DV-D01` | Default section and sidebar order | Overview first; then Capture, Applications, Storage, Publish | Publish is the final local artifact-preparation workflow; no separate Library exists. |
 | `DV-D02` | App-policy prominence | Selected apps is the recommended/default path; all-apps-with-exclusions is secondary | Safer privacy posture and matches the developer-tool use case. |
 | `DV-D03` | Focus change during dictation | Freeze the trigger app at start; do not stop or move the vlog when focus later changes | One dictation maps to one clip and one folder without fragile focus tracking. |
 | `DV-D04` | V1 audio source | Always the same dictation microphone | Avoids a second capture owner and keeps the spoken take consistent. |
 | `DV-D05` | Source quality | Preserve the camera/macOS-negotiated source without a HoldType resolution/FPS downgrade or additional source-video encode; expose no capture-quality selector | Preserves what the camera and system actually provide without promising sensor RAW or turning native 1080p into a HoldType preset. |
 | `DV-D06` | Mirroring | Mirror preview only; keep the source physically correct; defer build-time mirroring | Familiar setup preview without baking an irreversible presentation choice into source media. |
 | `DV-D07` | Low-space policy | Derive numeric warning/hard-stop values from measured negotiated-source byte rates; hard-stop must reserve at least one max-length attempt under a safe measured bound plus finalization overhead | A guessed fixed threshold may be unsafe across actual camera formats; until a safe bound is proven, the numeric policy remains capability-gated. |
-| `DV-D08` | Automatic retention | No automatic deletion in V1; show usage and require explicit Delete | Preserves trust while the archive model is new. Add bounded retention later as an explicit opt-in policy. |
-| `DV-D09` | First build editing | Selection and reorder, but no trim/timeline | Enough control to remove noise and shape the day without creating a video editor. |
+| `DV-D08` | Automatic retention | No automatic deletion in V1; source deletion is Finder-owned | Preserves trust while keeping HoldType non-destructive. |
+| `DV-D09` | First build editing | No in-app editor; Finder edits the selected day/application source set | The output is every remaining selected-scope clip in deterministic order. |
 | `DV-D10` | Transcript metadata | Do not persist transcript text beside clips in V1 | Keeps the video archive independent from transcript retention and avoids a second sensitive text index. |
 | `DV-D11` | Command surface | App commands only for V1; no CLI | The requested user workflow is covered without prematurely freezing an automation API. |
 | `DV-D12` | First publication target | Export, Reveal, and macOS Share only | Delivers the durable value before adding credentials and unstable provider APIs. |
@@ -634,7 +636,7 @@ Source capture is resolved. One separate Build decision remains:
 
 | ID | Decision | Unranked alternatives | Status |
 | --- | --- | --- | --- |
-| `DV-BUILD-6` | Result when selected clips cannot be composed by direct-compatible video passthrough | Fail the Build truthfully with no output; preserve recipe, sources, and prior outputs; never silently transcode | Resolved by the approved autonomous delivery plan and recorded in `DV-ACTIVE-4` |
+| `DV-BUILD-6` | Result when the selected scope's clips cannot be composed by direct-compatible video passthrough | Fail the Build truthfully with no output; preserve recipe, sources, and prior outputs; never silently transcode | Preserved by the direct correction and recorded in `DV-ACTIVE-5` |
 
 ## 12. Recommended First Release Cut
 
@@ -644,8 +646,8 @@ The smallest release worth shipping is Phases 0 through 4:
 - opt-in setup with Camera permission, selected apps, preferred camera, and
   destination;
 - short best-effort camera clips tied to eligible dictations;
-- day/app library with playback, Reveal, exclusion, and explicit Delete;
-- explicit daily build with selection/reorder, the passthrough-only
+- Finder-owned daily source review with observation and Refresh;
+- explicit all-remaining-clips daily build with the passthrough-only
   `DV-BUILD-6` export policy, Reveal, and Share.
 
 Direct publication, captions, transcript search, trim, timelines, automatic
