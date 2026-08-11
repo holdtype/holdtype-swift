@@ -26,6 +26,15 @@ struct BehaviorSettingsSection: View {
             )
 
             Toggle(
+                "Show HoldType in Dock",
+                isOn: $settings.showInDock
+            )
+
+            Text("Turn on to keep HoldType visible in the Dock while it is running.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Toggle(
                 "Insert transcripts automatically",
                 isOn: $settings.automaticallyInsertTranscripts
             )

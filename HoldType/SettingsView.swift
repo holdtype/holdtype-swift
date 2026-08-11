@@ -186,7 +186,7 @@ struct SettingsView: View {
         }
         .onDisappear {
             permissionsModel.stopVisiblePermissionsPolling()
-            AppWindowActivation.restoreAccessoryIfNoVisibleAppWindows(excluding: nil)
+            AppWindowActivation.restoreConfiguredPolicyIfNoVisibleAppWindows(excluding: nil)
         }
     }
 
@@ -249,6 +249,7 @@ struct SettingsView: View {
 
                 appSettings = newValue
                 appSettingsStore.save(newValue)
+                AppWindowActivation.applyConfiguredPolicyIfChanged(from: oldSettings.showInDock, to: newValue.showInDock)
 
                 applyRecordingCacheRetentionIfNeeded(oldSettings: oldSettings, newSettings: newValue)
                 refreshSetupStatusAfterSettingsChange()

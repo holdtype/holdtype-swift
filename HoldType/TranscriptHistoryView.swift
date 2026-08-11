@@ -81,7 +81,7 @@ struct TranscriptHistoryView: View {
             scheduleRecordingCacheRefresh()
         }
         .onDisappear {
-            AppWindowActivation.restoreAccessoryIfNoVisibleAppWindows(excluding: nil)
+            AppWindowActivation.restoreConfiguredPolicyIfNoVisibleAppWindows(excluding: nil)
         }
         .confirmationDialog(
             "Clear history?",

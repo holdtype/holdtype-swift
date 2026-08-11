@@ -48,6 +48,7 @@ struct AppSettingsStore {
         static let recordingStopTailDuration = keyPrefix + "recordingStopTailDuration"
         static let recordingDurationLimitMinutes =
             keyPrefix + "recordingDurationLimitMinutes"
+        static let showInDock = keyPrefix + "showInDock"
         static let saveTranscriptHistory = keyPrefix + "saveTranscriptHistory"
         static let recordingCachePolicyMode = keyPrefix + "recordingCachePolicyMode"
         static let recordingCacheRetainedRecordingLimit =
@@ -144,6 +145,8 @@ struct AppSettingsStore {
             recordingDurationLimit: loadRecordingDurationLimit(
                 defaultValue: defaultSettings.recordingDurationLimit
             ),
+            showInDock: optionalBool(forKey: Key.showInDock)
+                ?? defaultSettings.showInDock,
             saveTranscriptHistory: loadSaveTranscriptHistory(
                 defaultValue: defaultSettings.saveTranscriptHistory
             ),
@@ -208,6 +211,7 @@ struct AppSettingsStore {
             settings.recordingDurationLimit.minutes,
             forKey: Key.recordingDurationLimitMinutes
         )
+        userDefaults.set(settings.showInDock, forKey: Key.showInDock)
         userDefaults.set(settings.saveTranscriptHistory, forKey: Key.saveTranscriptHistory)
         saveRecordingCachePolicy(settings.recordingCachePolicy)
         userDefaults.set(true, forKey: MigrationKey.transcriptHistoryDefaultEnabled)

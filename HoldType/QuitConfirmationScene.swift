@@ -48,9 +48,9 @@ final class LegacyQuitConfirmationRequester: QuitConfirmationRequesting {
 @MainActor
 struct NativeQuitConfirmationPresenter: QuitConfirmationPresenting {
     func requestQuitConfirmation() -> QuitConfirmationDecision {
-        let shouldRestoreAccessoryAfterCancel = !hasVisibleAppWindow
+        let shouldRestoreConfiguredPolicyAfterCancel = !hasVisibleAppWindow
 
-        AppWindowActivation.showRegularApp()
+        AppWindowActivation.activateForWindowPresentation()
 
         let alert = NSAlert()
         alert.alertStyle = .warning
@@ -63,8 +63,10 @@ struct NativeQuitConfirmationPresenter: QuitConfirmationPresenting {
             ? .quit
             : .cancel
 
-        if decision == .cancel, shouldRestoreAccessoryAfterCancel {
-            NSApplication.shared.setActivationPolicy(.accessory)
+        if decision == .cancel, shouldRestoreConfiguredPolicyAfterCancel {
+            AppWindowActivation.restoreConfiguredPolicyIfNoVisibleAppWindows(
+                excluding: alert.window
+            )
         }
 
         return decision

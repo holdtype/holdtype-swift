@@ -1,4 +1,3 @@
-import AppKit
 import Darwin
 import Foundation
 
@@ -16,9 +15,8 @@ enum InputMonitoringPermissionLaunchRecovery {
     static func requestIfNeeded(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         permissionService: InputMonitoringPermissionService = InputMonitoringPermissionService(),
-        activateApp: () -> Void = {
-            NSApplication.shared.setActivationPolicy(.regular)
-            NSApplication.shared.activate(ignoringOtherApps: true)
+        activateApp: @MainActor () -> Void = {
+            AppWindowActivation.activateForWindowPresentation()
         },
         scheduleRequestAfterActivation: @escaping (@escaping @MainActor () -> Void) -> Void = { request in
             DispatchQueue.main.asyncAfter(deadline: .now() + requestDelayAfterActivation) {

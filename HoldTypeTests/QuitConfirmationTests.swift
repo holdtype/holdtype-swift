@@ -115,11 +115,15 @@ struct QuitConfirmationTests {
         var stopCount = 0
         var maintenanceScheduleCount = 0
         var repairCount = 0
+        var activationPolicyApplyCount = 0
         let promptCoordinator = FakeTranscriptionFailurePromptCoordinator()
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
             transcriptionFailurePromptCoordinator: promptCoordinator,
             launchEnvironment: [:],
+            applyConfiguredActivationPolicy: {
+                activationPolicyApplyCount += 1
+            },
             startRuntimeComponents: {
                 startCount += 1
             },
@@ -141,6 +145,7 @@ struct QuitConfirmationTests {
         #expect(stopCount == 1)
         #expect(maintenanceScheduleCount == 1)
         #expect(repairCount == 1)
+        #expect(activationPolicyApplyCount == 1)
         #expect(promptCoordinator.startCount == 1)
         #expect(promptCoordinator.stopCount == 1)
     }
@@ -151,11 +156,15 @@ struct QuitConfirmationTests {
         var stopCount = 0
         var maintenanceScheduleCount = 0
         var repairCount = 0
+        var activationPolicyApplyCount = 0
         let promptCoordinator = FakeTranscriptionFailurePromptCoordinator()
         let delegate = HoldTypeAppDelegate(
             quitConfirmationPresenter: FakeQuitConfirmationPresenter(decision: .quit),
             transcriptionFailurePromptCoordinator: promptCoordinator,
             launchEnvironment: [InputMonitoringPermissionLaunchRecovery.requestEnvironmentKey: "1"],
+            applyConfiguredActivationPolicy: {
+                activationPolicyApplyCount += 1
+            },
             startRuntimeComponents: {
                 startCount += 1
             },
@@ -177,6 +186,7 @@ struct QuitConfirmationTests {
         #expect(stopCount == 0)
         #expect(maintenanceScheduleCount == 0)
         #expect(repairCount == 0)
+        #expect(activationPolicyApplyCount == 0)
         #expect(promptCoordinator.startCount == 0)
         #expect(promptCoordinator.stopCount == 0)
     }

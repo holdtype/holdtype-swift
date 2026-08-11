@@ -207,6 +207,15 @@ This spec covers:
   Item state. If macOS reports that user approval is still required, Settings
   should show a clear approval-needed state and provide a way to review that
   existing request in System Settings > General > Login Items.
+- `DOCK-SETTINGS-1`: Behavior should include a `Show HoldType in Dock` toggle.
+  It is off by default so HoldType remains a menu-bar-only utility unless the
+  user explicitly opts into regular Dock presence.
+- `DOCK-SETTINGS-2`: Changing `Show HoldType in Dock` should update Dock
+  presence immediately without closing Settings, interrupting dictation, or
+  requiring an app restart. The selected value persists across launches.
+- `DOCK-SETTINGS-3`: The Dock toggle controls only app activation presence. It
+  must not change launch-at-login registration, menu bar availability, global
+  shortcuts, recording state, or the ability to open ordinary SwiftUI windows.
 - Dictation sounds should be short, non-verbal cues. The start cue should make
   recording start noticeable without requiring the user to watch the screen.
 - The Settings window should include a dedicated Recording Cache section.
@@ -415,6 +424,7 @@ The MVP non-secret settings default to:
 - recording tail after release: off
 - maximum recording length: 5 minutes
 - start HoldType at login: off
+- show HoldType in Dock: off
 - keep transcript recovery history: on
 - do not keep recording cache: on
 - recording cache retention count when enabled: 10
@@ -550,6 +560,7 @@ UserDefaults may store:
 - custom translation target language code
 - translation model
 - translation prompt
+- show HoldType in Dock
 - JSON-encoded local OpenAI usage estimate records
 
 Keychain stores:
@@ -598,8 +609,9 @@ selected entry must not start, stop, cancel, or otherwise affect dictation.
 - Add tests or manual QA for saving/loading settings, saving/loading/deleting
   API key, missing key errors, local usage price calculation, projection math,
   unknown-model cost handling, maximum recording length default/range/migration,
-  recording cache listing/clear/retention, reset behavior, and ensuring logs do
-  not contain the API key when implementation exists.
+  Dock presence default/persistence/immediate application, recording cache
+  listing/clear/retention, reset behavior, and ensuring logs do not contain the
+  API key when implementation exists.
 
 ## Unknowns requiring confirmation
 

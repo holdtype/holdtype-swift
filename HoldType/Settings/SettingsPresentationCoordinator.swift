@@ -104,7 +104,9 @@ enum SettingsSceneRequest {
             focusing: item,
             dismissMenu: dismissMenu,
             scheduleAfterMenuDismissal: scheduleAfterMenuDismissal,
-            activateApplication: AppWindowActivation.showRegularApp,
+            activateApplication: {
+                AppWindowActivation.activateForWindowPresentation()
+            },
             refreshFocusedSettings: {
                 SettingsPresentationCoordinator.shared.navigation.requestFocusedSettingsRefresh()
             },

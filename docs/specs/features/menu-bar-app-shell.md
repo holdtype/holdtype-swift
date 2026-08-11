@@ -32,6 +32,16 @@ This spec covers:
 ## User-visible behavior
 
 - The app should run as a macOS menu bar app.
+- `DOCK-1`: HoldType should run without a Dock icon by default. Its menu bar
+  item remains the primary persistent app presence while the process is
+  running.
+- `DOCK-2`: The user may opt into keeping HoldType visible in the Dock through
+  the macOS Behavior setting `Show HoldType in Dock`. The change applies
+  immediately and persists across app launches.
+- `DOCK-3`: When Dock presence is disabled, Settings, Transcript History,
+  Manage Fixes, Dev Vlogs, recovery prompts, and quit confirmation must still
+  open or present in front when explicitly requested. Opening or closing one
+  of these surfaces must not silently change the saved Dock preference.
 - The menu bar status item should remain available while the app is running.
 - The menu bar item uses the branded template asset `HoldTypeMenuBarIcon`
   without a visible text title. Its accessibility label is `HoldType` and its
@@ -168,6 +178,9 @@ This spec covers:
   still work.
 - Closing Settings or Transcript History windows should not show the quit
   confirmation and should not terminate the app.
+- Closing any ordinary HoldType window must preserve the configured Dock
+  presence instead of unconditionally switching the app to accessory or
+  regular activation policy.
 - Dismissing the menu bar surface with Escape, an outside click, a click in
   another app, or a second click on the menu bar item must not leave an
   invisible HoldType surface holding focus.

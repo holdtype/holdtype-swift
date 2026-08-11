@@ -288,7 +288,9 @@ enum FixesEditorWindowRequest {
             dismissExistingEditor: dismissExistingEditor,
             scheduleAfterMenuDismissal: scheduleAfterMenuDismissal,
             scheduleAfterEditorClose: scheduleAfterEditorClose,
-            activateApplication: AppWindowActivation.showRegularApp,
+            activateApplication: {
+                AppWindowActivation.activateForWindowPresentation()
+            },
             openFreshEditor: openFreshEditor
         )
     }

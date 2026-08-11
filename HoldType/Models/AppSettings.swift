@@ -51,6 +51,7 @@ struct AppSettings: Equatable {
             VoiceSessionPreferences.defaults.recordingStopTailDuration,
         recordingDurationLimit:
             VoiceSessionPreferences.defaults.recordingDurationLimit,
+        showInDock: false,
         saveTranscriptHistory: RetentionConfiguration.defaults.historyEnabled,
         recordingCachePolicy: RetentionConfiguration.defaults.recordingCachePolicy
     )
@@ -84,6 +85,7 @@ struct AppSettings: Equatable {
     var showFloatingIndicator: Bool
     var recordingStopTailDuration: RecordingStopTailDuration = .off
     var recordingDurationLimit: RecordingDurationLimit = .default
+    var showInDock: Bool = false
     var saveTranscriptHistory: Bool
     var recordingCachePolicy: RecordingCachePolicy = .deleteImmediately
 

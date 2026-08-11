@@ -23,7 +23,9 @@ enum DevVlogsWindowRequest {
         openAfterMenuDismissal(
             dismissMenu: dismissMenu,
             scheduleAfterMenuDismissal: scheduleAfterMenuDismissal,
-            activateApplication: AppWindowActivation.showRegularApp,
+            activateApplication: {
+                AppWindowActivation.activateForWindowPresentation()
+            },
             openDevVlogs: openDevVlogs
         )
     }

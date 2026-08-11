@@ -23,7 +23,9 @@ enum TranscriptHistoryWindowRequest {
         openAfterMenuDismissal(
             dismissMenu: dismissMenu,
             scheduleAfterMenuDismissal: scheduleAfterMenuDismissal,
-            activateApplication: AppWindowActivation.showRegularApp,
+            activateApplication: {
+                AppWindowActivation.activateForWindowPresentation()
+            },
             openHistory: openHistory
         )
     }

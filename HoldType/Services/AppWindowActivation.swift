@@ -8,20 +8,73 @@
 import AppKit
 
 enum AppWindowActivation {
-    /// Activates the menu-bar app only for an explicit request to present one
-    /// of its ordinary SwiftUI windows. AppKit is used here solely for the
-    /// macOS process activation policy; it does not host or render any UI.
+    static func configuredPolicy(showInDock: Bool) -> NSApplication.ActivationPolicy {
+        showInDock ? .regular : .accessory
+    }
+
+    /// Applies the user's persistent Dock preference. AppKit remains isolated
+    /// here solely because SwiftUI does not expose process activation policy.
+    @discardableResult
     @MainActor
-    static func showRegularApp() {
-        NSApplication.shared.setActivationPolicy(.regular)
-        // The menu action is an explicit user request to foreground this
-        // window. Cooperative activation is not sufficient for an accessory
-        // app while another application owns focus.
-        NSApplication.shared.activate(ignoringOtherApps: true)
+    static func applyConfiguredPolicy() -> Bool {
+        applyConfiguredPolicy(showInDock: AppSettingsStore().load().showInDock)
+    }
+
+    @discardableResult
+    @MainActor
+    static func applyConfiguredPolicy(showInDock: Bool) -> Bool {
+        applyConfiguredPolicy(
+            showInDock: showInDock,
+            setActivationPolicy: { NSApplication.shared.setActivationPolicy($0) }
+        )
     }
 
     @MainActor
-    static func restoreAccessoryIfNoVisibleAppWindows(excluding excludedWindow: NSWindow?) {
+    static func applyConfiguredPolicyIfChanged(
+        from previousShowInDock: Bool,
+        to showInDock: Bool
+    ) {
+        guard previousShowInDock != showInDock else {
+            return
+        }
+        applyConfiguredPolicy(showInDock: showInDock)
+    }
+
+    @discardableResult
+    @MainActor
+    static func applyConfiguredPolicy(
+        showInDock: Bool,
+        setActivationPolicy: (NSApplication.ActivationPolicy) -> Bool
+    ) -> Bool {
+        setActivationPolicy(configuredPolicy(showInDock: showInDock))
+    }
+
+    /// Activates the menu-bar app for an explicit request to present one of
+    /// its ordinary SwiftUI windows without overriding the Dock preference.
+    @MainActor
+    static func activateForWindowPresentation() {
+        activateForWindowPresentation(
+            showInDock: AppSettingsStore().load().showInDock,
+            setActivationPolicy: { NSApplication.shared.setActivationPolicy($0) },
+            activate: { NSApplication.shared.activate(ignoringOtherApps: true) }
+        )
+    }
+
+    @MainActor
+    static func activateForWindowPresentation(
+        showInDock: Bool,
+        setActivationPolicy: (NSApplication.ActivationPolicy) -> Bool,
+        activate: () -> Void
+    ) {
+        _ = applyConfiguredPolicy(
+            showInDock: showInDock,
+            setActivationPolicy: setActivationPolicy
+        )
+        activate()
+    }
+
+    @MainActor
+    static func restoreConfiguredPolicyIfNoVisibleAppWindows(excluding excludedWindow: NSWindow?) {
         let hasVisibleWindow = NSApplication.shared.windows.contains { window in
             guard window !== excludedWindow else {
                 return false
@@ -33,7 +86,7 @@ enum AppWindowActivation {
         }
 
         if !hasVisibleWindow {
-            NSApplication.shared.setActivationPolicy(.accessory)
+            applyConfiguredPolicy()
         }
     }
 }

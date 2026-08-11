@@ -129,11 +129,11 @@ private struct HoldTypeMenuBarLabel: View {
         }
         .onAppear {
             SettingsPresentationCoordinator.shared.install {
-                AppWindowActivation.showRegularApp()
+                AppWindowActivation.activateForWindowPresentation()
                 openWindow(id: SettingsScene.identifier)
             }
             TranscriptionFailurePromptCoordinator.shared.install {
-                AppWindowActivation.showRegularApp()
+                AppWindowActivation.activateForWindowPresentation()
                 openWindow(id: TranscriptionFailurePromptScene.identifier)
             }
         }
@@ -221,6 +221,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
     private let quitConfirmationRequester: any QuitConfirmationRequesting
     private let transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)?
     private let launchEnvironment: [String: String]
+    private let applyConfiguredActivationPolicy: @MainActor () -> Void
     private let startRuntimeComponentsOverride: (@MainActor () -> Void)?
     private let stopRuntimeComponentsOverride: (@MainActor () -> Void)?
     private let scheduleProviderStartupMaintenance: @MainActor () -> Void
@@ -241,6 +242,9 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         )
         transcriptionFailurePromptCoordinator = TranscriptionFailurePromptCoordinator.shared
         launchEnvironment = ProcessInfo.processInfo.environment
+        applyConfiguredActivationPolicy = {
+            AppWindowActivation.applyConfiguredPolicy()
+        }
         startRuntimeComponentsOverride = nil
         stopRuntimeComponentsOverride = nil
         scheduleProviderStartupMaintenance = {
@@ -266,6 +270,9 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         quitConfirmationRequester: any QuitConfirmationRequesting,
         transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)? = nil,
         launchEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        applyConfiguredActivationPolicy: @escaping @MainActor () -> Void = {
+            AppWindowActivation.applyConfiguredPolicy()
+        },
         startRuntimeComponents: (@MainActor () -> Void)? = nil,
         stopRuntimeComponents: (@MainActor () -> Void)? = nil,
         scheduleProviderStartupMaintenance: @escaping @MainActor () -> Void = {},
@@ -280,6 +287,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         self.quitConfirmationRequester = quitConfirmationRequester
         self.transcriptionFailurePromptCoordinator = transcriptionFailurePromptCoordinator
         self.launchEnvironment = launchEnvironment
+        self.applyConfiguredActivationPolicy = applyConfiguredActivationPolicy
         startRuntimeComponentsOverride = startRuntimeComponents
         stopRuntimeComponentsOverride = stopRuntimeComponents
         self.scheduleProviderStartupMaintenance = scheduleProviderStartupMaintenance
@@ -295,6 +303,9 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
         quitConfirmationPresenter: any QuitConfirmationPresenting,
         transcriptionFailurePromptCoordinator: (any TranscriptionFailurePromptCoordinating)? = nil,
         launchEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        applyConfiguredActivationPolicy: @escaping @MainActor () -> Void = {
+            AppWindowActivation.applyConfiguredPolicy()
+        },
         startRuntimeComponents: (@MainActor () -> Void)? = nil,
         stopRuntimeComponents: (@MainActor () -> Void)? = nil,
         scheduleProviderStartupMaintenance: @escaping @MainActor () -> Void = {},
@@ -312,6 +323,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             ),
             transcriptionFailurePromptCoordinator: transcriptionFailurePromptCoordinator,
             launchEnvironment: launchEnvironment,
+            applyConfiguredActivationPolicy: applyConfiguredActivationPolicy,
             startRuntimeComponents: startRuntimeComponents,
             stopRuntimeComponents: stopRuntimeComponents,
             scheduleProviderStartupMaintenance: scheduleProviderStartupMaintenance,
@@ -328,6 +340,7 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        applyConfiguredActivationPolicy()
         scheduleProviderStartupMaintenance()
         repairInterruptedRecordings()
         transcriptionFailurePromptCoordinator?.start()
