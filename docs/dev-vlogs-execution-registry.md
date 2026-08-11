@@ -255,6 +255,13 @@ remains evidence under the dispositions below.
   Continuity Camera must establish a playable archived clip, observed audio/
   video alignment, normal dictation completion, one microphone owner, and
   camera release. No Phase 0B expansion or new diagnostic system is required.
+- User pause boundary (2026-08-11): `DV-P2-CAPTURE-RUNTIME-R1` completed only
+  its mandatory instruction/specification/skill reading gate. It performed no
+  enumeration, app launch, camera or microphone action, media write, preference
+  change, or repository edit before `/root` interrupted it on the user's pause.
+  Resume from the same one-attempt runtime packet; do not repeat source review
+  or reopen the accepted capture implementation unless a restart gate requires
+  the named governing documents to be re-read.
 - Direct publication remains outside the goal.
 
 ## Contract Delta — `DV-ACTIVE-3`
