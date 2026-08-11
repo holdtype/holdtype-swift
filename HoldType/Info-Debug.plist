@@ -25,7 +25,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>HoldType uses the explicitly selected camera only for an isolated Debug capture feasibility run.</string>
+	<string>HoldType needs camera access to list and use a camera you explicitly select for Dev Vlogs.</string>
 	<key>NSCameraUseContinuityCameraDeviceType</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>

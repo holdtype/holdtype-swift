@@ -38,6 +38,29 @@ struct DevVlogsSettingsStoreTests {
         #expect(DevVlogsSettingsStore(userDefaults: userDefaults).readiness == .off)
     }
 
+    @Test func preferredCameraPersistsWithItsIdentityAndDisplayName() throws {
+        let (userDefaults, suiteName) = try makeIsolatedUserDefaults()
+        defer { userDefaults.removePersistentDomain(forName: suiteName) }
+
+        let camera = DevVlogsCamera(id: "camera-id", label: "Desk Camera")
+        let store = DevVlogsSettingsStore(userDefaults: userDefaults)
+        store.setPreferredCamera(camera)
+
+        let reloadedStore = DevVlogsSettingsStore(userDefaults: userDefaults)
+        #expect(reloadedStore.preferredCamera == camera)
+        #expect(reloadedStore.readiness == .off)
+    }
+
+    @Test func disconnectedPreferredCameraRemainsRememberedWithoutFallback() {
+        let preferredCamera = DevVlogsCamera(id: "remembered", label: "Desk Camera")
+        let store = DevVlogsSettingsStore(isEnabled: true, preferredCamera: preferredCamera)
+        let otherAvailableCamera = DevVlogsCamera(id: "other", label: "External Camera")
+
+        #expect(store.preferredCamera == preferredCamera)
+        #expect(store.preferredCamera != otherAvailableCamera)
+        #expect(store.readiness == .setupRequired)
+    }
+
     private func makeIsolatedUserDefaults() throws -> (UserDefaults, String) {
         let suiteName = "DevVlogsSettingsStoreTests.\(UUID().uuidString)"
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
