@@ -16,9 +16,11 @@ committed at `3753db1` and activated as the persistent-goal objective on
 
 Pinned contract:
 [`docs/specs/features/dev-vlogs.md`](specs/features/dev-vlogs.md), revision
-`DV-ACTIVE-2`, advanced under the approved autonomous plan on 2026-08-11;
-independent `DV-P2-PUBLISH-UI-REVIEW` accepted the contract/UI delta with one
-bounded runtime-observation residual.
+`DV-ACTIVE-3`, advanced under the user's 2026-08-11 clarification that the
+product must avoid additional video processing/re-encode/downsample but does
+not require a separate forensic sample-exact proof. Independent
+`DV-P2-CAPTURE-REVIEW-R1-REPAIR` accepted the Release capture implementation
+with one bounded real-device runtime residual.
 
 Historical packet and receipt bodies are preserved verbatim in the
 [registry archive](dev-vlogs-execution-registry-archive.md). They are evidence,
@@ -79,7 +81,8 @@ reconciliation recorded below.
 | `DV-DRAFT-3@ed108fa` | Accepted-decision Draft plus protocol | superseded | Historical evidence only. |
 | `DV-DRAFT-4@2f3266a` | Native-source Draft | superseded | Phase 0B evidence basis; not current authority. |
 | `DV-ACTIVE-1` | User-authorized Dev Vlogs contract and narrow adjacent clauses | superseded by `DV-ACTIVE-2` | Historical Phase 1 authority; accepted setup/UI behavior remains protected. |
-| `DV-ACTIVE-2` | Approved Publish information architecture and local-artifact presentation | current / review accepted_with_residual | Active, Evolving implementation authority. Publish is local artifact preparation; direct/social publication remains outside V1. |
+| `DV-ACTIVE-2` | Approved Publish information architecture and local-artifact presentation | superseded by `DV-ACTIVE-3` | Historical Publish UI authority; its accepted behavior remains protected. |
+| `DV-ACTIVE-3` | User-clarified no-additional-video-processing capture contract | current / capture source accepted_with_residual | Active, Evolving implementation authority. Configured passthrough and playable media govern source acceptance; a separate sample-exact forensic validator is not a product gate. |
 
 Any open packet based on affected `DV-DRAFT-4` clauses is retired or must be
 revalidated before its result can be accepted. Historical Phase 0B evidence
@@ -114,7 +117,7 @@ remains evidence under the dispositions below.
   ownership, iOS change, publication, or CLI.
 - Material decision requiring the user: `DV-BUILD-6` only, before Phase 4
   incompatible-source fallback.
-- Pinned epoch: `DV-ACTIVE-2`.
+- Pinned epoch: `DV-ACTIVE-3`.
 
 ## Accepted Phase 0B Evidence
 
@@ -166,8 +169,8 @@ remains evidence under the dispositions below.
 | `DV-P1-STORAGE` | `DV-ACTIVE-1` | accepted `DV-P1-APPLICATIONS` | accepted_with_residual at `9f8c01c` | Default/custom bookmark-backed destination, truthful availability, and complete Phase 1 readiness ship without numeric thresholds or capture writes. Computer Use visual QA remains blocked. |
 | `DV-P1-UI-POLISH` | `DV-ACTIVE-1` | accepted Phase 1 setup and user-approved UI polish plan | accepted_with_residual at `b9114a5` | Settings-quality Release UI and exact lower-priority menu placement accepted; bounded MenuBarExtra, final close/reopen, and Dark runtime observations remain residuals. |
 | `DV-P2-PUBLISH-UI` | `DV-ACTIVE-2` | accepted Phase 1 UI plus autonomous plan `3753db1` | accepted_with_residual at `d9da88e` | Publish is the final visible section with a truthful no-recordings Release state; deterministic rich states are presentation-only. Computer Use window reacquisition remained blocked; source/tests/build review accepted. |
-| `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-2` | accepted `DV-P2-PUBLISH-UI-REVIEW` plus user-approved autonomous plan `3753db1` | failed / strict preservation | Apple-documentation audit proved the earlier standalone `.continuityCamera`-only enumeration was a false negative. The corrected one-attempt gate found one eligible Continuity Camera and produced playable camera `1V/0A` plus finalized `1V/1A`, but strict preservation failed `reading_failed / camera_source / sample_size_timing_metadata`; Ready remained zero. No retry or tooling expansion is authorized. |
-| `DV-P2-CAPTURE` | current Active epoch | accepted `DV-P2-PRESERVATION-GATE` | queued | One playable exact-once shipping clip without dictation regression. |
+| `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-3` | accepted `DV-P2-PUBLISH-UI-REVIEW` plus user-approved autonomous plan `3753db1` | accepted_with_residual under user clarification | Corrected hardware route found one eligible Continuity Camera, playable camera `1V/0A`, playable finalized `1V/1A`, passthrough, and one microphone owner. The Debug-only `camera_source / sample_size_timing_metadata` read failure is no longer a product gate; no video processing was introduced. |
+| `DV-P2-CAPTURE` | `DV-ACTIVE-3` | accepted corrected preservation evidence | implementation accepted_with_residual at `24d8f1e` | Release one-clip capture, real cleanup-aware audio lease, exact-once lifecycle, force camera teardown, archive publication, and truthful status are accepted. One real product attempt remains before runtime acceptance. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
 | `DV-P4-BUILD` | current Active epoch | accepted Phase 3 and `DV-BUILD-6` when applicable | queued | Deterministic local Build, Export, Reveal, and Share. |
 | `DV-FINAL-QA` | final Active epoch | accepted Phase 4 | queued | Proportional build/test/runtime/visual/protected-domain verification. |
@@ -242,13 +245,48 @@ remains evidence under the dispositions below.
 - Outcome plan remains 60/25/15: approximately 60% shipping implementation,
   25% verification/review/QA, and 15% discovery/diagnostics/tooling/
   coordination, adjusted only for demonstrated risk.
-- Exact next dependency: the autonomous plan requires the capture iteration to
-  stop after this failed entry gate. Shipping capture, another hardware retry,
-  and Phase 0B/tooling expansion remain inadmissible. Continuing requires a
-  separately authorized bounded repair decision for the exact
-  `camera_source / sample_size_timing_metadata` preservation reader boundary;
-  the no-downsample/no-additional-encode product contract remains protected.
+- Capture implementation delivered by `ac0c4b6` and repaired by `24d8f1e`:
+  one Release coordinator freezes policy/camera/destination/trigger identity,
+  captures camera-only video, leases the existing finalized dictation audio,
+  publishes one passthrough `1V/1A` clip, and leaves ordinary dictation
+  authoritative. Independent re-review accepted exact cleanup deferral,
+  disable cancellation, stale-task suppression, and forced camera teardown.
+- Exact next dependency: one bounded real product attempt on the connected
+  Continuity Camera must establish a playable archived clip, observed audio/
+  video alignment, normal dictation completion, one microphone owner, and
+  camera release. No Phase 0B expansion or new diagnostic system is required.
 - Direct publication remains outside the goal.
+
+## Contract Delta — `DV-ACTIVE-3`
+
+- Change ID: `DV-DELTA-ACTIVE-3-CAPTURE-EVIDENCE`.
+- Change mode: scoped `evolve` plus `reconcile`.
+- Authorized by: the user's 2026-08-11 clarification that recording the
+  camera with sound is the product outcome and HoldType must simply avoid
+  additional video processing.
+- Domain and clauses: capture acceptance portions of `DV-CAPTURE-3`,
+  `DV-CAPTURE-8`, `DV-CAPTURE-10`, `DV-ACC-CAPTURE-1`, and
+  `DV-ACC-MEDIA-1`.
+- Previous behavior: a separate Debug-only sample-exact/sample-size-timing
+  comparison could block capture even after configured passthrough produced
+  playable camera `1V/0A` and finalized `1V/1A` media.
+- New behavior: HoldType still must configure passthrough and must not decode,
+  re-encode, downsample, or reduce nominal frame rate. Product acceptance uses
+  the configured media path, playable camera/final tracks, truthful realized
+  format, one microphone owner, and dictation independence; a separate
+  forensic sample-exact validator is not a product gate.
+- Evidence basis: corrected Continuity Camera attempt, direct user authority,
+  implementation `ac0c4b6`, repair `24d8f1e`, and independent focused
+  re-review.
+- Compatibility: acceptance clarification plus additive Release Dev Vlogs
+  capture; ordinary dictation and all adjacent released owners remain
+  protected.
+- QA impact: one bounded real product attempt remains required for audible
+  alignment, normal dictation completion, and camera release.
+- Specification paths: Dev Vlogs contract and implementation plan.
+- Independent review: `DV-P2-CAPTURE-REVIEW-R1-REPAIR`
+  `accept_with_residual`.
+- New epoch: `DV-ACTIVE-3`.
 
 ## Contract Delta — `DV-ACTIVE-2`
 
