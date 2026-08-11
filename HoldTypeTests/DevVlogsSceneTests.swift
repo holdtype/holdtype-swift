@@ -25,4 +25,21 @@ struct DevVlogsSceneTests {
         #expect(capture.lowerBound < applications.lowerBound)
         #expect(applications.lowerBound < storage.lowerBound)
     }
+
+    @Test func windowRootOwnsOnlyPassiveReadinessRefreshes() throws {
+        let sourceURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("HoldType/DevVlogs/DevVlogsWindowRoot.swift")
+        let source = try String(contentsOf: sourceURL)
+
+        #expect(source.contains("DevVlogsReadinessCoordinator.refresh"))
+        #expect(source.contains("cameraDeviceChangePublisher"))
+        #expect(source.contains("newPhase == .active"))
+        #expect(!source.contains("requestAccess"))
+        #expect(!source.contains("createDirectory"))
+        #expect(!source.contains("Keychain"))
+        #expect(!source.contains("DictationRuntime"))
+        #expect(!source.contains("frontmost"))
+    }
 }

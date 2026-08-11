@@ -2,7 +2,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct DevVlogsStorageView: View {
-    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var settingsStore: DevVlogsSettingsStore
     @ObservedObject var destinationStore: DevVlogsDestinationSetupStore
     @State private var isFolderImporterPresented = false
@@ -39,15 +38,6 @@ struct DevVlogsStorageView: View {
             allowsMultipleSelection: false,
             onCompletion: handleFolderSelection
         )
-        .task {
-            destinationStore.refresh()
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .active else {
-                return
-            }
-            destinationStore.refresh()
-        }
     }
 
     private var destinationSection: some View {
@@ -83,13 +73,22 @@ struct DevVlogsStorageView: View {
                 .disabled(!settingsStore.isEnabled)
             }
 
-            if case .custom = destinationStore.status.selection,
+            if needsReselection,
                !destinationStore.status.isAvailable {
                 Button("Reselect Folder…") {
                     isFolderImporterPresented = true
                 }
                 .disabled(!settingsStore.isEnabled)
             }
+        }
+    }
+
+    private var needsReselection: Bool {
+        switch destinationStore.status.selection {
+        case .custom, .persistedRecordUnavailable:
+            return true
+        case .proposedDefault, .defaultFolder:
+            return false
         }
     }
 

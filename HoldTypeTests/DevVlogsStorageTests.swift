@@ -91,7 +91,7 @@ struct DevVlogsStorageTests {
         #expect(fixture.fileAccess.createdURLs.isEmpty)
     }
 
-    @Test func explicitDefaultSelectionPreservesTheInactiveCustomBookmark() throws {
+    @Test func explicitDefaultSelectionClearsTheDeselectedCustomBookmarkCapability() throws {
         let fixture = try makeFixture()
         let customURL = URL(fileURLWithPath: "/fixture/External/Dev Vlogs")
         fixture.fileAccess.states[customURL.path] = .directory(isWritable: true)
@@ -102,7 +102,85 @@ struct DevVlogsStorageTests {
         store.useOrCreateDefaultFolder()
 
         #expect(store.status.selection == .defaultFolder(path: fixture.defaultURL.path))
-        #expect(store.hasInactiveCustomFolder)
+        let storedData = try #require(
+            fixture.userDefaults.data(forKey: DevVlogsDestinationSetupStore.destinationStorageKey)
+        )
+        let storedObject = try #require(
+            JSONSerialization.jsonObject(with: storedData) as? [String: Any]
+        )
+        #expect(storedObject["bookmarkData"] == nil)
+    }
+
+    @Test func failedCustomBookmarkCreationPersistsAnUnavailableCustomSelection() throws {
+        let fixture = try makeFixture()
+        let customURL = URL(fileURLWithPath: "/fixture/External/Dev Vlogs")
+        fixture.bookmarks.shouldFailBookmarkCreation = true
+        let store = fixture.store()
+
+        store.selectCustomFolder(customURL)
+
+        #expect(store.status == DevVlogsDestinationStatus(
+            selection: .custom(displayName: "Dev Vlogs", pathSnapshot: customURL.path),
+            availability: .unavailable(.bookmarkUnavailable)
+        ))
+
+        let reloadedStore = fixture.store()
+        reloadedStore.refresh()
+        #expect(reloadedStore.status == DevVlogsDestinationStatus(
+            selection: .custom(displayName: "Dev Vlogs", pathSnapshot: customURL.path),
+            availability: .unavailable(.bookmarkUnavailable)
+        ))
+    }
+
+    @Test func deniedSecurityScopeKeepsTheCustomDestinationSelected() throws {
+        let fixture = try makeFixture()
+        let customURL = URL(fileURLWithPath: "/fixture/External/Dev Vlogs")
+        fixture.fileAccess.states[customURL.path] = .directory(isWritable: true)
+        fixture.bookmarks.allowsSecurityScope = false
+        let store = fixture.store()
+
+        store.selectCustomFolder(customURL)
+
+        #expect(store.status.selection == .custom(displayName: "Dev Vlogs", pathSnapshot: customURL.path))
+        #expect(store.status.availability == .unavailable(.securityScopeDenied))
+        #expect(fixture.fileAccess.createdURLs.isEmpty)
+    }
+
+    @Test func unreadablePersistedRecordIsPreservedUntilTheUserExplicitlyReplacesIt() throws {
+        let fixture = try makeFixture()
+        let corruptData = Data("not-a-destination-record".utf8)
+        fixture.userDefaults.set(corruptData, forKey: DevVlogsDestinationSetupStore.destinationStorageKey)
+        let store = fixture.store()
+
+        #expect(store.status == DevVlogsDestinationStatus(
+            selection: .persistedRecordUnavailable,
+            availability: .unavailable(.persistedRecordUnreadable)
+        ))
+        store.refresh()
+        #expect(store.status.selection == .persistedRecordUnavailable)
+        #expect(
+            fixture.userDefaults.data(forKey: DevVlogsDestinationSetupStore.destinationStorageKey) == corruptData
+        )
+
+        let customURL = URL(fileURLWithPath: "/fixture/External/Replacement")
+        fixture.fileAccess.states[customURL.path] = .directory(isWritable: true)
+        store.selectCustomFolder(customURL)
+        #expect(store.status.selection == .custom(displayName: "Replacement", pathSnapshot: customURL.path))
+    }
+
+    @Test func defaultSymbolicLinkIsUnavailableAndIsNeverCreated() throws {
+        let fixture = try makeFixture()
+        fixture.fileAccess.states[fixture.defaultURL.deletingLastPathComponent().path] = .directory(isWritable: true)
+        fixture.fileAccess.states[fixture.defaultURL.path] = .symbolicLink
+        let store = fixture.store()
+
+        store.useOrCreateDefaultFolder()
+
+        #expect(store.status == DevVlogsDestinationStatus(
+            selection: .defaultFolder(path: fixture.defaultURL.path),
+            availability: .unavailable(.symbolicLink)
+        ))
+        #expect(fixture.fileAccess.createdURLs.isEmpty)
     }
 
     private func makeFixture() throws -> StorageFixture {
@@ -142,11 +220,16 @@ struct DevVlogsStorageTests {
     private final class BookmarkResolverFake: DevVlogsDestinationBookmarkResolving {
         var isStale = false
         var shouldFailResolution = false
+        var shouldFailBookmarkCreation = false
+        var allowsSecurityScope = true
         private(set) var createdBookmarkCount = 0
         private(set) var startedURLs: [URL] = []
         private(set) var stoppedURLs: [URL] = []
 
         func bookmarkData(for url: URL) throws -> Data {
+            if shouldFailBookmarkCreation {
+                throw BookmarkError.creationFailed
+            }
             createdBookmarkCount += 1
             return Data(url.path.utf8)
         }
@@ -163,7 +246,7 @@ struct DevVlogsStorageTests {
 
         func startAccessingSecurityScopedResource(at url: URL) -> Bool {
             startedURLs.append(url)
-            return true
+            return allowsSecurityScope
         }
 
         func stopAccessingSecurityScopedResource(at url: URL) {
@@ -172,6 +255,7 @@ struct DevVlogsStorageTests {
 
         private enum BookmarkError: Error {
             case unresolved
+            case creationFailed
         }
     }
 

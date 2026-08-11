@@ -13,6 +13,7 @@ enum DevVlogsDestinationUnavailableReason: Equatable {
     case symbolicLink
     case bookmarkUnavailable
     case securityScopeDenied
+    case persistedRecordUnreadable
     case inaccessible
 
     var message: String {
@@ -29,6 +30,8 @@ enum DevVlogsDestinationUnavailableReason: Equatable {
             return "HoldType could not reopen the saved folder. Reselect it to restore access."
         case .securityScopeDenied:
             return "HoldType no longer has access to the saved folder. Reselect it to restore access."
+        case .persistedRecordUnreadable:
+            return "The saved destination record could not be read. Choose a folder to replace it."
         case .inaccessible:
             return "The selected folder is unavailable right now. Reconnect it or choose another folder."
         }
@@ -39,6 +42,7 @@ enum DevVlogsDestinationSelection: Equatable {
     case proposedDefault(path: String)
     case defaultFolder(path: String)
     case custom(displayName: String, pathSnapshot: String)
+    case persistedRecordUnavailable
 }
 
 struct DevVlogsDestinationStatus: Equatable {
@@ -62,6 +66,8 @@ struct DevVlogsDestinationStatus: Equatable {
             return path
         case .custom(_, let pathSnapshot):
             return pathSnapshot
+        case .persistedRecordUnavailable:
+            return "Path unavailable"
         }
     }
 
@@ -73,6 +79,8 @@ struct DevVlogsDestinationStatus: Equatable {
             return "Default folder"
         case .custom(let displayName, _):
             return displayName
+        case .persistedRecordUnavailable:
+            return "Saved destination"
         }
     }
 }

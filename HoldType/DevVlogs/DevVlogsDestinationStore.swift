@@ -17,9 +17,6 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
         let bookmarkData: Data?
         let displayName: String
         let pathSnapshot: String
-        let inactiveCustomBookmarkData: Data?
-        let inactiveCustomDisplayName: String?
-        let inactiveCustomPathSnapshot: String?
     }
 
     @Published private(set) var status: DevVlogsDestinationStatus
@@ -29,10 +26,7 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
     private let fileAccess: any DevVlogsDestinationFileAccessing
     private let defaultDestinationURL: URL
     private var persistedDestination: PersistedDestination?
-
-    var hasInactiveCustomFolder: Bool {
-        persistedDestination?.inactiveCustomBookmarkData != nil
-    }
+    private var hasUnreadablePersistedRecord: Bool
 
     init(
         userDefaults: UserDefaults = .standard,
@@ -45,10 +39,13 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
         self.bookmarkResolver = bookmarkResolver
         self.fileAccess = fileAccess
         self.defaultDestinationURL = defaultDestinationURL
-        persistedDestination = Self.load(from: userDefaults)
+        let loadedDestination = Self.load(from: userDefaults)
+        persistedDestination = loadedDestination.destination
+        hasUnreadablePersistedRecord = loadedDestination.hasUnreadableRecord
         status = Self.initialStatus(
             persistedDestination: persistedDestination,
-            defaultDestinationURL: defaultDestinationURL
+            defaultDestinationURL: defaultDestinationURL,
+            hasUnreadablePersistedRecord: hasUnreadablePersistedRecord
         )
     }
 
@@ -64,18 +61,16 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
         self.fileAccess = fileAccess
         self.defaultDestinationURL = defaultDestinationURL
         persistedDestination = nil
+        hasUnreadablePersistedRecord = false
     }
 
     func useOrCreateDefaultFolder() {
-        let inactiveCustomDestination = persistedDestination?.selection == .custom ? persistedDestination : nil
+        hasUnreadablePersistedRecord = false
         persistedDestination = PersistedDestination(
             selection: .defaultFolder,
             bookmarkData: nil,
             displayName: "Default folder",
-            pathSnapshot: defaultDestinationURL.path,
-            inactiveCustomBookmarkData: inactiveCustomDestination?.bookmarkData,
-            inactiveCustomDisplayName: inactiveCustomDestination?.displayName,
-            inactiveCustomPathSnapshot: inactiveCustomDestination?.pathSnapshot
+            pathSnapshot: defaultDestinationURL.path
         )
         persist()
 
@@ -104,20 +99,25 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
     }
 
     func selectCustomFolder(_ url: URL) {
+        hasUnreadablePersistedRecord = false
         do {
             let bookmarkData = try bookmarkResolver.bookmarkData(for: url)
             persistedDestination = PersistedDestination(
                 selection: .custom,
                 bookmarkData: bookmarkData,
                 displayName: url.lastPathComponent,
-                pathSnapshot: url.path,
-                inactiveCustomBookmarkData: nil,
-                inactiveCustomDisplayName: nil,
-                inactiveCustomPathSnapshot: nil
+                pathSnapshot: url.path
             )
             persist()
             refresh()
         } catch {
+            persistedDestination = PersistedDestination(
+                selection: .custom,
+                bookmarkData: nil,
+                displayName: url.lastPathComponent,
+                pathSnapshot: url.path
+            )
+            persist()
             status = DevVlogsDestinationStatus(
                 selection: .custom(displayName: url.lastPathComponent, pathSnapshot: url.path),
                 availability: .unavailable(.bookmarkUnavailable)
@@ -126,6 +126,11 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
     }
 
     func refresh() {
+        if hasUnreadablePersistedRecord {
+            status = Self.unreadablePersistedRecordStatus
+            return
+        }
+
         guard let persistedDestination else {
             status = DevVlogsDestinationStatus(
                 selection: .proposedDefault(path: defaultDestinationURL.path),
@@ -169,10 +174,7 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
                 selection: .custom,
                 bookmarkData: refreshedBookmark,
                 displayName: resolution.url.lastPathComponent,
-                pathSnapshot: resolution.url.path,
-                inactiveCustomBookmarkData: nil,
-                inactiveCustomDisplayName: nil,
-                inactiveCustomPathSnapshot: nil
+                pathSnapshot: resolution.url.path
             )
             persist()
         }
@@ -232,17 +234,31 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
         userDefaults.set(data, forKey: Key.destination)
     }
 
-    private static func load(from userDefaults: UserDefaults) -> PersistedDestination? {
+    static var destinationStorageKey: String {
+        Key.destination
+    }
+
+    private static func load(
+        from userDefaults: UserDefaults
+    ) -> (destination: PersistedDestination?, hasUnreadableRecord: Bool) {
         guard let data = userDefaults.data(forKey: Key.destination) else {
-            return nil
+            return (nil, false)
         }
-        return try? JSONDecoder().decode(PersistedDestination.self, from: data)
+        guard let destination = try? JSONDecoder().decode(PersistedDestination.self, from: data) else {
+            return (nil, true)
+        }
+        return (destination, false)
     }
 
     private static func initialStatus(
         persistedDestination: PersistedDestination?,
-        defaultDestinationURL: URL
+        defaultDestinationURL: URL,
+        hasUnreadablePersistedRecord: Bool
     ) -> DevVlogsDestinationStatus {
+        if hasUnreadablePersistedRecord {
+            return unreadablePersistedRecordStatus
+        }
+
         guard let persistedDestination else {
             return DevVlogsDestinationStatus(
                 selection: .proposedDefault(path: defaultDestinationURL.path),
@@ -265,5 +281,12 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
                 availability: .unavailable(.bookmarkUnavailable)
             )
         }
+    }
+
+    private static var unreadablePersistedRecordStatus: DevVlogsDestinationStatus {
+        DevVlogsDestinationStatus(
+            selection: .persistedRecordUnavailable,
+            availability: .unavailable(.persistedRecordUnreadable)
+        )
     }
 }

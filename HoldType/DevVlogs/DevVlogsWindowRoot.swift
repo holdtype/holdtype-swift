@@ -9,6 +9,7 @@ private enum DevVlogsNavigationItem: String {
 
 @MainActor
 struct DevVlogsWindowRoot: View {
+    @Environment(\.scenePhase) private var scenePhase
     @SceneStorage("holdtype.dev-vlogs.selected-section") private var selectedSection = DevVlogsNavigationItem.overview.rawValue
     @StateObject private var settingsStore: DevVlogsSettingsStore
     @StateObject private var cameraSetupStore: DevVlogsCameraSetupStore
@@ -60,6 +61,18 @@ struct DevVlogsWindowRoot: View {
             }
         }
         .frame(minWidth: 620, minHeight: 400)
+        .task {
+            refreshReadinessInputs()
+        }
+        .onReceive(cameraSetupStore.cameraDeviceChangePublisher()) { _ in
+            refreshReadinessInputs()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else {
+                return
+            }
+            refreshReadinessInputs()
+        }
     }
 
     private var readiness: DevVlogsReadiness {
@@ -72,6 +85,13 @@ struct DevVlogsWindowRoot: View {
                 applicationPolicy: settingsStore.applicationPolicy,
                 destination: destinationStore.status
             )
+        )
+    }
+
+    private func refreshReadinessInputs() {
+        DevVlogsReadinessCoordinator.refresh(
+            cameraSetupStore: cameraSetupStore,
+            destinationStore: destinationStore
         )
     }
 }

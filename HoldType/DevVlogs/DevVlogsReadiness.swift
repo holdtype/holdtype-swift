@@ -57,3 +57,14 @@ enum DevVlogsReadinessReducer {
         return .ready
     }
 }
+
+@MainActor
+enum DevVlogsReadinessCoordinator {
+    static func refresh(
+        cameraSetupStore: DevVlogsCameraSetupStore,
+        destinationStore: DevVlogsDestinationSetupStore
+    ) {
+        cameraSetupStore.refresh()
+        destinationStore.refresh()
+    }
+}
