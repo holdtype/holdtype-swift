@@ -70,7 +70,7 @@ struct DevVlogsCameraDiscoveryCandidate: Equatable {
 }
 
 enum DevVlogsCameraDiscovery {
-    static var deviceTypes: [AVCaptureDevice.DeviceType] {
+    nonisolated static var deviceTypes: [AVCaptureDevice.DeviceType] {
         var deviceTypes: [AVCaptureDevice.DeviceType] = [
             .builtInWideAngleCamera,
             .external

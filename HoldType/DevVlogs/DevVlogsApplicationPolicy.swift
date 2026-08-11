@@ -101,6 +101,15 @@ struct DevVlogsApplicationPolicy: Codable, Equatable {
         }
     }
 
+    func isEligible(bundleIdentifier: String) -> Bool {
+        switch mode {
+        case .onlySelectedApps:
+            return selectedApps.contains { $0.bundleIdentifier == bundleIdentifier }
+        case .allAppsExceptExcludedApps:
+            return !excludedApps.contains { $0.bundleIdentifier == bundleIdentifier }
+        }
+    }
+
     mutating func setMode(_ mode: DevVlogsApplicationPolicyMode) {
         self.mode = mode
     }

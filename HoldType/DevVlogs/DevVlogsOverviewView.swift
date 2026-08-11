@@ -12,6 +12,7 @@ struct DevVlogsOverviewView: View {
     let cameraStatus: DevVlogsCameraPermissionStatus
     let availableCameras: [DevVlogsCamera]
     let destinationStatus: DevVlogsDestinationStatus
+    let captureState: DevVlogsCaptureState
     let onNavigate: (DevVlogsOverviewDestination) -> Void
 
     init(
@@ -23,6 +24,7 @@ struct DevVlogsOverviewView: View {
             selection: .proposedDefault(path: "~/Movies/HoldType Dev Vlogs"),
             availability: .needsSetup
         ),
+        captureState: DevVlogsCaptureState = .idle,
         onNavigate: @escaping (DevVlogsOverviewDestination) -> Void = { _ in }
     ) {
         self.readiness = readiness ?? settingsStore.readiness
@@ -30,6 +32,7 @@ struct DevVlogsOverviewView: View {
         self.cameraStatus = cameraStatus
         self.availableCameras = availableCameras
         self.destinationStatus = destinationStatus
+        self.captureState = captureState
         self.onNavigate = onNavigate
     }
 
@@ -87,6 +90,20 @@ struct DevVlogsOverviewView: View {
                 Text("Setup")
             } footer: {
                 Text(nextActionDescription)
+            }
+
+            Section("Latest Attempt") {
+                Label {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(captureState.title)
+                        Text(captureState.detail)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: captureStateSystemImage)
+                        .foregroundStyle(captureStateColor)
+                }
             }
         }
         .formStyle(.grouped)
@@ -202,6 +219,38 @@ struct DevVlogsOverviewView: View {
             return .orange
         case .off:
             return .secondary
+        }
+    }
+
+    private var captureStateSystemImage: String {
+        switch captureState {
+        case .idle:
+            return "video"
+        case .preparing, .finalizing:
+            return "clock"
+        case .capturing:
+            return "record.circle"
+        case .saved:
+            return "checkmark.circle.fill"
+        case .skipped:
+            return "forward.end.circle"
+        case .failed:
+            return "exclamationmark.triangle"
+        }
+    }
+
+    private var captureStateColor: Color {
+        switch captureState {
+        case .capturing:
+            return .red
+        case .saved:
+            return .green
+        case .preparing, .finalizing:
+            return .orange
+        case .idle, .skipped:
+            return .secondary
+        case .failed:
+            return .orange
         }
     }
 

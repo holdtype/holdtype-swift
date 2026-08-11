@@ -6,7 +6,7 @@ the approved Publish presentation slice is current.
 Date: 2026-08-11
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-ACTIVE-2`.
+`DV-ACTIVE-3`.
 
 Active persistent-goal registry:
 [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
@@ -31,7 +31,7 @@ ambient recorder, or a second failure dependency for dictation.
 
 - Task: deliver Dev Vlogs through Phase 4, beginning with the smallest
   Release-path setup slice.
-- Change mode: scoped `evolve` under `DV-ACTIVE-2`; reconcile only when evidence
+- Change mode: scoped `evolve` under `DV-ACTIVE-3`; reconcile only when evidence
   proves a contract omission or discrepancy.
 - User-authorized outcome: Active Dev Vlogs implementation authority and
   outcome-first delivery, explicitly authorized on 2026-08-11.
@@ -61,7 +61,7 @@ ambient recorder, or a second failure dependency for dictation.
   into Permissions, or changing iOS.
 - Material user decisions: only the `DV-BUILD-6` incompatible-source fallback
   remains pending in Section 11; it gates Phase 4 fallback only.
-- Current contract revision: `DV-ACTIVE-2`.
+- Current contract revision: `DV-ACTIVE-3`.
 - Required review and QA: proportional `DV-P0C-REVIEW` before Phase 1
   implementation acceptance; focused evidence per delivered capability; real
   macOS UI/device/storage QA before the corresponding acceptance or release
@@ -276,8 +276,15 @@ durability.
 
 Closeout:
 
-- R09 produced playable camera `1V/0A`, playable final `1V/1A`, and completed
-  passthrough, but strict preservation failed `reading_failed`; Ready=0;
+- the corrected bounded hardware result produced playable camera `1V/0A`,
+  playable final `1V/1A`, completed AVFoundation passthrough, and preserved one
+  dictation microphone owner; only the debug-only
+  `camera_source / sample_size_timing_metadata` read failed;
+- under the user's direct instruction, “Записала и записала... Просто не нужно
+  дополнительно обрабатывать видео.”, that standalone forensic read is not a
+  product gate. Shipping acceptance instead requires configured passthrough,
+  no HoldType video re-encode/downsample, both playable assets, and truthful
+  realized-format reporting;
 - controlled storage mechanics succeeded, but R05 changed protected metadata
   and the exact cause remains unknown;
 - UI R01 is terminal `not_available` with Camera `notDetermined`; live frames,
@@ -382,8 +389,12 @@ Work:
   attempt;
 - prepare camera capture within the agreed bound;
 - implement the shared-audio lease and independent vlog lifecycle;
-- finalize, mux, validate, and publish one source clip through a proven
-  no-video-reencode path;
+- finalize and mux with configured AVFoundation video passthrough and no video
+  decode, re-encode, or downsample;
+- validate a playable camera asset with one video/no audio track and a playable
+  finalized asset with one video/one audio track, then publish one source clip;
+- persist the truthfully realized video format without requiring standalone
+  sample-exact or sample-size/timing forensic proof;
 - write minimal day/app manifests and compact redacted diagnostics;
 - expose current capture or skipped/degraded state in the Dev Vlogs window and
   only the approved compact indication in the menu bar;
@@ -503,9 +514,11 @@ Exit:
 - Every visible UI phase receives a Computer Use pass against the actual app,
   with the repository's `caffeinate`, sanitized Keychain, launch, and process
   cleanup rules.
-- Capture and source-finalization evidence records the actual negotiated source
-  format, device, duration, byte rate, CPU, memory, start latency, sync offset,
-  drift, and video-preservation result.
+- Capture and source-finalization evidence records configured passthrough,
+  playable camera/final track counts, and the actual negotiated source format.
+  Device, duration, byte rate, CPU, memory, start latency, sync offset, and
+  drift remain proportional rollout/threshold evidence rather than standalone
+  gates for the first shipping slice.
 
 ### Per-checkpoint baseline
 
@@ -564,7 +577,8 @@ Use small master-branch checkpoints that leave a coherent, verified state:
 2. Release `Dev Vlogs…`, separate SwiftUI window, Overview, and truthful
    Off/Setup state;
 3. remaining setup capabilities in dependency-ready increments;
-4. one-clip capture vertical slice only after its dependent residuals close;
+4. one-clip capture vertical slice under `DV-ACTIVE-3`; standalone forensic
+   sample-reader residuals do not block it;
 5. library/review/delete;
 6. build/export/share after `DV-BUILD-6` is resolved where applicable.
 

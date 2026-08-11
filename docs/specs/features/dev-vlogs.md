@@ -3,7 +3,19 @@
 Status: Active / Evolving implementation authority. Capability acceptance is
 gated by the acceptance map and explicit residuals below.
 
-Contract revision: `DV-ACTIVE-2`.
+Contract revision: `DV-ACTIVE-3`.
+
+Revision note: `DV-ACTIVE-3` records the user's direct 2026-08-11 authority:
+“Записала и записала... Просто не нужно дополнительно обрабатывать видео.”
+For source capture, the product gate is configured video passthrough with no
+HoldType video re-encode or downsample, playable camera `1V/0A` and finalized
+`1V/1A` assets, and truthful reporting of the realized video format. A
+standalone sample-exact or sample-size/timing forensic reader is not a product
+acceptance gate. The corrected real-hardware result already established one
+eligible Continuity Camera, one dictation microphone owner, both playable
+assets, and completed AVFoundation passthrough; its debug-only
+`camera_source / sample_size_timing_metadata` read failure does not block the
+shipping capture slice. This revision does not change `DV-BUILD-6`.
 
 Revision note: `DV-ACTIVE-2` records the user-approved Publish information
 architecture from the autonomous delivery plan committed at `3753db1`.
@@ -56,7 +68,7 @@ reviewable source material than continuous background capture.
 ## Contract boundary
 
 The user has authorized implementation of the accepted V1 domain under
-`DV-ACTIVE-2`. An Active/Evolving label is not proof that a capability is
+`DV-ACTIVE-3`. An Active/Evolving label is not proof that a capability is
 implemented, accepted, or released; each capability remains governed by its
 acceptance scenarios and current residuals.
 
@@ -118,6 +130,44 @@ ownership, or cleanup behavior.
   five narrow adjacent contracts, and the execution-registry split.
 - Independent review: pending `DV-P0C-REVIEW`.
 - New contract revision or epoch: `DV-ACTIVE-1`.
+
+### Contract Delta — `DV-ACTIVE-3`
+
+- Change ID: `DV-DELTA-ACTIVE-3-CAPTURE-PASSTHROUGH`.
+- Change mode: scoped `evolve` plus `reconcile`.
+- Authorized by: the user's direct 2026-08-11 instruction, “Записала и
+  записала... Просто не нужно дополнительно обрабатывать видео.”
+- Domain and clause IDs: capture acceptance portions of `DV-CAPTURE-3`,
+  `DV-CAPTURE-4`, `DV-CAPTURE-8`, `DV-CAPTURE-10`, `DV-ACC-CAPTURE-1`, and
+  `DV-ACC-MEDIA-1`; `DV-BUILD-6` is unchanged.
+- Previous behavior: Phase 2 acceptance required standalone strict
+  source-preservation evidence and treated a debug-only
+  sample-size/timing-metadata read failure as blocking even after AVFoundation
+  passthrough completed and both camera and final assets were playable.
+- New or reconciled behavior: the shipping capture path must configure
+  AVFoundation video passthrough, perform no HoldType video decode, re-encode,
+  or downsample, verify a playable camera asset with one video track and a
+  playable final asset with one video and one audio track, and persist the
+  truthfully realized video format. Standalone sample-exact,
+  sample-size/timing, or equivalent forensic proof is optional diagnostic
+  evidence rather than a product gate.
+- Evidence basis: the corrected bounded real-hardware result found exactly one
+  eligible Continuity Camera, produced playable camera `1V/0A` and final
+  `1V/1A` assets, completed AVFoundation passthrough, and preserved one
+  dictation microphone owner. Only the debug camera-source sample metadata
+  read failed.
+- Compatibility classification: additive macOS Dev Vlogs evolution; the
+  no-video-reencode/downsample rule remains protected and ordinary dictation,
+  provider, output, History, Recording Cache, and durability behavior remain
+  unchanged.
+- QA and design impact: Phase 2 needs shipping-path policy tests, playable
+  track validation, truthful realized-format metadata, exact-once publication,
+  lease-terminal coverage, and dictation-independence evidence. No new Debug
+  observer or forensic subsystem is required.
+- Specification paths changed: this contract and the Dev Vlogs implementation
+  plan.
+- Independent review: pending the Phase 2 capture integration review.
+- New contract revision or epoch: `DV-ACTIVE-3`.
 
 ### Contract Delta — `DV-ACTIVE-2`
 
@@ -564,7 +614,7 @@ authority to begin publication work.
 
 ## Adjacent contract reconciliation
 
-Phase 0C is complete and preserved through `DV-ACTIVE-2`:
+Phase 0C is complete and preserved through `DV-ACTIVE-3`:
 
 - `privacy-and-permissions.md` makes Camera optional to core HoldType and adds
   the explicit local Dev Vlogs camera/same-dictation-audio archive exception.
@@ -681,11 +731,11 @@ failure behavior before this becomes contract text.
 - Phase 0B must establish whether native composition or another platform path
   can change the container and add dictation audio while copying the negotiated
   video track without decoding, encoding, downsampling, or reducing frame rate.
-- The smallest preservation evidence compares camera-only and finalized source
-  video tracks: realized dimensions, nominal frame rate, codec/media subtype,
-  relevant format description, timestamp bounds, and container/track/sample
-  evidence sufficient to distinguish copied encoded video from a re-encode.
-  The exact API is implementation evidence rather than contract text.
+- Shipping preservation evidence records configured AVFoundation passthrough,
+  playable camera and finalized track counts, and the truthfully realized
+  dimensions, nominal frame rate, and codec/media subtype. Standalone encoded-
+  sample equality or sample-size/timing inspection may support diagnostics but
+  is not required for product acceptance.
 - Direct-compatible Build passthrough is worth measuring, but composition of
   incompatible source clips remains governed by the unresolved `DV-BUILD-6`
   fork.
@@ -815,7 +865,7 @@ prototype rather than copying an established end-to-end pattern.
 
 ### Phase 0: contract and feasibility — complete with preserved residuals
 
-- `DV-D01` through `DV-D13` are accepted and `DV-ACTIVE-2` is active.
+- `DV-D01` through `DV-D13` are accepted and `DV-ACTIVE-3` is active.
 - Phase 0B established bounded supporting evidence but did not accept capture,
   protected-scope storage, live preview, or quantitative thresholds.
 - No Phase 0B expansion is admitted without separate explicit user approval.
@@ -847,8 +897,11 @@ prototype rather than copying an established end-to-end pattern.
 - app eligibility, camera, destination, bounded preparation, and same-audio
   finalization;
 - zero or one playable clip per eligible attempt;
-- no capture acceptance until strict preservation, the shipping audio lease,
-  and real product integration pass their scenarios.
+- capture acceptance requires configured video passthrough with no video
+  re-encode/downsample, playable camera `1V/0A` and final `1V/1A` assets,
+  truthful realized-format metadata, the shipping audio lease, and real
+  product integration. Standalone sample-exact/sample-size-timing forensics do
+  not gate acceptance.
 
 ### Phase 3: library, review, and deletion
 
@@ -870,8 +923,9 @@ prototype rather than copying an established end-to-end pattern.
   maximum-duration captures;
 - actual byte rate and finalization overhead needed to derive the low-space
   warning and hard-stop thresholds;
-- whether each available camera can produce a playable finalized source clip
-  with the negotiated video preserved without an additional HoldType encode;
+- broader camera-matrix coverage beyond the corrected one-device result; this
+  does not block the first shipping capture slice when configured passthrough,
+  playable tracks, and truthful realized format pass for the selected camera;
 - which final Build behavior the user chooses under `DV-BUILD-6` when
   selected clips cannot be composed by passthrough;
 - the right preview/indicator balance during frequent short captures;
@@ -889,7 +943,7 @@ accepted, or released.
 | Capability / acceptance IDs | Implementation readiness | Acceptance evidence still required | Current residual |
 | --- | --- | --- | --- |
 | Setup: `DV-ACC-ENABLE-1`, `DV-ACC-UI-1` | Ready for Phase 1: Release `Dev Vlogs…`, separate normal SwiftUI window, Overview default, truthful Off/Setup. | Product tests and Computer Use QA for menu/window opening, default selection, Off/Setup truth, reopen behavior, and proof that passive opening neither captures nor requests Camera. | None from Phase 0B. Preview and numeric thresholds are not dependencies. |
-| Capture: `DV-ACC-APP-1`, `DV-ACC-CAMERA-1`, `DV-ACC-CAPTURE-1`, `DV-ACC-MEDIA-1` | Contract-ready, but acceptance-gated for Phase 2. | Real product proof of bundle-ID eligibility, preferred-camera lifecycle, one shipping microphone owner/read lease, exact-once playable `1V/1A` output, strict source preservation, independent dictation behavior, and truthful failure. | R09: playable camera `1V/0A`, playable final `1V/1A`, passthrough complete, strict preservation `reading_failed`, Ready=0. W10 is unreviewed support-only. UI R01 has no live-frame/Stop/reacquisition proof. Quantitative data are incomplete. |
+| Capture: `DV-ACC-APP-1`, `DV-ACC-CAMERA-1`, `DV-ACC-CAPTURE-1`, `DV-ACC-MEDIA-1` | Ready for the Phase 2 shipping slice under `DV-ACTIVE-3`. | Real product proof of bundle-ID eligibility, preferred-camera lifecycle, one shipping microphone owner/read lease, exact-once publication, configured AVFoundation video passthrough with no HoldType video re-encode/downsample, playable camera `1V/0A` and final `1V/1A` assets, truthful realized-format metadata, independent dictation behavior, and truthful failure. | Corrected hardware evidence established one eligible Continuity Camera, both playable assets, completed passthrough, and one microphone owner. The debug-only `camera_source / sample_size_timing_metadata` read failure is not a product gate. UI preview and quantitative storage evidence remain separate residuals and do not block this slice. |
 | Storage: `DV-ACC-STORAGE-1` | Mechanics may be implemented incrementally; protected-scope and numeric-policy acceptance remain gated. | Bookmark/destination/no-fallback/interruption/recovery product QA with protected adjacent owners unchanged; measured safe inputs before numeric warnings or hard stops. | Controlled mechanics succeeded, but R05 changed protected metadata and the cause is unknown. No protected-scope pass; byte-rate and overhead dataset incomplete. |
 | Library: `DV-ACC-LIBRARY-1` | Ready only after its archive owners exist; separate ownership clauses are active now. | Product QA for day/app hierarchy, stable IDs, truthful size/health, Finder reconciliation, active-file protection, explicit exact Delete, reconstruction, and absence of transcript persistence. | No product library or exact-delete acceptance exists. |
 | Publish UI: `DV-ACC-PUBLISH-UI-1` | Ready independently for a final navigation row, truthful no-recordings Release state, and deterministic presentation inputs. | Focused navigation/state/action tests, macOS build, Computer Use navigation to Publish, and visual comparison with the accepted Settings-quality baseline. | Library/media/build owners remain absent, so Release runtime must not expose fake days, clips, progress, results, or actions. |
@@ -926,9 +980,9 @@ remaining unknowns are:
   typical, and maximum-duration attempts;
 - `DV-EU-3`: measured produced byte rate and finalization overhead used to set
   numeric warning and hard-stop capacity;
-- `DV-EU-4`: whether the controlled hardware/storage matrix proves one
-  playable source clip per applicable cell while preserving the negotiated
-  source video without HoldType downsampling or re-encoding;
+- `DV-EU-4`: broader controlled hardware/storage matrix coverage beyond the
+  corrected one-device passthrough result; this remains rollout evidence, not
+  a standalone sample-forensics gate for the first shipping capture slice;
 - `DV-EU-5`: the supported SwiftUI-first preview lifecycle. Skill availability
   is resolved; UI R01 remains terminal `not_available` without live-frame,
   Stop, mirroring, release, or reacquisition evidence.
@@ -938,6 +992,6 @@ cannot compose the selected clips, choose either one final encode without
 reducing source resolution or nominal frame rate, or fail the Build. Phase 0B
 may gather compatibility evidence but must not choose this fallback.
 
-Phase 0B records these results without inventing thresholds. `DV-ACTIVE-2`
+Phase 0B records these results without inventing thresholds. `DV-ACTIVE-3`
 classifies them as capability-scoped residuals; none blocks the independent
 Phase 1 Off/Setup slice.

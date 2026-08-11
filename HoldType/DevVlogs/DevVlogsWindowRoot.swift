@@ -15,21 +15,25 @@ struct DevVlogsWindowRoot: View {
     @StateObject private var settingsStore: DevVlogsSettingsStore
     @StateObject private var cameraSetupStore: DevVlogsCameraSetupStore
     @StateObject private var destinationStore: DevVlogsDestinationSetupStore
+    @ObservedObject private var captureCoordinator: DevVlogsCaptureCoordinator
 
     init() {
         _settingsStore = StateObject(wrappedValue: DevVlogsSettingsStore())
         _cameraSetupStore = StateObject(wrappedValue: DevVlogsCameraSetupStore())
         _destinationStore = StateObject(wrappedValue: DevVlogsDestinationSetupStore())
+        _captureCoordinator = ObservedObject(wrappedValue: .shared)
     }
 
     init(
         settingsStore: DevVlogsSettingsStore,
         cameraSetupStore: DevVlogsCameraSetupStore,
-        destinationStore: DevVlogsDestinationSetupStore
+        destinationStore: DevVlogsDestinationSetupStore,
+        captureCoordinator: DevVlogsCaptureCoordinator? = nil
     ) {
         _settingsStore = StateObject(wrappedValue: settingsStore)
         _cameraSetupStore = StateObject(wrappedValue: cameraSetupStore)
         _destinationStore = StateObject(wrappedValue: destinationStore)
+        _captureCoordinator = ObservedObject(wrappedValue: captureCoordinator ?? .shared)
     }
 
     var body: some View {
@@ -58,6 +62,7 @@ struct DevVlogsWindowRoot: View {
                     cameraStatus: cameraSetupStore.permissionStatus,
                     availableCameras: cameraSetupStore.cameras,
                     destinationStatus: destinationStore.status,
+                    captureState: captureCoordinator.state,
                     onNavigate: navigate(to:)
                 )
             case .capture:

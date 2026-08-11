@@ -150,6 +150,40 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
         }
     }
 
+    func acquireCaptureDestination() throws -> DevVlogsCaptureDestinationAccess {
+        if hasUnreadablePersistedRecord {
+            throw DevVlogsCaptureDestinationError.unavailable(.persistedRecordUnreadable)
+        }
+
+        guard let persistedDestination else {
+            throw DevVlogsCaptureDestinationError.notConfigured
+        }
+
+        switch persistedDestination.selection {
+        case .defaultFolder:
+            guard availability(at: defaultDestinationURL) == .available else {
+                throw captureDestinationError(for: availability(at: defaultDestinationURL))
+            }
+            return DevVlogsCaptureDestinationAccess(url: defaultDestinationURL)
+        case .custom:
+            guard let bookmarkData = persistedDestination.bookmarkData,
+                  let resolution = try? bookmarkResolver.resolveBookmarkData(bookmarkData) else {
+                throw DevVlogsCaptureDestinationError.unavailable(.bookmarkUnavailable)
+            }
+            guard bookmarkResolver.startAccessingSecurityScopedResource(at: resolution.url) else {
+                throw DevVlogsCaptureDestinationError.unavailable(.securityScopeDenied)
+            }
+            let resolvedAvailability = availability(at: resolution.url)
+            guard resolvedAvailability == .available else {
+                bookmarkResolver.stopAccessingSecurityScopedResource(at: resolution.url)
+                throw captureDestinationError(for: resolvedAvailability)
+            }
+            return DevVlogsCaptureDestinationAccess(url: resolution.url) { [bookmarkResolver] in
+                bookmarkResolver.stopAccessingSecurityScopedResource(at: resolution.url)
+            }
+        }
+    }
+
     private func refreshCustomDestination(_ destination: PersistedDestination) {
         guard let bookmarkData = destination.bookmarkData,
               let resolution = try? bookmarkResolver.resolveBookmarkData(bookmarkData) else {
@@ -222,6 +256,19 @@ final class DevVlogsDestinationSetupStore: ObservableObject {
             return .notDirectory
         case .inaccessible:
             return .inaccessible
+        }
+    }
+
+    private func captureDestinationError(
+        for availability: DevVlogsDestinationAvailability
+    ) -> DevVlogsCaptureDestinationError {
+        switch availability {
+        case .needsSetup:
+            return .notConfigured
+        case .available:
+            return .unavailable(.inaccessible)
+        case .unavailable(let reason):
+            return .unavailable(reason)
         }
     }
 

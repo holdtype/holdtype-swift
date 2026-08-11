@@ -33,7 +33,6 @@ final class DictationSessionController {
         "Text was accepted, but the recording that reached the limit could not be marked as saved."
     private static let acceptedHistorySaveFailedStatusText =
         "Text was accepted, but History could not save it. The recording remains in Saved Recordings."
-
     private let recorder: any AudioRecorderService
     private let transcriptionService: any OpenAITranscriptionServing
     private let transcriptPipeline: DictationTranscriptPipeline
@@ -54,7 +53,7 @@ final class DictationSessionController {
     private let recordingStopTailSleeper: any RecordingStopTailSleeping
     private let eventLogger: any DictationEventLogging
     private let credentialResolverForUngatedActions: (any OpenAICredentialResolving)?
-
+    private let devVlogsCapture: any DevVlogsCaptureCoordinating
     private var isPerformingAction = false
     private var nextSessionID = 0
     private var activeSessionID: Int?
@@ -70,7 +69,6 @@ final class DictationSessionController {
     private var activeRecordingSettings: AppSettings?
     private var terminationRequested = false
     private var loggedTerminalAttemptIDs: Set<UUID> = []
-
     private(set) var recordingCountdown: VoiceSessionCountdown? {
         didSet {
             guard oldValue != recordingCountdown else {
@@ -79,13 +77,11 @@ final class DictationSessionController {
             recordingCountdownDidChange?(recordingCountdown)
         }
     }
-
     var statusDidChange: (@MainActor (DictationStatus) -> Void)?
     var lastTranscriptTextDidChange: (@MainActor (String?) -> Void)?
     var outputStatusTextDidChange: (@MainActor (String?) -> Void)?
     var failurePresentationDidChange: (@MainActor (DictationFailurePresentation?) -> Void)?
     var recordingCountdownDidChange: (@MainActor (VoiceSessionCountdown?) -> Void)?
-
     private(set) var status: DictationStatus {
         didSet {
             statusDidChange?(status)
@@ -106,7 +102,6 @@ final class DictationSessionController {
             failurePresentationDidChange?(failurePresentation)
         }
     }
-
     init(
         recorder: any AudioRecorderService = AVFoundationAudioRecorderService(),
         transcriptionService: any OpenAITranscriptionServing = OpenAITranscriptionService(),
@@ -131,6 +126,7 @@ final class DictationSessionController {
         recordingStopTailSleeper: any RecordingStopTailSleeping = TaskRecordingStopTailSleeper(),
         eventLogger: any DictationEventLogging = OSLogDictationEventLogger(),
         credentialResolverForUngatedActions: (any OpenAICredentialResolving)? = nil,
+        devVlogsCapture: (any DevVlogsCaptureCoordinating)? = nil,
         initialStatus: DictationStatus = .idle,
         lastTranscriptText: String? = nil,
         outputStatusText: String? = nil
@@ -160,6 +156,7 @@ final class DictationSessionController {
         self.recordingStopTailSleeper = recordingStopTailSleeper
         self.eventLogger = eventLogger
         self.credentialResolverForUngatedActions = credentialResolverForUngatedActions
+        self.devVlogsCapture = devVlogsCapture ?? DevVlogsCaptureCoordinator.shared
         self.status = initialStatus
         self.lastTranscriptText = lastTranscriptText.flatMap {
             AcceptedTranscript.nonEmptyNormalizedText(from: $0)
@@ -168,12 +165,10 @@ final class DictationSessionController {
         self.outputStatusText = outputStatusText
         self.failurePresentation = nil
         self.recordingCountdown = nil
-
         recorder.setAutomaticStopHandler { [weak self] result in
             self?.handleAutomaticRecorderStop(result)
         }
     }
-
     func performRecordingAction(
         intent: DictationOutputIntent = .standard,
         credential: OpenAICredential? = nil
@@ -184,9 +179,7 @@ final class DictationSessionController {
         guard beginExclusiveAction() else {
             return
         }
-
         defer { completeExclusiveAction() }
-
         switch status.voiceWorkPhase {
         case .inactive:
             await startRecording(intent: intent, credential: credential)
@@ -225,6 +218,7 @@ final class DictationSessionController {
             }
             activeRecordingCaptureLease = nil
             activeRecordingSettings = nil
+            devVlogsCapture.endAttemptWithoutAudio(reason: .dictationDidNotComplete)
             stopRecordingDurationMonitoring()
             deferredRecordingTerminalOutcome = nil
             cancelActiveSession()
@@ -613,6 +607,7 @@ final class DictationSessionController {
         activeRecordingSettings = settings
         deferredRecordingTerminalOutcome = nil
         eventLogger.record(.recordingStartRequested)
+        await devVlogsCapture.beginAttempt()
 
         do {
             let captureLease: RecordingCaptureLease?
@@ -631,14 +626,17 @@ final class DictationSessionController {
                 outputFileURL: captureLease?.audioFileURL
             )
             guard isCurrentSession(sessionID) else {
+                devVlogsCapture.endAttemptWithoutAudio(reason: .dictationDidNotComplete)
                 return
             }
 
+            devVlogsCapture.dictationDidStart()
             status = .recording
             eventLogger.record(.recordingStarted)
             playCue(.startRecording, settings: settings)
             startRecordingDurationMonitoring(sessionID: sessionID, settings: settings)
         } catch {
+            devVlogsCapture.endAttemptWithoutAudio(reason: .dictationDidNotComplete)
             let recoveredAttempt = preserveInterruptedCapture(
                 completionKind: .standard,
                 terminalCause: .platformInterrupted
@@ -841,6 +839,7 @@ final class DictationSessionController {
             }
             activeRecordingSettings = nil
             allowsRecordingCacheHandling = true
+            await devVlogsCapture.finishAttempt(audioArtifact: artifact)
             let terminalCause = Self.recordingTerminalCause(
                 automaticCompletion: resolvedAutomaticCompletion,
                 userFinishOwnedAuthority: userFinishOwnedAuthority
@@ -1313,6 +1312,7 @@ final class DictationSessionController {
 
     func prepareForTermination() async {
         terminationRequested = true
+        devVlogsCapture.endAttemptWithoutAudio(reason: .dictationDidNotComplete)
         activeRecordingStopTailTask?.cancel()
         stopRecordingDurationMonitoring()
 

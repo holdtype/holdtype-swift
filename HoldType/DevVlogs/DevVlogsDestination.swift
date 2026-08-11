@@ -85,6 +85,29 @@ struct DevVlogsDestinationStatus: Equatable {
     }
 }
 
+enum DevVlogsCaptureDestinationError: Error, Equatable {
+    case notConfigured
+    case unavailable(DevVlogsDestinationUnavailableReason)
+}
+
+@MainActor
+final class DevVlogsCaptureDestinationAccess {
+    let url: URL
+
+    private var releaseAction: (() -> Void)?
+
+    init(url: URL, releaseAction: (() -> Void)? = nil) {
+        self.url = url
+        self.releaseAction = releaseAction
+    }
+
+    func release() {
+        let action = releaseAction
+        releaseAction = nil
+        action?()
+    }
+}
+
 struct DevVlogsBookmarkResolution: Equatable {
     let url: URL
     let isStale: Bool
