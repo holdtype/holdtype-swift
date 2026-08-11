@@ -166,7 +166,7 @@ remains evidence under the dispositions below.
 | `DV-P1-STORAGE` | `DV-ACTIVE-1` | accepted `DV-P1-APPLICATIONS` | accepted_with_residual at `9f8c01c` | Default/custom bookmark-backed destination, truthful availability, and complete Phase 1 readiness ship without numeric thresholds or capture writes. Computer Use visual QA remains blocked. |
 | `DV-P1-UI-POLISH` | `DV-ACTIVE-1` | accepted Phase 1 setup and user-approved UI polish plan | accepted_with_residual at `b9114a5` | Settings-quality Release UI and exact lower-priority menu placement accepted; bounded MenuBarExtra, final close/reopen, and Dark runtime observations remain residuals. |
 | `DV-P2-PUBLISH-UI` | `DV-ACTIVE-2` | accepted Phase 1 UI plus autonomous plan `3753db1` | accepted_with_residual at `d9da88e` | Publish is the final visible section with a truthful no-recordings Release state; deterministic rich states are presentation-only. Computer Use window reacquisition remained blocked; source/tests/build review accepted. |
-| `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-2` | accepted `DV-P2-PUBLISH-UI-REVIEW` plus user-approved autonomous plan `3753db1` | dependency-ready | Review existing W10 and run at most one Continuity attempt to close or precisely retain R09 `reading_failed`; no new tooling architecture. |
+| `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-2` | accepted `DV-P2-PUBLISH-UI-REVIEW` plus user-approved autonomous plan `3753db1` | blocked / hardware unavailable | W10 independently accepted; one bounded enumeration found zero Continuity Cameras, so no hardware invocation occurred. Connect one eligible Continuity Camera, then rerun the same one-attempt gate without new tooling. |
 | `DV-P2-CAPTURE` | current Active epoch | accepted `DV-P2-PRESERVATION-GATE` | queued | One playable exact-once shipping clip without dictation regression. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
 | `DV-P4-BUILD` | current Active epoch | accepted Phase 3 and `DV-BUILD-6` when applicable | queued | Deterministic local Build, Export, Reveal, and Share. |
@@ -223,6 +223,14 @@ remains evidence under the dispositions below.
   completed presentations are deterministic injected states only. Independent
   review accepted the contract/source/tests/build and retained the bounded
   Computer Use window-reacquisition residual without a repair cycle.
+- Preservation gate static result: the current W10 blobs and six closed
+  camera-source/finalized × reader-operation mappings are independently
+  accepted. Its focused tests passed and no Release/product behavior changed.
+  The sole bounded enumeration found Camera authorization `authorized` but
+  Continuity count `0`, so hardware invocation, media, terminal, and Ready
+  counts all remained zero. The historical R09 `reading_failed` residual is
+  therefore still open; this is an external hardware-availability blocker,
+  not permission for another diagnostic subsystem.
 - Editorial residual: Dev Vlogs still calls the human-readable folder
   hierarchy "part of the draft contract" in one sentence. Active authority is
   otherwise unambiguous; correct that wording only during a later natural
@@ -231,12 +239,12 @@ remains evidence under the dispositions below.
 - Outcome plan remains 60/25/15: approximately 60% shipping implementation,
   25% verification/review/QA, and 15% discovery/diagnostics/tooling/
   coordination, adjusted only for demonstrated risk.
-- Exact next dependency: run the already user-authorized bounded
-  `DV-P2-PRESERVATION-GATE`. That gate may review the
-  existing W10 mapping and perform at most one real Continuity attempt. It may
-  not create another Debug subsystem or expand Phase 0B. If the attempt does
-  not close strict source preservation, stop with the exact residual before
-  shipping capture.
+- Exact next dependency: make one non-suspended, not-in-use Continuity Camera
+  visible to macOS, then rerun the same already user-authorized one-attempt
+  `DV-P2-PRESERVATION-GATE`. W10 static review is complete and must not be
+  reopened. No new Debug subsystem, Phase 0B expansion, fallback camera, or
+  shipping capture is admitted before that attempt closes strict source
+  preservation.
 - Direct publication remains outside the goal.
 
 ## Contract Delta — `DV-ACTIVE-2`
