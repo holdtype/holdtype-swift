@@ -40,6 +40,26 @@ Do not assume that internet access or an open Xcode window means GUI
 automation is available. Internet access, Build macOS Apps, XcodeBuildMCP,
 Build iOS Apps, and Computer Use are separate capabilities.
 
+### Canonical Computer Use Plugin
+
+The canonical project reference is
+[@Computer](plugin://computer-use@openai-bundled). The installed OpenAI-bundled
+plugin manifest uses `name: computer-use` and displays it as `Computer Use`.
+This is the same plugin; do not infer a second Computer Use implementation
+from the display name, skill name, or runtime transport.
+
+When the `computer-use:computer-use` skill is present in the session catalog,
+the plugin is already available to the agent. Do not ask the user to
+"activate", re-mention, reinstall, or re-enable it merely because no direct
+`mcp__computer_use__*` tool is visible. Read the skill and its bundled
+`computer-use-node-repl.md`, discover `mcp__node_repl__js`, import `@oai/sky`,
+and operate the Mac through that runtime as documented.
+
+A failure from `sky.get_app_state(...)`, including `-10005 timeoutReached` or
+an ambiguous app identifier, is a Computer Use runtime/targeting failure. It
+is not evidence that the plugin link is missing or incorrect. Report the
+exact runtime failure and apply the bounded fallback policy below.
+
 ## MCP And Thread Lifecycle
 
 Local Codex automation threads may start MCP server processes for available
