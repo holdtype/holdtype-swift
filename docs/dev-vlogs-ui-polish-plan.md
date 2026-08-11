@@ -1,8 +1,18 @@
 # HoldType Dev Vlogs UI Polish Plan
 
-Status: approved and ready to execute
+Status: completed and independently accepted with bounded runtime residuals
 
 Date: 2026-08-11
+
+Accepted implementation: `b9114a55c3c9ce82b19bd83d4a3594593755a42f`
+
+Independent review: `DV-P1-UI-POLISH-REVIEW`, verdict
+`accept_with_residual`. The shipped UI, exact menu order, source ownership,
+focused tests, macOS build, Light-mode visual evidence, and bounded Computer
+Use section flow were accepted. Direct runtime observation of the MenuBarExtra
+order, final close/reopen reacquisition, and Dark appearance remain explicit
+nonblocking residuals; the implementation and test enforce the menu order, and
+semantic system styling protects Dark adaptation. No repair cycle is required.
 
 Product contract: [`docs/specs/features/dev-vlogs.md`](specs/features/dev-vlogs.md), revision `DV-ACTIVE-1`
 

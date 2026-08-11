@@ -155,6 +155,7 @@ remains evidence under the dispositions below.
 | `DV-P1-CAMERA-SETUP` | `DV-ACTIVE-1` | accepted `DV-P1-SETUP` source/build review | accepted_with_residual at `e2614c7` | Genuine Camera status/request/recovery and preferred-camera discovery/selection ship without passive request, preview, capture, fallback, or dictation dependency. Computer Use visual QA remains blocked. |
 | `DV-P1-APPLICATIONS` | `DV-ACTIVE-1` | accepted `DV-P1-CAMERA-SETUP` | accepted_with_residual at `b27d859` | Selected-app default and explicit all-apps-with-exclusions policy, durable bundle-ID identity, validated app picker/editor; no capture integration. Computer Use visual QA remains blocked. |
 | `DV-P1-STORAGE` | `DV-ACTIVE-1` | accepted `DV-P1-APPLICATIONS` | accepted_with_residual at `9f8c01c` | Default/custom bookmark-backed destination, truthful availability, and complete Phase 1 readiness ship without numeric thresholds or capture writes. Computer Use visual QA remains blocked. |
+| `DV-P1-UI-POLISH` | `DV-ACTIVE-1` | accepted Phase 1 setup and user-approved UI polish plan | accepted_with_residual at `b9114a5` | Settings-quality Release UI and exact lower-priority menu placement accepted; bounded MenuBarExtra, final close/reopen, and Dark runtime observations remain residuals. |
 | `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-1` | accepted Phase 1 source/build review plus explicit user authority for one bounded Phase 0B dependency check | awaiting_user_authority | Review existing W10 and run at most one Continuity attempt to close or precisely retain R09 `reading_failed`; no new tooling architecture. |
 | `DV-P2-CAPTURE` | current Active epoch | accepted `DV-P2-PRESERVATION-GATE` | queued | One playable exact-once shipping clip without dictation regression. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
@@ -188,11 +189,18 @@ remains evidence under the dispositions below.
   bookmark-backed identity, closed corrupt/unavailable states, no fallback,
   root-owned passive readiness refresh, and Off/Setup/Ready/degraded reduction
   are accepted without live destination writes.
-- Phase 1 source/build status: complete and accepted with one shared visual
-  residual. Computer Use repeatedly timed out before the changed interaction;
-  the compact operator check remains title/Overview/Off, enable/Setup, Capture,
-  Applications, Storage, close/reopen persistence, with no passive Camera
-  prompt, preview, or capture.
+- UI polish delivered by `b9114a5`: `Dev Vlogs…` is the final utility entry
+  before Quit; the native sidebar, Overview, Capture, Applications, and Storage
+  match the Settings information hierarchy. Independent review accepted the
+  scoped source, seven focused suites, macOS build, five ImageGen references,
+  Light-mode screenshots, and Computer Use navigation/toggle/resize flow.
+  Direct Computer Use observation of the MenuBarExtra order, final
+  close/reopen reacquisition, and Dark appearance remains a bounded visual
+  residual; source/test enforcement and semantic system styling are accepted,
+  and no repair cycle is admitted for those observations.
+- Phase 1 source/build/UI status: complete and accepted with the bounded visual
+  residuals above. Passive navigation showed no Camera prompt, preview, or
+  capture, and no Phase 0B or Debug expansion was introduced.
 - Editorial residual: Dev Vlogs still calls the human-readable folder
   hierarchy "part of the draft contract" in one sentence. Active authority is
   otherwise unambiguous; correct that wording only during a later natural
