@@ -207,6 +207,13 @@ struct DevVlogsApplicationsView: View {
                 return
             }
 
+            let startedSecurityScope = url.startAccessingSecurityScopedResource()
+            defer {
+                if startedSecurityScope {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
             switch applicationResolver.resolveApplication(at: url) {
             case .failure(let error):
                 feedback = error.message

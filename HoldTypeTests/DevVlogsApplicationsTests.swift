@@ -113,6 +113,47 @@ struct DevVlogsApplicationsTests {
         #expect(userDefaults.data(forKey: DevVlogsSettingsStore.applicationPolicyStorageKey) == unsupportedData)
     }
 
+    @Test func resolverAcceptsAnApplicationBundleWithAnExecutable() throws {
+        let applicationURL = try makeTemporaryApplicationBundle(bundleIdentifier: "com.example.DevVlogsTest")
+        defer { try? FileManager.default.removeItem(at: applicationURL.deletingLastPathComponent()) }
+
+        let application = try #require(
+            try? BundleDevVlogsApplicationResolver().resolveApplication(at: applicationURL).get()
+        )
+
+        #expect(application.bundleIdentifier == "com.example.DevVlogsTest")
+        #expect(application.displayName == "DevVlogsTest")
+    }
+
+    @Test func resolverRejectsANonApplicationURL() {
+        let result = BundleDevVlogsApplicationResolver().resolveApplication(
+            at: URL(fileURLWithPath: "/tmp/DevVlogsApplicationsTests.txt")
+        )
+
+        #expect(result == .failure(.notAnApplicationBundle))
+    }
+
+    @Test func resolverRejectsAnApplicationBundleWithoutABundleIdentifier() throws {
+        let applicationURL = try makeTemporaryApplicationBundle(bundleIdentifier: nil)
+        defer { try? FileManager.default.removeItem(at: applicationURL.deletingLastPathComponent()) }
+
+        let result = BundleDevVlogsApplicationResolver().resolveApplication(at: applicationURL)
+
+        #expect(result == .failure(.missingBundleIdentifier))
+    }
+
+    @Test func resolverRejectsAnApplicationBundleWithoutAnExecutable() throws {
+        let applicationURL = try makeTemporaryApplicationBundle(
+            bundleIdentifier: "com.example.DevVlogsTest",
+            includesExecutable: false
+        )
+        defer { try? FileManager.default.removeItem(at: applicationURL.deletingLastPathComponent()) }
+
+        let result = BundleDevVlogsApplicationResolver().resolveApplication(at: applicationURL)
+
+        #expect(result == .failure(.notAnApplicationBundle))
+    }
+
     private func application(_ bundleIdentifier: String, _ displayName: String) throws -> DevVlogsApplication {
         try #require(DevVlogsApplication(bundleIdentifier: bundleIdentifier, displayName: displayName))
     }
@@ -122,5 +163,43 @@ struct DevVlogsApplicationsTests {
         let userDefaults = try #require(UserDefaults(suiteName: suiteName))
         userDefaults.removePersistentDomain(forName: suiteName)
         return (userDefaults, suiteName)
+    }
+
+    private func makeTemporaryApplicationBundle(
+        bundleIdentifier: String?,
+        includesExecutable: Bool = true
+    ) throws -> URL {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DevVlogsApplicationsTests-\(UUID().uuidString)", isDirectory: true)
+        let applicationURL = rootURL.appendingPathComponent("DevVlogsTest.app", isDirectory: true)
+        let contentsURL = applicationURL.appendingPathComponent("Contents", isDirectory: true)
+        let macOSURL = contentsURL.appendingPathComponent("MacOS", isDirectory: true)
+        try FileManager.default.createDirectory(at: macOSURL, withIntermediateDirectories: true)
+
+        var info: [String: Any] = [
+            "CFBundlePackageType": "APPL",
+            "CFBundleExecutable": "DevVlogsTestExecutable",
+            "CFBundleName": "DevVlogsTest"
+        ]
+        if let bundleIdentifier {
+            info["CFBundleIdentifier"] = bundleIdentifier
+        }
+        let infoData = try PropertyListSerialization.data(
+            fromPropertyList: info,
+            format: .xml,
+            options: 0
+        )
+        try infoData.write(to: contentsURL.appendingPathComponent("Info.plist"))
+
+        if includesExecutable {
+            let executableURL = macOSURL.appendingPathComponent("DevVlogsTestExecutable")
+            try Data("#!/bin/sh\nexit 0\n".utf8).write(to: executableURL)
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o755],
+                ofItemAtPath: executableURL.path
+            )
+        }
+
+        return applicationURL
     }
 }

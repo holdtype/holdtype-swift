@@ -19,10 +19,17 @@ protocol DevVlogsApplicationResolving {
 }
 
 struct BundleDevVlogsApplicationResolver: DevVlogsApplicationResolving {
+    private let fileManager: FileManager
+
+    init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
     func resolveApplication(at url: URL) -> Result<DevVlogsApplication, DevVlogsApplicationResolutionError> {
         guard url.pathExtension.lowercased() == "app",
               let bundle = Bundle(url: url),
-              bundle.object(forInfoDictionaryKey: "CFBundlePackageType") as? String == "APPL" else {
+              bundle.object(forInfoDictionaryKey: "CFBundlePackageType") as? String == "APPL",
+              isUsableExecutable(in: bundle) else {
             return .failure(.notAnApplicationBundle)
         }
 
@@ -41,5 +48,16 @@ struct BundleDevVlogsApplicationResolver: DevVlogsApplicationResolving {
         let displayName = bundle.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
         let bundleName = bundle.object(forInfoDictionaryKey: "CFBundleName") as? String
         return displayName ?? bundleName ?? fallbackURL.deletingPathExtension().lastPathComponent
+    }
+
+    private func isUsableExecutable(in bundle: Bundle) -> Bool {
+        guard let executableURL = bundle.executableURL,
+              let attributes = try? fileManager.attributesOfItem(atPath: executableURL.path),
+              attributes[.type] as? FileAttributeType == .typeRegular,
+              fileManager.isExecutableFile(atPath: executableURL.path) else {
+            return false
+        }
+
+        return true
     }
 }
