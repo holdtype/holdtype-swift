@@ -16,11 +16,12 @@ committed at `3753db1` and activated as the persistent-goal objective on
 
 Pinned contract:
 [`docs/specs/features/dev-vlogs.md`](specs/features/dev-vlogs.md), revision
-`DV-ACTIVE-3`, advanced under the user's 2026-08-11 clarification that the
-product must avoid additional video processing/re-encode/downsample but does
-not require a separate forensic sample-exact proof. Independent
-`DV-P2-CAPTURE-REVIEW-R1-REPAIR` accepted the Release capture implementation
-with one bounded real-device runtime residual.
+`DV-ACTIVE-4`. It preserves the accepted no-additional-video-processing
+capture boundary and resolves the local Build policy authorized by the
+approved autonomous plan: compatible Apple-native video passthrough succeeds,
+while incompatible selections fail without an output or hidden transcode.
+Independent review accepted the Release capture implementation and the real
+Library/Delete/Publish implementation with bounded final-runtime residuals.
 
 Historical packet and receipt bodies are preserved verbatim in the
 [registry archive](dev-vlogs-execution-registry-archive.md). They are evidence,
@@ -62,10 +63,9 @@ resolution/FPS downgrade or an additional source-video encode. Native 1080p or
 another negotiated format is not a HoldType preset, quality selector, sensor
 RAW promise, or permission to claim preservation without proof.
 
-`DV-BUILD-6` is the only remaining material product decision. It gates only
-Phase 4 behavior when selected clips cannot be composed by direct-compatible
-passthrough: the user must later choose one final no-resolution/no-nominal-FPS
-reduction encode or a failed Build with no output.
+`DV-BUILD-6` is resolved by the user-approved autonomous plan and
+`DV-ACTIVE-4`: selected clips that cannot be composed through compatible
+passthrough fail the Build without an output. V1 never silently transcodes.
 
 On 2026-08-10 the user adopted outcome-first execution. Release-path product
 capability is the primary progress measure; specs, tests, Debug harnesses,
@@ -82,7 +82,8 @@ reconciliation recorded below.
 | `DV-DRAFT-4@2f3266a` | Native-source Draft | superseded | Phase 0B evidence basis; not current authority. |
 | `DV-ACTIVE-1` | User-authorized Dev Vlogs contract and narrow adjacent clauses | superseded by `DV-ACTIVE-2` | Historical Phase 1 authority; accepted setup/UI behavior remains protected. |
 | `DV-ACTIVE-2` | Approved Publish information architecture and local-artifact presentation | superseded by `DV-ACTIVE-3` | Historical Publish UI authority; its accepted behavior remains protected. |
-| `DV-ACTIVE-3` | User-clarified no-additional-video-processing capture contract | current / capture source accepted_with_residual | Active, Evolving implementation authority. Configured passthrough and playable media govern source acceptance; a separate sample-exact forensic validator is not a product gate. |
+| `DV-ACTIVE-3` | User-clarified no-additional-video-processing capture contract | superseded by `DV-ACTIVE-4` | Historical capture authority; accepted capture behavior remains protected. |
+| `DV-ACTIVE-4` | Real Library/Delete/local-Publish contract and incompatible no-output policy | current / implementation accepted_with_residual | Active, Evolving implementation authority. Library/Delete/Publish source, focused QA, builds, and independent review are accepted; integrated runtime remains. |
 
 Any open packet based on affected `DV-DRAFT-4` clauses is retired or must be
 revalidated before its result can be accepted. Historical Phase 0B evidence
@@ -109,15 +110,15 @@ remains evidence under the dispositions below.
   behavior remains protected.
 - Required evidence: capability-specific scenarios in the acceptance map;
   independent `DV-P0C-REVIEW` accepted the contract before Phase 1 dispatch.
-- Allowed specification delta: `DV-ACTIVE-2`, active acceptance mapping, the
-  approved final Publish IA/local-artifact meaning, and the exact narrow
-  adjacent clauses named above.
+- Allowed specification delta: `DV-ACTIVE-4`, active acceptance mapping, the
+  approved final Publish IA/local-artifact meaning, compatible passthrough,
+  and truthful no-output failure for incompatible selections.
 - Forbidden delta: weakened capture/storage acceptance, invented thresholds,
   hidden capture, silent fallback, automatic deletion, second microphone
   ownership, iOS change, publication, or CLI.
-- Material decision requiring the user: `DV-BUILD-6` only, before Phase 4
-  incompatible-source fallback.
-- Pinned epoch: `DV-ACTIVE-3`.
+- Material decision requiring the user: none inside the accepted local V1
+  workflow.
+- Pinned epoch: `DV-ACTIVE-4`.
 
 ## Accepted Phase 0B Evidence
 
@@ -155,7 +156,7 @@ remains evidence under the dispositions below.
 | Numeric start/space policy | Representative quantitative datasets incomplete | No numeric latency, warning, or hard-stop rule may be invented. Gate only controls that require those numbers. |
 | Storage protected scope | R05 protected metadata changed; attribution unknown | Mechanics may inform implementation, but protected-scope storage acceptance remains open. |
 | Library/delete | No product library or exact-delete acceptance | Gates library acceptance; separate vlog ownership clauses are implementation authority, not proof. |
-| Build/share | Product QA absent; `DV-BUILD-6` unresolved for incompatible sources | Compatible build work waits for Phase 4; incompatible-source fallback waits for the user decision. |
+| Build/share | Source/tests/build/review accepted; integrated runtime remains | Compatible passthrough creates one validated local export; incompatible sources fail without output. Final click-through and real-camera integration remain in `DV-FINAL-QA`. |
 
 ## Packet Registry
 
@@ -172,8 +173,8 @@ remains evidence under the dispositions below.
 | `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-3` | accepted `DV-P2-PUBLISH-UI-REVIEW` plus user-approved autonomous plan `3753db1` | accepted_with_residual under user clarification | Corrected hardware route found one eligible Continuity Camera, playable camera `1V/0A`, playable finalized `1V/1A`, passthrough, and one microphone owner. The Debug-only `camera_source / sample_size_timing_metadata` read failure is no longer a product gate; no video processing was introduced. |
 | `DV-P2-CAPTURE` | `DV-ACTIVE-3` | accepted corrected preservation evidence | implementation accepted_with_residual at `24d8f1e` | Release one-clip capture, real cleanup-aware audio lease, exact-once lifecycle, force camera teardown, archive publication, and truthful status are accepted. One real product attempt remains before runtime acceptance. |
 | `DV-P2-CAPTURE-RUNTIME-R1` | `DV-ACTIVE-3` | accepted `DV-P2-CAPTURE` | blocked before hardware attempt at `b99ff54` | Automation disables live Keychain access, while the Release dictation route requires an OpenAI credential before the shipping Dev Vlogs coordinator starts. No enumeration or capture attempt was consumed. New deterministic credential/provider injection or explicit live-provider authority is required. |
-| `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
-| `DV-P4-BUILD` | current Active epoch | accepted Phase 3 and `DV-BUILD-6` when applicable | queued | Deterministic local Build, Export, Reveal, and Share. |
+| `DV-P3-LIBRARY` | `DV-ACTIVE-4` | accepted Phase 2 implementation | accepted_with_residual at `2af2c44` | Real Library, playback, Reveal, exclusion, identity-safe exact Delete, reconstruction, duplicate/timezone safety; integrated runtime remains. |
+| `DV-P4-BUILD` | `DV-ACTIVE-4` | accepted Phase 3 and resolved `DV-BUILD-6` | accepted_with_residual at `2af2c44` | Recipe-first compatible passthrough Build, immutable validated export, retry/cancel, Play/Reveal/Share; integrated runtime remains. |
 | `DV-FINAL-QA` | final Active epoch | accepted Phase 4 | queued | Proportional build/test/runtime/visual/protected-domain verification. |
 
 ## Current Coordination State
@@ -275,7 +276,42 @@ remains evidence under the dispositions below.
   progress requires explicit authority either for a narrow deterministic
   credential/provider injection that preserves all shipping media owners and
   guarantees zero provider calls, or for one bounded live-Keychain/OpenAI run.
+- Library/Delete/Publish implementation delivered by `9543f72` and repaired
+  through `2af2c44`. Independent `DV-P3-LIBRARY-PUBLISH-REVIEW-R3` accepted
+  the integrated source with residual: real archive reconstruction, truthful
+  missing/invalid state, persistent non-destructive exclusion, confirmation-
+  bound exact Delete, duplicate/time-zone-stable identity, recipe-first
+  selection/reorder, identity-pinned same-volume staging, collective source
+  revalidation, compatible passthrough, immutable playable output, and
+  completed Play/Reveal/Share actions. Focused tests and Release builds are
+  accepted. Computer Use could not target the menu-bar app; this and the
+  earlier camera route dependency move to the single final integrated QA.
 - Direct publication remains outside the goal.
+
+## Contract Delta — `DV-ACTIVE-4`
+
+- Change ID: `DV-DELTA-ACTIVE-4-LIBRARY-PUBLISH`.
+- Change mode: scoped `evolve` plus narrow `reconcile` for `DV-BUILD-6`.
+- Authorized by: the user-approved autonomous delivery plan and the explicit
+  instruction to finish every screen, action, and test without intermediate
+  operator involvement.
+- Domain and clauses: `DV-FOLDER-*`, `DV-REVIEW-*`, `DV-BUILD-*`,
+  `DV-SHARE-1`, `DV-UI-3/5/6/8/9`, and `DV-DURABILITY-1...4`.
+- Previous behavior: Library/Delete and real Publish owners were absent, and
+  incompatible-source Build behavior remained pending.
+- New behavior: Release Library owns real local clip review and exact Delete;
+  Publish owns selection/reorder, recipe-first compatible passthrough, one
+  immutable validated local export, and Play/Reveal/Share. Incompatible
+  selections fail without output and never silently transcode.
+- Evidence basis: implementation `9543f72`, safety repairs `d392c27`,
+  `8d90ad3`, and `2af2c44`, plus independent terminal
+  `DV-P3-LIBRARY-PUBLISH-REVIEW-R3` acceptance.
+- Compatibility: additive Dev Vlogs V1; ordinary dictation, History,
+  Recording Cache, source clips, prior exports, shared setup/Keychain,
+  permissions, diagnostics, iOS, and direct publication remain protected.
+- QA impact: focused reconstruction/delete/media/build/UI tests and Debug/
+  Release builds are accepted; integrated runtime/visual QA remains.
+- New epoch: `DV-ACTIVE-4`.
 
 ## Contract Delta — `DV-ACTIVE-3`
 
