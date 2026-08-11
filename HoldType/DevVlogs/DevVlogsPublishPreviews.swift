@@ -2,33 +2,55 @@
 import SwiftUI
 
 private enum DevVlogsPublishPreviewFixtures {
-    static let day = DevVlogsPublishDay(
-        id: "2026-08-11",
-        title: "Monday, August 11",
-        detail: "3 clips across 2 apps"
-    )
+    static let days = [
+        DevVlogsPublishDay(
+            id: "2026-08-11",
+            title: "Monday, August 11",
+            detail: "12 clips across 3 apps"
+        ),
+        DevVlogsPublishDay(
+            id: "2026-08-10",
+            title: "Sunday, August 10",
+            detail: "8 clips across 3 apps"
+        ),
+        DevVlogsPublishDay(
+            id: "2026-08-09",
+            title: "Saturday, August 9",
+            detail: "15 clips across 3 apps"
+        )
+    ]
+
+    static let day = days[0]
 
     static let applications: [DevVlogsPublishApplication] = [
         .all,
-        .init(id: "application:codex", title: "Codex", detail: "2 clips"),
-        .init(id: "application:xcode", title: "Xcode", detail: "1 clip")
+        .init(id: "application:codex", title: "Codex", detail: "5 clips"),
+        .init(id: "application:xcode", title: "Xcode", detail: "4 clips"),
+        .init(id: "application:safari", title: "Safari", detail: "3 clips")
     ]
 
     static let selection = DevVlogsPublishSelection(
         day: day,
         application: .all,
         applications: applications,
-        summary: .init(clipCount: 3, duration: 84, byteCount: 128_000_000, invalidCount: 0),
+        summary: .init(
+            clipCount: 12,
+            duration: 702,
+            byteCount: 1_842_000_000,
+            invalidCount: 0
+        ),
         outputLocation: "Recorded day / Builds"
     )
 
     static let unavailableSelection = DevVlogsPublishSelection(
         day: day,
-        application: applications[1],
+        application: applications[3],
         applications: applications,
-        summary: .init(clipCount: 2, duration: 42, byteCount: 64_000_000, invalidCount: 1),
+        summary: .init(clipCount: 3, duration: 185, byteCount: 486_000_000, invalidCount: 1),
         outputLocation: "Recorded day / Builds"
     )
+
+    static let refreshedAt = Date(timeIntervalSince1970: 1_754_916_600)
 }
 
 #Preview("No recordings") {
@@ -41,16 +63,21 @@ private enum DevVlogsPublishPreviewFixtures {
     ).frame(width: 700, height: 520)
 }
 
-#Preview("Selection ready") {
+#Preview("Populated — All Applications") {
     DevVlogsPublishView(
         presentation: DevVlogsPublishPresentation(
             state: .selectionReady(DevVlogsPublishPreviewFixtures.selection),
             enabledActions: [.openInFinder, .refresh, .createVideo]
-        )
-    ).frame(width: 700, height: 520)
+        ),
+        availableDays: DevVlogsPublishPreviewFixtures.days,
+        selectedDayID: DevVlogsPublishPreviewFixtures.day.id,
+        selectedApplicationID: DevVlogsPublishApplication.all.id,
+        lastRefreshAt: DevVlogsPublishPreviewFixtures.refreshedAt
+    )
+    .frame(width: 760, height: 560)
 }
 
-#Preview("Missing source") {
+#Preview("Unavailable source — Safari") {
     DevVlogsPublishView(
         presentation: DevVlogsPublishPresentation(
             state: .selectionUnavailable(
@@ -58,8 +85,13 @@ private enum DevVlogsPublishPreviewFixtures {
                 message: "Review unavailable source files in Finder, then refresh."
             ),
             enabledActions: [.openInFinder, .refresh]
-        )
-    ).frame(width: 700, height: 520)
+        ),
+        availableDays: DevVlogsPublishPreviewFixtures.days,
+        selectedDayID: DevVlogsPublishPreviewFixtures.day.id,
+        selectedApplicationID: DevVlogsPublishPreviewFixtures.applications[3].id,
+        lastRefreshAt: DevVlogsPublishPreviewFixtures.refreshedAt
+    )
+    .frame(width: 760, height: 560)
 }
 
 #Preview("Building") {
