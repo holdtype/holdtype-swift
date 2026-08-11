@@ -171,6 +171,7 @@ remains evidence under the dispositions below.
 | `DV-P2-PUBLISH-UI` | `DV-ACTIVE-2` | accepted Phase 1 UI plus autonomous plan `3753db1` | accepted_with_residual at `d9da88e` | Publish is the final visible section with a truthful no-recordings Release state; deterministic rich states are presentation-only. Computer Use window reacquisition remained blocked; source/tests/build review accepted. |
 | `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-3` | accepted `DV-P2-PUBLISH-UI-REVIEW` plus user-approved autonomous plan `3753db1` | accepted_with_residual under user clarification | Corrected hardware route found one eligible Continuity Camera, playable camera `1V/0A`, playable finalized `1V/1A`, passthrough, and one microphone owner. The Debug-only `camera_source / sample_size_timing_metadata` read failure is no longer a product gate; no video processing was introduced. |
 | `DV-P2-CAPTURE` | `DV-ACTIVE-3` | accepted corrected preservation evidence | implementation accepted_with_residual at `24d8f1e` | Release one-clip capture, real cleanup-aware audio lease, exact-once lifecycle, force camera teardown, archive publication, and truthful status are accepted. One real product attempt remains before runtime acceptance. |
+| `DV-P2-CAPTURE-RUNTIME-R1` | `DV-ACTIVE-3` | accepted `DV-P2-CAPTURE` | blocked before hardware attempt at `b99ff54` | Automation disables live Keychain access, while the Release dictation route requires an OpenAI credential before the shipping Dev Vlogs coordinator starts. No enumeration or capture attempt was consumed. New deterministic credential/provider injection or explicit live-provider authority is required. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
 | `DV-P4-BUILD` | current Active epoch | accepted Phase 3 and `DV-BUILD-6` when applicable | queued | Deterministic local Build, Export, Reveal, and Share. |
 | `DV-FINAL-QA` | final Active epoch | accepted Phase 4 | queued | Proportional build/test/runtime/visual/protected-domain verification. |
@@ -262,6 +263,18 @@ remains evidence under the dispositions below.
   Resume from the same one-attempt runtime packet; do not repeat source review
   or reopen the accepted capture implementation unless a restart gate requires
   the named governing documents to be re-read.
+- Resume result (2026-08-11): the same runtime packet completed its restart
+  gate and stopped before hardware enumeration. The current Release action
+  resolves an OpenAI credential before `DictationSessionController` can start
+  the shipping Dev Vlogs coordinator, while the approved automation launch
+  disables live Keychain access. Existing deterministic tests substitute one
+  or more required shipping owners and therefore cannot prove the real camera,
+  recorder, lease, finalizer, and archive chain. Counts remain zero for
+  enumeration, capture attempt, provider call, microphone start, camera start,
+  and archive publication. The sole hardware attempt remains unused. Further
+  progress requires explicit authority either for a narrow deterministic
+  credential/provider injection that preserves all shipping media owners and
+  guarantees zero provider calls, or for one bounded live-Keychain/OpenAI run.
 - Direct publication remains outside the goal.
 
 ## Contract Delta — `DV-ACTIVE-3`
