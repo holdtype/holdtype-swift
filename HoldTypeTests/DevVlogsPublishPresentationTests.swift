@@ -109,6 +109,7 @@ struct DevVlogsPublishPresentationTests {
             clips: [
                 DevVlogsPublishClip(
                     id: "clip-1",
+                    clipID: UUID(),
                     title: "10:14 · Codex",
                     detail: "32s · Ready",
                     isSelected: true,
@@ -116,6 +117,7 @@ struct DevVlogsPublishPresentationTests {
                 ),
                 DevVlogsPublishClip(
                     id: "clip-2",
+                    clipID: UUID(),
                     title: "11:02 · Xcode",
                     detail: "41s · Ready",
                     isSelected: true,

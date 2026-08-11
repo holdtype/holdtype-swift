@@ -26,3 +26,11 @@ Computer Use could inspect and operate ordinary macOS windows, but it could not 
 The exact run-owned HoldType processes, `caffeinate` guard, disposable fixture archive, and targeting screenshot were removed. No user archive or user-owned app process was touched.
 
 The focused repair packet did not repeat Computer Use or hardware QA. The bounded targeting residual above remains assigned to final integrated QA; no new runtime residual was introduced by the identity and timeout repairs.
+
+## Final safety repair
+
+- Publish rows now keep their opaque reconstructed Library identity separately from an optional canonical clip UUID. Only unique, validated Ready clips expose Include and move actions; a repository-loaded two-clip acceptance case exercises exclusion and movement in both directions without UUID-shaped row fixtures.
+- Media source track and full video/audio signature loading is followed by an immediate exact source-and-metadata identity check. A signature-stage replacement case proves the replacement is rejected before export and leaves the source replacement, sibling, and output scope unchanged.
+- AVFoundation now writes only into a per-build private `0700` staging directory whose identity and directory descriptor are held for the task. Final promotion uses exclusive `renameatx_np` from that descriptor into a newly opened, no-follow, identity-matched build-directory descriptor, so a concurrent destination cannot be overwritten. A deterministically suspended export case moves and replaces the archive build directory before resume; promotion fails without writing into the replacement target, and exact staging cleanup preserves the source, prior output, sibling, saved recipe, and sentinel.
+- Final focused matrix: 54 tests in 9 suites passed. The proportional related matrix passed 47 tests in 7 suites. Structure, unsigned Debug and Release builds, Release isolation, and path-limited diff checks passed.
+- Per the final repair packet, Computer Use and hardware QA were not repeated. The previously recorded final-integrated-QA runtime residual is unchanged.

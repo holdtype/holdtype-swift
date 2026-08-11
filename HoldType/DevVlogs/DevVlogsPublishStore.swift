@@ -18,6 +18,7 @@ final class DevVlogsPublishStore: ObservableObject {
     private var selectedClipIDs: Set<UUID> = []
     private var recipe: DevVlogsBuildRecipe?
     private var workspace: DevVlogsBuildWorkspace?
+    private var staging: DevVlogsBuildStaging?
     private var buildTask: Task<Void, Never>?
 
     convenience init(destinationStore: DevVlogsDestinationSetupStore) {
@@ -198,7 +199,8 @@ final class DevVlogsPublishStore: ObservableObject {
                 outputFileName: nil,
                 workspace: workspace
             )
-            try await recipeRepository.removeTemporaryOutput(workspace: workspace)
+            try await recipeRepository.removeStagedOutput(workspace: workspace, staging: staging)
+            staging = nil
             try await render(recipe: self.recipe ?? recipe, workspace: workspace, day: day)
         } catch {
             await finishFailure(error)
@@ -241,16 +243,18 @@ final class DevVlogsPublishStore: ObservableObject {
             ),
             enabledActions: [.cancel]
         )
-        try await recipeRepository.prepareForBuild(workspace: workspace)
+        let staging = try await recipeRepository.prepareForBuild(workspace: workspace)
+        self.staging = staging
         guard sources.allSatisfy({ $0.resourceIdentity.validateSourceAndMetadata() }) else {
             throw DevVlogsBuildError.sourceInvalid
         }
         let output = try await mediaBuilder.build(
             sources: sources,
-            outputURL: workspace.temporaryOutputURL,
+            outputURL: staging.outputURL,
             outputPrepared: { [recipeRepository] identity in
-                try await recipeRepository.registerTemporaryOutput(
+                try await recipeRepository.registerStagedOutput(
                     workspace: workspace,
+                    staging: staging,
                     expectedIdentity: identity
                 )
             }
@@ -268,7 +272,8 @@ final class DevVlogsPublishStore: ObservableObject {
             )
         }
         try Task.checkCancellation()
-        try await recipeRepository.promoteOutput(workspace: workspace)
+        try await recipeRepository.promoteOutput(workspace: workspace, staging: staging)
+        self.staging = nil
         let promoted = DevVlogsBuildOutput(
             fileURL: workspace.finalOutputURL,
             duration: output.duration,
@@ -315,7 +320,8 @@ final class DevVlogsPublishStore: ObservableObject {
         var canRetry = false
         if let recipe, let workspace {
             do {
-                try await recipeRepository.removeTemporaryOutput(workspace: workspace)
+                try await recipeRepository.removeStagedOutput(workspace: workspace, staging: staging)
+                staging = nil
             } catch {
                 canRetry = false
             }
@@ -379,6 +385,7 @@ final class DevVlogsPublishStore: ObservableObject {
             clips: orderedClips(in: day).map { clip in
                 DevVlogsPublishClip(
                     id: clip.id,
+                    clipID: uniqueActionableClipID(clip, in: day),
                     title: "\(clip.createdAt?.formatted(date: .omitted, time: .shortened) ?? "Unknown time") · \(clip.triggerApplicationName)",
                     detail: "\(DevVlogsFormatting.duration(clip.duration)) · \(clip.health.title)",
                     isSelected: clip.clipID.map(selectedClipIDs.contains) ?? false,
@@ -410,6 +417,18 @@ final class DevVlogsPublishStore: ObservableObject {
 
     private func uniqueClipIDs(in day: DevVlogsLibraryDay) -> [UUID] {
         uniqueClips(in: day).compactMap(\.clipID)
+    }
+
+    private func uniqueActionableClipID(
+        _ clip: DevVlogsLibraryClip,
+        in day: DevVlogsLibraryDay
+    ) -> UUID? {
+        guard clip.isBuildEligible,
+              let clipID = clip.clipID,
+              day.clips.filter({ $0.clipID == clipID }).count == 1 else {
+            return nil
+        }
+        return clipID
     }
 
     private func presentationDay(_ day: DevVlogsLibraryDay) -> DevVlogsPublishDay {

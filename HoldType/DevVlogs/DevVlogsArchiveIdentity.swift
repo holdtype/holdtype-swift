@@ -45,6 +45,52 @@ nonisolated struct DevVlogsFileIdentity: Equatable, Hashable {
         )
     }
 
+    static func capture(
+        descriptor: Int32,
+        kind: DevVlogsFileKind,
+        requireSingleLink: Bool = false
+    ) -> DevVlogsFileIdentity? {
+        var value = stat()
+        guard fstat(descriptor, &value) == 0 else { return nil }
+        return capture(value, kind: kind, requireSingleLink: requireSingleLink)
+    }
+
+    static func capture(
+        atDirectoryDescriptor descriptor: Int32,
+        name: String,
+        kind: DevVlogsFileKind,
+        requireSingleLink: Bool = false
+    ) -> DevVlogsFileIdentity? {
+        var value = stat()
+        guard fstatat(descriptor, name, &value, AT_SYMLINK_NOFOLLOW) == 0 else { return nil }
+        return capture(value, kind: kind, requireSingleLink: requireSingleLink)
+    }
+
+    private static func capture(
+        _ value: stat,
+        kind: DevVlogsFileKind,
+        requireSingleLink: Bool
+    ) -> DevVlogsFileIdentity? {
+        let fileType = value.st_mode & S_IFMT
+        let expectedType: mode_t = kind == .directory ? S_IFDIR : S_IFREG
+        guard fileType == expectedType,
+              !requireSingleLink || value.st_nlink == 1 else {
+            return nil
+        }
+        return DevVlogsFileIdentity(
+            device: UInt64(value.st_dev),
+            inode: UInt64(value.st_ino),
+            linkCount: kind == .directory ? 0 : UInt64(value.st_nlink),
+            size: kind == .directory ? 0 : Int64(value.st_size),
+            mode: UInt16(value.st_mode),
+            modificationSeconds: kind == .directory ? 0 : Int64(value.st_mtimespec.tv_sec),
+            modificationNanoseconds: kind == .directory ? 0 : Int64(value.st_mtimespec.tv_nsec),
+            statusChangeSeconds: kind == .directory ? 0 : Int64(value.st_ctimespec.tv_sec),
+            statusChangeNanoseconds: kind == .directory ? 0 : Int64(value.st_ctimespec.tv_nsec),
+            kind: kind
+        )
+    }
+
     func matches(
         _ url: URL,
         requireSingleLink: Bool = false

@@ -44,6 +44,31 @@ nonisolated struct DevVlogsBuildWorkspace: Equatable {
     let finalOutputURL: URL
 }
 
+nonisolated final class DevVlogsBuildStaging: @unchecked Sendable {
+    let directoryURL: URL
+    let outputURL: URL
+    let directoryIdentity: DevVlogsFileIdentity
+    let directoryHandle: FileHandle
+    var outputIdentity: DevVlogsFileIdentity?
+
+    init(
+        directoryURL: URL,
+        outputURL: URL,
+        directoryIdentity: DevVlogsFileIdentity,
+        directoryHandle: FileHandle
+    ) {
+        self.directoryURL = directoryURL
+        self.outputURL = outputURL
+        self.directoryIdentity = directoryIdentity
+        self.directoryHandle = directoryHandle
+        outputIdentity = nil
+    }
+
+    var directoryDescriptor: Int32 {
+        directoryHandle.fileDescriptor
+    }
+}
+
 nonisolated enum DevVlogsBuildError: Error, Equatable, LocalizedError {
     case noSelectedClips
     case recipePersistenceFailed

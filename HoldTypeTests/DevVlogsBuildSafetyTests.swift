@@ -102,28 +102,87 @@ struct DevVlogsBuildSafetyTests {
         #expect(try Data(contentsOf: replacementRecipe) == Data("replacement".utf8))
     }
 
+    @Test func suspendedExportCannotBeRedirectedThroughBuildDirectoryReplacement() async throws {
+        let fixture = try await Fixture()
+        defer { fixture.remove() }
+        let repository = DevVlogsBuildRepository()
+        let created = try await fixture.recipe(in: repository)
+        let staging = try await repository.prepareForBuild(workspace: created.workspace)
+        let exportGate = DevVlogsTestSuspensionGate()
+        let exportTask = Task {
+            try Data("staged-output".utf8).write(to: staging.outputURL)
+            let stagedIdentity = try #require(DevVlogsFileIdentity.capture(
+                at: staging.outputURL,
+                kind: .regularFile,
+                requireSingleLink: true
+            ))
+            try await repository.registerStagedOutput(
+                workspace: created.workspace,
+                staging: staging,
+                expectedIdentity: stagedIdentity
+            )
+            await exportGate.suspend()
+            try await repository.promoteOutput(workspace: created.workspace, staging: staging)
+        }
+        try await waitUntil { exportGate.isSuspended }
+        let sourceURL = try fixture.source().fileURL
+        let priorOutput = fixture.root.appendingPathComponent("prior-output.mov")
+        let sibling = fixture.root.appendingPathComponent("sibling.txt")
+        try Data("prior".utf8).write(to: priorOutput)
+        try Data("keep".utf8).write(to: sibling)
+
+        let savedBuild = created.workspace.directoryURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("saved-suspended-build", isDirectory: true)
+        try FileManager.default.moveItem(at: created.workspace.directoryURL, to: savedBuild)
+        let sentinelTarget = fixture.root.appendingPathComponent("sentinel-target", isDirectory: true)
+        try FileManager.default.createDirectory(at: sentinelTarget, withIntermediateDirectories: false)
+        let sentinel = sentinelTarget.appendingPathComponent("sentinel.txt")
+        try Data("sentinel".utf8).write(to: sentinel)
+        try FileManager.default.createSymbolicLink(
+            at: created.workspace.directoryURL,
+            withDestinationURL: sentinelTarget
+        )
+
+        exportGate.resume()
+        await #expect(throws: DevVlogsBuildError.workspaceChanged) { try await exportTask.value }
+        await #expect(throws: DevVlogsBuildError.workspaceChanged) {
+            try await repository.removeStagedOutput(workspace: created.workspace, staging: staging)
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: sentinelTarget.appendingPathComponent("output.mov").path))
+        #expect(try Data(contentsOf: sentinel) == Data("sentinel".utf8))
+        #expect(try Data(contentsOf: priorOutput) == Data("prior".utf8))
+        #expect(try Data(contentsOf: sibling) == Data("keep".utf8))
+        #expect(FileManager.default.fileExists(atPath: sourceURL.path))
+        #expect(FileManager.default.fileExists(atPath: savedBuild.appendingPathComponent("build.json").path))
+        #expect(!FileManager.default.fileExists(atPath: staging.directoryURL.path))
+    }
+
     @Test func buildsParentSymlinkAndTemporaryReplacementPreserveSentinels() async throws {
         let fixture = try await Fixture()
         defer { fixture.remove() }
         let repository = DevVlogsBuildRepository()
         let created = try await fixture.recipe(in: repository)
-        try Data("owned-temp".utf8).write(to: created.workspace.temporaryOutputURL)
+        let staging = try await repository.prepareForBuild(workspace: created.workspace)
+        try Data("owned-temp".utf8).write(to: staging.outputURL)
         let identity = try #require(DevVlogsFileIdentity.capture(
-            at: created.workspace.temporaryOutputURL,
+            at: staging.outputURL,
             kind: .regularFile,
             requireSingleLink: true
         ))
-        try await repository.registerTemporaryOutput(
+        try await repository.registerStagedOutput(
             workspace: created.workspace,
+            staging: staging,
             expectedIdentity: identity
         )
-        try FileManager.default.removeItem(at: created.workspace.temporaryOutputURL)
-        try Data("replacement".utf8).write(to: created.workspace.temporaryOutputURL)
+        try FileManager.default.removeItem(at: staging.outputURL)
+        try Data("replacement".utf8).write(to: staging.outputURL)
 
         await #expect(throws: DevVlogsBuildError.workspaceChanged) {
-            try await repository.removeTemporaryOutput(workspace: created.workspace)
+            try await repository.removeStagedOutput(workspace: created.workspace, staging: staging)
         }
-        #expect(try Data(contentsOf: created.workspace.temporaryOutputURL) == Data("replacement".utf8))
+        #expect(try Data(contentsOf: staging.outputURL) == Data("replacement".utf8))
 
         let buildsURL = created.workspace.directoryURL.deletingLastPathComponent()
         let savedBuildsURL = buildsURL.deletingLastPathComponent().appendingPathComponent("saved-builds")
@@ -252,5 +311,34 @@ struct DevVlogsBuildSafetyTests {
         }
 
         func remove() { try? FileManager.default.removeItem(at: root) }
+    }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        condition: @escaping @MainActor () -> Bool
+    ) async throws {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        _ = try #require(condition())
+    }
+}
+
+@MainActor
+private final class DevVlogsTestSuspensionGate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private(set) var isSuspended = false
+
+    func suspend() async {
+        isSuspended = true
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func resume() {
+        isSuspended = false
+        continuation?.resume()
+        continuation = nil
     }
 }

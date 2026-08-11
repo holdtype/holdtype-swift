@@ -101,6 +101,39 @@ struct DevVlogsMediaBuilderTests {
         #expect(FileManager.default.fileExists(atPath: source.path))
     }
 
+    @Test func sourceReplacementDuringSignatureProbeFailsBeforeExport() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let clipID = UUID()
+        let sourceURL = try await fixture.clip(id: clipID, date: fixture.date)
+        let source = try await fixture.source(id: clipID, url: sourceURL)
+        let sibling = fixture.root.appendingPathComponent("signature-sibling.txt")
+        let output = fixture.root.appendingPathComponent("post-signature-output.mov")
+        try Data("keep".utf8).write(to: sibling)
+        let builder = AVFoundationDevVlogsMediaBuilder(
+            maximumProbeWait: .seconds(10),
+            sourceProbeBarrier: {},
+            signatureProbeBarrier: {
+                try FileManager.default.removeItem(at: source.fileURL)
+                try Data("replacement".utf8).write(to: source.fileURL)
+            },
+            outputProbeBarrier: {}
+        )
+
+        await #expect(throws: DevVlogsBuildError.sourceInvalid) {
+            _ = try await builder.build(
+                sources: [source],
+                outputURL: output,
+                outputPrepared: { _ in },
+                progress: { _ in }
+            )
+        }
+
+        #expect(!FileManager.default.fileExists(atPath: output.path))
+        #expect(try Data(contentsOf: sibling) == Data("keep".utf8))
+        #expect(try Data(contentsOf: source.fileURL) == Data("replacement".utf8))
+    }
+
     private func color(in asset: AVAsset, at seconds: TimeInterval) async throws -> NSColor {
         let generator = AVAssetImageGenerator(asset: asset)
         generator.requestedTimeToleranceBefore = .zero

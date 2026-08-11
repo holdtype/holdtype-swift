@@ -31,10 +31,15 @@ nonisolated struct DevVlogsPublishClip: Identifiable, Equatable {
     }
 
     let id: String
+    let clipID: UUID?
     let title: String
     let detail: String
     let isSelected: Bool
     let health: Health
+
+    var isActionable: Bool {
+        clipID != nil && health == .ready
+    }
 }
 
 nonisolated struct DevVlogsPublishSelection: Equatable {

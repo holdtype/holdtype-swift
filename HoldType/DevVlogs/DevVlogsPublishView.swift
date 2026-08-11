@@ -288,7 +288,7 @@ struct DevVlogsPublishView: View {
             }
 
             Spacer()
-            if let clipID = UUID(uuidString: clip.id), clip.health == .ready {
+            if let clipID = clip.clipID, clip.isActionable {
                 Toggle(
                     "Include",
                     isOn: Binding(

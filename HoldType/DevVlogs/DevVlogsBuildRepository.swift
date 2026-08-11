@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 actor DevVlogsBuildRepository {
@@ -147,55 +148,93 @@ actor DevVlogsBuildRepository {
         }
     }
 
-    func prepareForBuild(workspace: DevVlogsBuildWorkspace) throws {
+    func prepareForBuild(workspace: DevVlogsBuildWorkspace) throws -> DevVlogsBuildStaging {
         _ = try validatedIdentity(for: workspace)
         guard !fileManager.fileExists(atPath: workspace.temporaryOutputURL.path),
               !fileManager.fileExists(atPath: workspace.finalOutputURL.path) else {
             throw DevVlogsBuildError.outputAlreadyExists
         }
+        return try createStaging(for: workspace)
     }
 
-    func registerTemporaryOutput(
+    func registerStagedOutput(
         workspace: DevVlogsBuildWorkspace,
+        staging: DevVlogsBuildStaging,
         expectedIdentity: DevVlogsFileIdentity
     ) throws {
-        let identity = try validatedIdentity(for: workspace, allowUnregisteredTemporary: true)
-        guard identity.temporaryOutputIdentity == nil,
-              let temporaryIdentity = captureRegular(workspace.temporaryOutputURL),
-              temporaryIdentity == expectedIdentity,
+        _ = try validatedIdentity(for: workspace)
+        guard validate(staging),
+              let stagedIdentity = DevVlogsFileIdentity.capture(
+                atDirectoryDescriptor: staging.directoryDescriptor,
+                name: staging.outputURL.lastPathComponent,
+                kind: .regularFile,
+                requireSingleLink: true
+              ),
+              stagedIdentity == expectedIdentity,
               !fileManager.fileExists(atPath: workspace.finalOutputURL.path) else {
             throw DevVlogsBuildError.workspaceChanged
         }
-        identities[workspace.buildID] = replacing(
-            identity,
-            temporaryOutputIdentity: temporaryIdentity
-        )
+        staging.outputIdentity = stagedIdentity
     }
 
-    func promoteOutput(workspace: DevVlogsBuildWorkspace) throws {
+    func promoteOutput(
+        workspace: DevVlogsBuildWorkspace,
+        staging: DevVlogsBuildStaging
+    ) throws {
         let identity = try validatedIdentity(for: workspace)
-        guard let temporaryIdentity = identity.temporaryOutputIdentity,
-              temporaryIdentity.matches(workspace.temporaryOutputURL, requireSingleLink: true),
-              !fileManager.fileExists(atPath: workspace.finalOutputURL.path) else {
+        guard validate(staging),
+              let stagedIdentity = DevVlogsFileIdentity.capture(
+                atDirectoryDescriptor: staging.directoryDescriptor,
+                name: staging.outputURL.lastPathComponent,
+                kind: .regularFile,
+                requireSingleLink: true
+              ),
+              stagedIdentity == staging.outputIdentity else {
+            throw DevVlogsBuildError.workspaceChanged
+        }
+        let descriptor = Darwin.open(
+            workspace.directoryURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard descriptor >= 0 else { throw DevVlogsBuildError.workspaceChanged }
+        defer { Darwin.close(descriptor) }
+        guard DevVlogsFileIdentity.capture(descriptor: descriptor, kind: .directory)
+            == identity.hierarchy.last else {
+            throw DevVlogsBuildError.workspaceChanged
+        }
+        guard try entryIsAbsent(
+            atDirectoryDescriptor: descriptor,
+            name: workspace.finalOutputURL.lastPathComponent
+        ) else {
             throw DevVlogsBuildError.outputAlreadyExists
         }
-        do {
-            try fileManager.moveItem(at: workspace.temporaryOutputURL, to: workspace.finalOutputURL)
-            guard let finalIdentity = captureRegular(workspace.finalOutputURL),
-                  finalIdentity.inode == temporaryIdentity.inode,
-                  finalIdentity.device == temporaryIdentity.device else {
-                throw DevVlogsBuildError.workspaceChanged
-            }
-            identities[workspace.buildID] = replacing(
-                identity,
-                temporaryOutputIdentity: .some(nil),
-                finalOutputIdentity: finalIdentity
-            )
-        } catch let error as DevVlogsBuildError {
-            throw error
-        } catch {
+        guard renameatx_np(
+            staging.directoryDescriptor,
+            staging.outputURL.lastPathComponent,
+            descriptor,
+            workspace.finalOutputURL.lastPathComponent,
+            UInt32(RENAME_EXCL)
+        ) == 0 else {
+            if errno == EEXIST { throw DevVlogsBuildError.outputAlreadyExists }
             throw DevVlogsBuildError.exportFailed
         }
+        guard let finalIdentity = DevVlogsFileIdentity.capture(
+            atDirectoryDescriptor: descriptor,
+            name: workspace.finalOutputURL.lastPathComponent,
+            kind: .regularFile,
+            requireSingleLink: true
+        ),
+            finalIdentity.device == stagedIdentity.device,
+            finalIdentity.inode == stagedIdentity.inode else {
+            throw DevVlogsBuildError.workspaceChanged
+        }
+        do {
+            _ = try validatedIdentity(for: workspace, allowUnregisteredFinal: true)
+        } catch {
+            throw DevVlogsBuildError.workspaceChanged
+        }
+        identities[workspace.buildID] = replacing(identity, finalOutputIdentity: finalIdentity)
+        try removeStagingDirectory(staging)
     }
 
     func completedOutputURL(workspace: DevVlogsBuildWorkspace) throws -> URL? {
@@ -208,23 +247,20 @@ actor DevVlogsBuildRepository {
         return workspace.finalOutputURL
     }
 
-    func removeTemporaryOutput(workspace: DevVlogsBuildWorkspace) throws {
-        let identity = try validatedIdentity(for: workspace)
-        guard fileManager.fileExists(atPath: workspace.temporaryOutputURL.path) else { return }
-        guard let temporaryIdentity = identity.temporaryOutputIdentity,
-              temporaryIdentity.matches(workspace.temporaryOutputURL, requireSingleLink: true) else {
-            throw DevVlogsBuildError.workspaceChanged
+    func removeStagedOutput(
+        workspace: DevVlogsBuildWorkspace,
+        staging: DevVlogsBuildStaging?
+    ) throws {
+        if let staging {
+            try removeStagingDirectory(staging)
         }
-        try fileManager.removeItem(at: workspace.temporaryOutputURL)
-        identities[workspace.buildID] = replacing(
-            identity,
-            temporaryOutputIdentity: .some(nil)
-        )
+        _ = try validatedIdentity(for: workspace)
     }
 
     private func validatedIdentity(
         for workspace: DevVlogsBuildWorkspace,
-        allowUnregisteredTemporary: Bool = false
+        allowUnregisteredTemporary: Bool = false,
+        allowUnregisteredFinal: Bool = false
     ) throws -> DevVlogsWorkspaceIdentity {
         guard let identity = identities[workspace.buildID],
               identity.buildID == workspace.buildID,
@@ -260,10 +296,90 @@ actor DevVlogsBuildRepository {
             throw DevVlogsBuildError.workspaceChanged
         }
         if identity.finalOutputIdentity == nil,
-           fileManager.fileExists(atPath: workspace.finalOutputURL.path) {
+           fileManager.fileExists(atPath: workspace.finalOutputURL.path),
+           !allowUnregisteredFinal {
             throw DevVlogsBuildError.workspaceChanged
         }
         return identity
+    }
+
+    private func createStaging(for workspace: DevVlogsBuildWorkspace) throws -> DevVlogsBuildStaging {
+        let directoryURL = fileManager.temporaryDirectory.appendingPathComponent(
+            "HoldType-DevVlogs-Build-\(workspace.buildID.uuidString)-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        guard mkdir(directoryURL.path, S_IRWXU) == 0 else {
+            throw DevVlogsBuildError.exportFailed
+        }
+        let descriptor = Darwin.open(
+            directoryURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard descriptor >= 0,
+              let identity = DevVlogsFileIdentity.capture(descriptor: descriptor, kind: .directory),
+              identity.matches(directoryURL) else {
+            if descriptor >= 0 { Darwin.close(descriptor) }
+            _ = rmdir(directoryURL.path)
+            throw DevVlogsBuildError.exportFailed
+        }
+        return DevVlogsBuildStaging(
+            directoryURL: directoryURL,
+            outputURL: directoryURL.appendingPathComponent("output.mov"),
+            directoryIdentity: identity,
+            directoryHandle: FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        )
+    }
+
+    private func validate(_ staging: DevVlogsBuildStaging) -> Bool {
+        guard staging.directoryIdentity.matches(staging.directoryURL),
+              DevVlogsFileIdentity.capture(
+                descriptor: staging.directoryDescriptor,
+                kind: .directory
+              ) == staging.directoryIdentity,
+              let children = try? fileManager.contentsOfDirectory(
+                at: staging.directoryURL,
+                includingPropertiesForKeys: nil
+              ) else {
+            return false
+        }
+        return Set(children.map(\.lastPathComponent)).isSubset(
+            of: Set([staging.outputURL.lastPathComponent])
+        )
+    }
+
+    private func entryIsAbsent(
+        atDirectoryDescriptor descriptor: Int32,
+        name: String
+    ) throws -> Bool {
+        var value = stat()
+        if fstatat(descriptor, name, &value, AT_SYMLINK_NOFOLLOW) == 0 {
+            return false
+        }
+        guard errno == ENOENT else { throw DevVlogsBuildError.workspaceChanged }
+        return true
+    }
+
+    private func removeStagingDirectory(_ staging: DevVlogsBuildStaging) throws {
+        guard validate(staging) else { throw DevVlogsBuildError.workspaceChanged }
+        if let current = DevVlogsFileIdentity.capture(
+            atDirectoryDescriptor: staging.directoryDescriptor,
+            name: staging.outputURL.lastPathComponent,
+            kind: .regularFile,
+            requireSingleLink: true
+        ) {
+            guard current == staging.outputIdentity else {
+                throw DevVlogsBuildError.workspaceChanged
+            }
+            guard unlinkat(staging.directoryDescriptor, staging.outputURL.lastPathComponent, 0) == 0 else {
+                throw DevVlogsBuildError.workspaceChanged
+            }
+        } else if errno != ENOENT {
+            throw DevVlogsBuildError.workspaceChanged
+        }
+        guard staging.directoryIdentity.matches(staging.directoryURL),
+              rmdir(staging.directoryURL.path) == 0 else {
+            throw DevVlogsBuildError.workspaceChanged
+        }
     }
 
     private func captureWorkspace(

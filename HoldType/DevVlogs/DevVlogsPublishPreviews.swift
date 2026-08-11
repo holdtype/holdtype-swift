@@ -27,6 +27,7 @@ private enum DevVlogsPublishPreviewFixtures {
         clips: [
             DevVlogsPublishClip(
                 id: "00000000-0000-0000-0000-000000000004",
+                clipID: nil,
                 title: "10:14 · Codex",
                 detail: "Source file is no longer available",
                 isSelected: true,
@@ -39,6 +40,7 @@ private enum DevVlogsPublishPreviewFixtures {
     private static func clip(id: String, title: String, selected: Bool = true) -> DevVlogsPublishClip {
         DevVlogsPublishClip(
             id: id,
+            clipID: UUID(uuidString: id),
             title: title,
             detail: "32s · Ready",
             isSelected: selected,

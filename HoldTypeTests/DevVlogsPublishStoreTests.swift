@@ -40,6 +40,49 @@ struct DevVlogsPublishStoreTests {
         #expect(store.presentation.enables(.createVideo))
     }
 
+    @Test func reconstructedLibraryRowsExposeCanonicalIncludeAndReorderActions() async throws {
+        let fixture = try Fixture()
+        defer { fixture.remove() }
+        let first = UUID()
+        let second = UUID()
+        _ = try await DevVlogsMediaFixtureFactory.makeArchivedClip(
+            rootURL: fixture.root,
+            clipID: first,
+            createdAt: fixture.date,
+            appName: "Codex",
+            bundleIdentifier: "app.openai.codex"
+        )
+        _ = try await DevVlogsMediaFixtureFactory.makeArchivedClip(
+            rootURL: fixture.root,
+            clipID: second,
+            createdAt: fixture.date.addingTimeInterval(2),
+            appName: "Codex",
+            bundleIdentifier: "app.openai.codex"
+        )
+        let snapshot = try await DevVlogsLibraryRepository().load(rootURL: fixture.root)
+        let store = fixture.store(builder: FakeMediaBuilder())
+
+        store.synchronize(days: snapshot.days)
+
+        var rows = try #require(store.presentation.state.selection).clips
+        #expect(rows.map(\.id).allSatisfy { $0.hasPrefix("clip:") })
+        #expect(rows.map(\.clipID) == [first, second].map(Optional.some))
+        #expect(rows.allSatisfy { $0.isActionable })
+
+        let secondActionID = try #require(rows[1].clipID)
+        store.setIncluded(false, clipID: secondActionID)
+        rows = try #require(store.presentation.state.selection).clips
+        #expect(rows.first { $0.clipID == second }?.isSelected == false)
+
+        store.move(clipID: secondActionID, direction: -1)
+        rows = try #require(store.presentation.state.selection).clips
+        #expect(rows.map(\.clipID) == [second, first].map(Optional.some))
+
+        store.move(clipID: secondActionID, direction: 1)
+        rows = try #require(store.presentation.state.selection).clips
+        #expect(rows.map(\.clipID) == [first, second].map(Optional.some))
+    }
+
     @Test func persistsRecipeBeforeRenderAndRetriesTheSameIdentity() async throws {
         let fixture = try Fixture()
         defer { fixture.remove() }
@@ -286,9 +329,13 @@ private final class FakeMediaBuilder: DevVlogsMediaBuilding {
         progress: @escaping @MainActor (Double) -> Void
     ) async throws -> DevVlogsBuildOutput {
         calls += 1
-        let recipeURL = outputURL.deletingLastPathComponent().appendingPathComponent("build.json")
+        let buildsURL = sources.first?.resourceIdentity.rootURL
+            .appendingPathComponent("2025/2025-08-11/builds", isDirectory: true)
+        let recipeExists = buildsURL.flatMap {
+            FileManager.default.enumerator(at: $0, includingPropertiesForKeys: nil)?.allObjects as? [URL]
+        }?.contains { $0.lastPathComponent == "build.json" } == true
         recipeExistedForEveryBuild = recipeExistedForEveryBuild
-            && FileManager.default.fileExists(atPath: recipeURL.path)
+            && recipeExists
         let outcome = outcomes.isEmpty ? .success : outcomes.removeFirst()
         switch outcome {
         case .success:

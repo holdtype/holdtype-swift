@@ -37,12 +37,14 @@ final class AVFoundationDevVlogsMediaBuilder: DevVlogsMediaBuilding {
     private static let maximumExportWait: Duration = .seconds(60)
     private let maximumProbeWait: Duration
     private let sourceProbeBarrier: @MainActor () async throws -> Void
+    private let signatureProbeBarrier: @MainActor () async throws -> Void
     private let outputProbeBarrier: @MainActor () async throws -> Void
 
     convenience init() {
         self.init(
             maximumProbeWait: .seconds(10),
             sourceProbeBarrier: {},
+            signatureProbeBarrier: {},
             outputProbeBarrier: {}
         )
     }
@@ -50,10 +52,12 @@ final class AVFoundationDevVlogsMediaBuilder: DevVlogsMediaBuilding {
     init(
         maximumProbeWait: Duration,
         sourceProbeBarrier: @escaping @MainActor () async throws -> Void,
+        signatureProbeBarrier: @escaping @MainActor () async throws -> Void = {},
         outputProbeBarrier: @escaping @MainActor () async throws -> Void
     ) {
         self.maximumProbeWait = maximumProbeWait
         self.sourceProbeBarrier = sourceProbeBarrier
+        self.signatureProbeBarrier = signatureProbeBarrier
         self.outputProbeBarrier = outputProbeBarrier
     }
 
@@ -136,8 +140,13 @@ final class AVFoundationDevVlogsMediaBuilder: DevVlogsMediaBuilding {
                       audioTracks.count == 1,
                       duration.isValid,
                       duration.isNumeric,
-                      duration > .zero,
-                      source.resourceIdentity.validateSourceAndMetadata() else {
+                      duration > .zero else {
+                    throw DevVlogsBuildError.sourceInvalid
+                }
+                try await self.signatureProbeBarrier()
+                let signature = try await self.signature(video: videoTracks[0], audio: audioTracks[0])
+                guard source.resourceIdentity.validateSourceAndMetadata(),
+                      source.resourceIdentity.mediaURL == source.fileURL else {
                     throw DevVlogsBuildError.sourceInvalid
                 }
                 return LoadedSource(
@@ -146,7 +155,7 @@ final class AVFoundationDevVlogsMediaBuilder: DevVlogsMediaBuilding {
                     videoTrack: videoTracks[0],
                     audioTrack: audioTracks[0],
                     duration: duration,
-                    signature: try await self.signature(video: videoTracks[0], audio: audioTracks[0])
+                    signature: signature
                 )
             })
         }
