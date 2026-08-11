@@ -12,7 +12,7 @@ Governing plan:
 Pinned contract:
 [`docs/specs/features/dev-vlogs.md`](specs/features/dev-vlogs.md), revision
 `DV-ACTIVE-1`, activated under explicit user authority on 2026-08-11;
-independent `DV-P0C-REVIEW` is pending.
+independent `DV-P0C-REVIEW` accepted it with one editorial residual.
 
 Historical packet and receipt bodies are preserved verbatim in the
 [registry archive](dev-vlogs-execution-registry-archive.md). They are evidence,
@@ -72,7 +72,7 @@ reconciliation recorded below.
 | `DV-DRAFT-2@8081c10` | Earlier discovery Draft | superseded | Historical evidence only. |
 | `DV-DRAFT-3@ed108fa` | Accepted-decision Draft plus protocol | superseded | Historical evidence only. |
 | `DV-DRAFT-4@2f3266a` | Native-source Draft | superseded | Phase 0B evidence basis; not current authority. |
-| `DV-ACTIVE-1` | User-authorized Dev Vlogs contract and narrow adjacent clauses | current / review pending | Active, Evolving implementation authority. Capability acceptance remains scenario- and residual-gated. |
+| `DV-ACTIVE-1` | User-authorized Dev Vlogs contract and narrow adjacent clauses | current / review accepted_with_residual | Active, Evolving implementation authority. Capability acceptance remains scenario- and residual-gated. |
 
 Any open packet based on affected `DV-DRAFT-4` clauses is retired or must be
 revalidated before its result can be accepted. Historical Phase 0B evidence
@@ -97,7 +97,7 @@ remains evidence under the dispositions below.
 - Authority/stability: Active/Evolving Dev Vlogs; existing released macOS
   behavior remains protected.
 - Required evidence: capability-specific scenarios in the acceptance map;
-  independent `DV-P0C-REVIEW` before Phase 1 implementation acceptance.
+  independent `DV-P0C-REVIEW` accepted the contract before Phase 1 dispatch.
 - Allowed specification delta: `DV-ACTIVE-1`, active acceptance mapping, and
   the exact narrow adjacent clauses named above.
 - Forbidden delta: weakened capture/storage acceptance, invented thresholds,
@@ -149,8 +149,8 @@ remains evidence under the dispositions below.
 
 | Packet | Epoch | Dependency | Status | Next dependency |
 | --- | --- | --- | --- | --- |
-| `DV-P0C-CONTRACT` | `DV-ACTIVE-1` | user authority and terminal Phase 0B dispositions | complete; receipt is this checkpoint commit | Independent proportional review. |
-| `DV-P0C-REVIEW` | `DV-ACTIVE-1` | `DV-P0C-CONTRACT` | queued | Accept, accept with residual, or reject the contract delta without opening another support chain. |
+| `DV-P0C-CONTRACT` | `DV-ACTIVE-1` | user authority and terminal Phase 0B dispositions | accepted_with_residual at `835c455` | Phase 1 shipping. |
+| `DV-P0C-REVIEW` | `DV-ACTIVE-1` | `DV-P0C-CONTRACT@835c455` | accepted_with_residual | No material blocker; preserve the editorial residual below and do not open a repair cycle. |
 | `DV-P1-SETUP` | `DV-ACTIVE-1` | accepted `DV-P0C-REVIEW` | next shipping packet | Release `Dev Vlogs…`, separate SwiftUI window, Overview default, truthful Off/Setup; no capture or Camera request on open. |
 | `DV-P2-CAPTURE` | current Active epoch | accepted Phase 1 plus dependent residual closure | queued | One playable exact-once clip without dictation regression. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
@@ -159,16 +159,19 @@ remains evidence under the dispositions below.
 
 ## Current Coordination State
 
-- Shipping capability delivered by Phase 0C: none. This is the second and
-  final admitted support-only checkpoint before shipping implementation.
+- Shipping capability delivered by Phase 0C: none. This was the second and
+  final admitted support-only checkpoint before shipping implementation; its
+  proportional review is accepted with no material blocker.
 - Capability unlocked: the smallest Phase 1 Release slice—`Dev Vlogs…`, a
   separate normal SwiftUI window, Overview default, and truthful Off/Setup
   state—is contract-ready and does not depend on preview, capture, storage
   thresholds, mux preservation, or `DV-BUILD-6`.
-- Support depth: `2/2`. One proportional contract review is admitted. A repair
-  may be used only for a focused defect in this delta; broader review findings
-  become explicit residuals or return to `/root` for delivery-and-cost
-  reassessment.
+- Support depth: `2/2`, closed. No further support-only checkpoint or contract
+  repair is admitted before the Phase 1 shipping slice.
+- Editorial residual: Dev Vlogs still calls the human-readable folder
+  hierarchy "part of the draft contract" in one sentence. Active authority is
+  otherwise unambiguous; correct that wording only during a later natural
+  specification edit, without a repair/re-review cycle.
 - No Phase 0B expansion is admitted without separate explicit user approval.
 - Outcome plan remains 60/25/15: approximately 60% shipping implementation,
   25% verification/review/QA, and 15% discovery/diagnostics/tooling/
@@ -203,5 +206,6 @@ remains evidence under the dispositions below.
   pattern governs Phase 1; runtime acceptance remains capability-specific.
 - Specification paths: Dev Vlogs, plan, index, five adjacent contracts, Phase
   0B closeout, and this registry split.
-- Independent review: `DV-P0C-REVIEW` pending.
+- Independent review: `DV-P0C-REVIEW` accepted_with_residual; no material
+  finding, one nonblocking editorial residual recorded above.
 - New epoch: `DV-ACTIVE-1`.
