@@ -91,6 +91,11 @@ struct DevVlogsWindowRoot: View {
             }
             refreshReadinessInputs()
         }
+        .onChange(of: settingsStore.isEnabled) { _, isEnabled in
+            if !isEnabled {
+                captureCoordinator.featureDidDisable()
+            }
+        }
     }
 
     private func sidebarRow(title: String, systemImage: String) -> some View {

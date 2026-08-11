@@ -107,9 +107,12 @@ final class DevVlogsCameraCaptureFake: DevVlogsCameraCapturing {
     let captureID = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 86))
     var startError: Error?
     var stopError: Error?
+    var suspendsStart = false
+    private var startContinuation: CheckedContinuation<Void, Never>?
     private(set) var startCameraIDs: [String] = []
     private(set) var stopIDs: [UUID] = []
     private(set) var cancelIDs: [UUID] = []
+    private(set) var cancelCurrentCount = 0
 
     func startCapture(
         cameraID: String,
@@ -118,6 +121,9 @@ final class DevVlogsCameraCaptureFake: DevVlogsCameraCapturing {
     ) async throws -> UUID {
         startCameraIDs.append(cameraID)
         if let startError { throw startError }
+        if suspendsStart {
+            await withCheckedContinuation { startContinuation = $0 }
+        }
         onStarted(100)
         return captureID
     }
@@ -135,18 +141,46 @@ final class DevVlogsCameraCaptureFake: DevVlogsCameraCapturing {
     func cancelCapture(id: UUID) async {
         cancelIDs.append(id)
     }
+
+    func cancelCurrentCapture() async {
+        cancelCurrentCount += 1
+    }
+
+    func resumeStart() {
+        startContinuation?.resume()
+        startContinuation = nil
+    }
+}
+
+@MainActor
+final class DevVlogsNeverReturningCameraSession: DevVlogsCameraSessionControlling {
+    private var stopContinuation: CheckedContinuation<DevVlogsCameraCaptureResult, Error>?
+    private(set) var forceStopCount = 0
+    private(set) var isTornDown = false
+
+    func start(cameraID: String) async throws {}
+
+    func stop() async throws -> DevVlogsCameraCaptureResult {
+        try await withCheckedThrowingContinuation { stopContinuation = $0 }
+    }
+
+    func forceStop() {
+        guard !isTornDown else { return }
+        forceStopCount += 1
+        isTornDown = true
+        stopContinuation?.resume(throwing: DevVlogsCameraCaptureError.stopFailed)
+        stopContinuation = nil
+    }
 }
 
 @MainActor
 final class DevVlogsAudioReadLeaseProviderFake: DevVlogsAudioReadLeasing {
+    let registry = RecordingArtifactReadLeaseRegistry()
     private(set) var acquireCount = 0
-    private(set) var releaseCount = 0
 
-    func acquireReadLease(for artifact: AudioRecordingArtifact) -> DevVlogsAudioReadLease {
+    func acquireReadLease(for artifact: AudioRecordingArtifact) -> RecordingArtifactReadLease {
         acquireCount += 1
-        return DevVlogsAudioReadLease(fileURL: artifact.fileURL) { [weak self] in
-            self?.releaseCount += 1
-        }
+        return registry.acquire(for: artifact.fileURL)
     }
 }
 
@@ -194,7 +228,9 @@ final class DevVlogsArchiveFake: DevVlogsArchiving {
 @MainActor
 final class DevVlogsMediaFinalizerFake: DevVlogsMediaFinalizing {
     var error: Error?
+    var suspends = false
     private(set) var callCount = 0
+    private var continuation: CheckedContinuation<DevVlogsFinalizedMedia, Error>?
 
     func finalize(
         camera: DevVlogsCameraCaptureResult,
@@ -204,12 +240,33 @@ final class DevVlogsMediaFinalizerFake: DevVlogsMediaFinalizing {
     ) async throws -> DevVlogsFinalizedMedia {
         callCount += 1
         if let error { throw error }
-        return DevVlogsFinalizedMedia(
+        let media = DevVlogsFinalizedMedia(
             fileURL: outputURL,
             duration: 3,
             byteCount: 1_024,
             realizedVideoFormat: .init(width: 1_920, height: 1_080, nominalFrameRate: 30, codec: "hvc1")
         )
+        if suspends {
+            return try await withCheckedThrowingContinuation { continuation = $0 }
+        }
+        return media
+    }
+
+    func resumeSuccess() {
+        continuation?.resume(
+            returning: DevVlogsFinalizedMedia(
+                fileURL: URL(fileURLWithPath: "/tmp/final.mov"),
+                duration: 3,
+                byteCount: 1_024,
+                realizedVideoFormat: .init(
+                    width: 1_920,
+                    height: 1_080,
+                    nominalFrameRate: 30,
+                    codec: "hvc1"
+                )
+            )
+        )
+        continuation = nil
     }
 }
 

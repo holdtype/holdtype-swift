@@ -186,6 +186,35 @@ struct RecordingCacheServiceTests {
         #expect(try Data(contentsOf: lease.audioFileURL) == contents)
     }
 
+    @MainActor
+    @Test func exactReadLeaseDefersOrdinaryCleanupUntilRelease() throws {
+        let rootURL = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let cacheURL = rootURL.appendingPathComponent("Recordings", isDirectory: true)
+        let registry = RecordingArtifactReadLeaseRegistry()
+        let service = RecordingCacheService(
+            directoryURL: cacheURL,
+            legacyDirectoryURL: nil,
+            readLeaseRegistry: registry
+        )
+        let leasedURL = try writeRecording(named: "leased.m4a", bytes: 3, in: cacheURL)
+        let unrelatedURL = try writeRecording(named: "unrelated.m4a", bytes: 2, in: cacheURL)
+        let lease = registry.acquire(for: leasedURL)
+
+        try service.handleCompletedRecording(at: leasedURL, policy: .deleteImmediately)
+        try service.deleteRecording(at: unrelatedURL)
+
+        #expect(FileManager.default.fileExists(atPath: leasedURL.path))
+        #expect(!FileManager.default.fileExists(atPath: unrelatedURL.path))
+        #expect(try service.summary().items.isEmpty)
+
+        lease.release()
+
+        #expect(!FileManager.default.fileExists(atPath: leasedURL.path))
+        #expect(!registry.isProtected(leasedURL))
+    }
+
     private func makeTemporaryDirectory() throws -> URL {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("holdtype-recording-cache-tests-\(UUID().uuidString)", isDirectory: true)

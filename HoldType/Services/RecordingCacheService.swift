@@ -99,6 +99,7 @@ struct RecordingCacheService: RecordingCacheManaging {
     private let fileManager: FileManager
     private let now: () -> Date
     private let uuidProvider: () -> UUID
+    private let readLeaseRegistry: RecordingArtifactReadLeaseRegistry
 
     init(
         directoryURL: URL? = nil,
@@ -106,13 +107,15 @@ struct RecordingCacheService: RecordingCacheManaging {
             .appendingPathComponent("holdtype-recordings", isDirectory: true),
         fileManager: FileManager = .default,
         now: @escaping () -> Date = Date.init,
-        uuidProvider: @escaping () -> UUID = UUID.init
+        uuidProvider: @escaping () -> UUID = UUID.init,
+        readLeaseRegistry: RecordingArtifactReadLeaseRegistry = .shared
     ) {
         self.fileManager = fileManager
         self.directoryURL = directoryURL ?? Self.defaultDirectoryURL(fileManager: fileManager)
         self.legacyDirectoryURL = legacyDirectoryURL
         self.now = now
         self.uuidProvider = uuidProvider
+        self.readLeaseRegistry = readLeaseRegistry
     }
 
     func makeRecordingFileURL() throws -> URL {
@@ -157,6 +160,11 @@ struct RecordingCacheService: RecordingCacheManaging {
         guard !RecordingCaptureJournal.isProtectedCaptureFileURL(fileURL) else {
             throw RecordingCacheServiceError.recordingProtected
         }
+        if readLeaseRegistry.deferCleanupIfProtected(for: fileURL, { [self] in
+            try? handleCompletedRecording(at: fileURL, policy: policy)
+        }) {
+            return
+        }
 
         switch policy.normalized {
         case .deleteImmediately:
@@ -184,6 +192,9 @@ struct RecordingCacheService: RecordingCacheManaging {
             throw RecordingCacheServiceError.unsupportedRecordingURL
         }
         guard !RecordingCaptureJournal.isProtectedCaptureFileURL(fileURL) else {
+            throw RecordingCacheServiceError.recordingProtected
+        }
+        guard !readLeaseRegistry.isProtected(fileURL) else {
             throw RecordingCacheServiceError.recordingProtected
         }
 
@@ -254,7 +265,8 @@ struct RecordingCacheService: RecordingCacheManaging {
         return fileURLs.compactMap { fileURL in
             guard Self.supportedFileExtensions.contains(fileURL.pathExtension.lowercased()),
                   isManagedRecordingFileURL(fileURL),
-                  !RecordingCaptureJournal.isProtectedCaptureFileURL(fileURL) else {
+                  !RecordingCaptureJournal.isProtectedCaptureFileURL(fileURL),
+                  !readLeaseRegistry.isProtected(fileURL) else {
                 return nil
             }
 

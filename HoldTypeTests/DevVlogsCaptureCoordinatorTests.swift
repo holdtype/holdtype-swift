@@ -29,6 +29,26 @@ struct DevVlogsCaptureCoordinatorTests {
         #expect(clock.now - start < .seconds(1))
     }
 
+    @Test func cameraStopTimeoutForcesProductionServiceTeardown() async throws {
+        let session = DevVlogsNeverReturningCameraSession()
+        let service = AVFoundationDevVlogsCameraCaptureService(
+            maximumOperationWait: .milliseconds(20),
+            sessionFactory: { _, _ in session }
+        )
+        let captureID = try await service.startCapture(
+            cameraID: "camera",
+            outputURL: URL(fileURLWithPath: "/tmp/camera.mov"),
+            onStarted: { _ in }
+        )
+
+        await #expect(throws: DevVlogsCameraCaptureError.stopFailed) {
+            try await service.stopCapture(id: captureID)
+        }
+
+        #expect(session.forceStopCount == 1)
+        #expect(session.isTornDown)
+    }
+
     @Test func disabledAndIneligibleAttemptsSkipBeforeCameraOrDestination() async throws {
         let disabled = try DevVlogsCaptureFixture(enabled: false)
         await disabled.coordinator.beginAttempt()
@@ -87,12 +107,13 @@ struct DevVlogsCaptureCoordinatorTests {
         fixture.trigger.application = .init(bundleIdentifier: "com.example.later", displayName: "Later")
 
         await fixture.coordinator.finishAttempt(audioArtifact: audioArtifact)
+        await fixture.waitForTerminalState()
         await fixture.coordinator.finishAttempt(audioArtifact: audioArtifact)
         await fixture.waitForTerminalState()
 
         #expect(fixture.camera.stopIDs == [fixture.camera.captureID])
         #expect(fixture.leases.acquireCount == 1)
-        #expect(fixture.leases.releaseCount == 1)
+        #expect(!fixture.leases.registry.isProtected(audioArtifact.fileURL))
         #expect(fixture.archive.stageCount == 1)
         #expect(fixture.finalizer.callCount == 1)
         #expect(fixture.archive.publishSnapshots.count == 1)
@@ -110,7 +131,7 @@ struct DevVlogsCaptureCoordinatorTests {
         await fixture.coordinator.finishAttempt(audioArtifact: audioArtifact)
         await fixture.waitForTerminalState()
 
-        #expect(fixture.leases.releaseCount == 1)
+        #expect(!fixture.leases.registry.isProtected(audioArtifact.fileURL))
         #expect(fixture.archive.stageCount == 1)
         #expect(fixture.archive.publishSnapshots.isEmpty)
         #expect(fixture.archive.abandonCount == 0)
@@ -120,6 +141,99 @@ struct DevVlogsCaptureCoordinatorTests {
         ))
     }
 
+    @Test func finalizerTimeoutReleasesLeaseWithoutPublication() async throws {
+        let fixture = try DevVlogsCaptureFixture()
+        fixture.finalizer.error = DevVlogsMediaFinalizerError.timedOut
+        await fixture.coordinator.beginAttempt()
+        fixture.coordinator.dictationDidStart()
+
+        await fixture.coordinator.finishAttempt(audioArtifact: audioArtifact)
+        await fixture.waitForTerminalState()
+
+        #expect(!fixture.leases.registry.isProtected(audioArtifact.fileURL))
+        #expect(fixture.archive.publishSnapshots.isEmpty)
+        #expect(fixture.coordinator.state == .failed(
+            attemptID: DevVlogsCaptureFixture.attemptID,
+            message: "Finalizing the vlog clip timed out."
+        ))
+    }
+
+    @Test func disablingWhilePreparingStopsOnlyTheVlogAttempt() async throws {
+        let fixture = try DevVlogsCaptureFixture()
+        fixture.camera.suspendsStart = true
+        let beginTask = Task { await fixture.coordinator.beginAttempt() }
+        await waitUntil { fixture.coordinator.state == .preparing(
+            attemptID: DevVlogsCaptureFixture.attemptID
+        ) }
+
+        fixture.coordinator.featureDidDisable()
+        await Task.yield()
+
+        #expect(fixture.coordinator.state == .skipped(
+            attemptID: DevVlogsCaptureFixture.attemptID,
+            reason: .disabled
+        ))
+        #expect(fixture.camera.cancelCurrentCount == 1)
+        fixture.camera.resumeStart()
+        await beginTask.value
+        #expect(fixture.camera.cancelIDs == [fixture.camera.captureID])
+    }
+
+    @Test func disablingWhileCapturingStopsOnlyTheVlogAttempt() async throws {
+        let fixture = try DevVlogsCaptureFixture()
+        await fixture.coordinator.beginAttempt()
+
+        fixture.coordinator.featureDidDisable()
+        await Task.yield()
+
+        #expect(fixture.camera.cancelIDs == [fixture.camera.captureID])
+        #expect(fixture.coordinator.state == .skipped(
+            attemptID: DevVlogsCaptureFixture.attemptID,
+            reason: .disabled
+        ))
+        #expect(fixture.leases.acquireCount == 0)
+    }
+
+    @Test func disablingWhileFinalizingReleasesLeaseAndSuppressesStaleSuccess() async throws {
+        let fixture = try DevVlogsCaptureFixture()
+        fixture.finalizer.suspends = true
+        await fixture.coordinator.beginAttempt()
+        fixture.coordinator.dictationDidStart()
+        await fixture.coordinator.finishAttempt(audioArtifact: audioArtifact)
+        await waitUntil { fixture.finalizer.callCount == 1 }
+
+        fixture.coordinator.featureDidDisable()
+
+        #expect(!fixture.leases.registry.isProtected(audioArtifact.fileURL))
+        #expect(fixture.coordinator.state == .skipped(
+            attemptID: DevVlogsCaptureFixture.attemptID,
+            reason: .disabled
+        ))
+        fixture.finalizer.resumeSuccess()
+        await Task.yield()
+        #expect(fixture.archive.publishSnapshots.isEmpty)
+        #expect(fixture.coordinator.state == .skipped(
+            attemptID: DevVlogsCaptureFixture.attemptID,
+            reason: .disabled
+        ))
+    }
+
+    @Test func teardownWhileFinalizingReleasesLeaseAndDestination() async throws {
+        let fixture = try DevVlogsCaptureFixture(usesCustomDestination: true)
+        fixture.finalizer.suspends = true
+        let initialStopCount = fixture.bookmarks.stopCount
+        await fixture.coordinator.beginAttempt()
+        fixture.coordinator.dictationDidStart()
+        await fixture.coordinator.finishAttempt(audioArtifact: audioArtifact)
+        await waitUntil { fixture.finalizer.callCount == 1 }
+
+        fixture.coordinator.endAttemptWithoutAudio(reason: .dictationDidNotComplete)
+
+        #expect(!fixture.leases.registry.isProtected(audioArtifact.fileURL))
+        #expect(fixture.bookmarks.stopCount == initialStopCount + 1)
+        fixture.finalizer.resumeSuccess()
+    }
+
     @Test func audioLeaseReleasesWhenStagingFails() async throws {
         let fixture = try DevVlogsCaptureFixture()
         fixture.archive.stageError = DevVlogsCaptureTestError.expectedFailure
@@ -127,9 +241,10 @@ struct DevVlogsCaptureCoordinatorTests {
         fixture.coordinator.dictationDidStart()
 
         await fixture.coordinator.finishAttempt(audioArtifact: audioArtifact)
+        await fixture.waitForTerminalState()
 
         #expect(fixture.leases.acquireCount == 1)
-        #expect(fixture.leases.releaseCount == 1)
+        #expect(!fixture.leases.registry.isProtected(audioArtifact.fileURL))
         #expect(fixture.finalizer.callCount == 0)
         #expect(fixture.archive.publishSnapshots.isEmpty)
         #expect(fixture.coordinator.state == .failed(
@@ -162,5 +277,12 @@ struct DevVlogsCaptureCoordinatorTests {
 
         #expect(fixture.bookmarks.startCount == initialStartCount + 1)
         #expect(fixture.bookmarks.stopCount == initialStopCount + 1)
+    }
+
+    private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async {
+        for _ in 0..<40 {
+            if condition() { return }
+            await Task.yield()
+        }
     }
 }

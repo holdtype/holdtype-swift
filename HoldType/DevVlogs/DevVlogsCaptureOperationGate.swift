@@ -57,7 +57,8 @@ final class DevVlogsCameraStopOperationGate {
 
     func wait(
         timeout: Duration,
-        operation: @escaping @MainActor () async throws -> DevVlogsCameraCaptureResult
+        operation: @escaping @MainActor () async throws -> DevVlogsCameraCaptureResult,
+        onTimeout: @escaping @MainActor () -> Void
     ) async throws -> DevVlogsCameraCaptureResult {
         try await withCheckedThrowingContinuation { continuation in
             self.continuation = continuation
@@ -70,6 +71,7 @@ final class DevVlogsCameraStopOperationGate {
             }
             timeoutTask = Task { @MainActor [self] in
                 do { try await Task.sleep(for: timeout) } catch { return }
+                onTimeout()
                 finish(.failure(DevVlogsCameraCaptureError.stopFailed), cancelOperation: true)
             }
         }

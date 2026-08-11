@@ -68,6 +68,7 @@ private final class DevVlogsCaptureCoordinatorSpy: DevVlogsCaptureCoordinating {
     private(set) var didStartCount = 0
     private(set) var finishCount = 0
     private(set) var endReasons: [DevVlogsCaptureSkipReason] = []
+    private(set) var disableCount = 0
     private let failOnFinish: Bool
 
     init(failOnFinish: Bool = false) {
@@ -85,6 +86,7 @@ private final class DevVlogsCaptureCoordinatorSpy: DevVlogsCaptureCoordinating {
     func endAttemptWithoutAudio(reason: DevVlogsCaptureSkipReason) {
         endReasons.append(reason)
     }
+    func featureDidDisable() { disableCount += 1 }
 }
 
 @MainActor

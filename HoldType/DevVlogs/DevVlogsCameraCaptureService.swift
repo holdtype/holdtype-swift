@@ -33,18 +33,46 @@ protocol DevVlogsCameraCapturing {
     ) async throws -> UUID
     func stopCapture(id: UUID) async throws -> DevVlogsCameraCaptureResult
     func cancelCapture(id: UUID) async
+    func cancelCurrentCapture() async
+}
+
+@MainActor
+protocol DevVlogsCameraSessionControlling: AnyObject {
+    func start(cameraID: String) async throws
+    func stop() async throws -> DevVlogsCameraCaptureResult
+    func forceStop()
 }
 
 @MainActor
 final class AVFoundationDevVlogsCameraCaptureService: DevVlogsCameraCapturing {
-    private static let maximumOperationWait: Duration = .seconds(30)
-
     private struct ActiveCapture {
         let id: UUID
-        let box: DevVlogsCameraSessionBox
+        let session: any DevVlogsCameraSessionControlling
     }
 
+    private let maximumOperationWait: Duration
+    private let sessionFactory: (
+        URL,
+        @escaping @MainActor (TimeInterval) -> Void
+    ) -> any DevVlogsCameraSessionControlling
     private var activeCapture: ActiveCapture?
+
+    convenience init() {
+        self.init(maximumOperationWait: .seconds(30)) { outputURL, onStarted in
+            DevVlogsCameraSessionBox(outputURL: outputURL, onStarted: onStarted)
+        }
+    }
+
+    init(
+        maximumOperationWait: Duration,
+        sessionFactory: @escaping (
+            URL,
+            @escaping @MainActor (TimeInterval) -> Void
+        ) -> any DevVlogsCameraSessionControlling
+    ) {
+        self.maximumOperationWait = maximumOperationWait
+        self.sessionFactory = sessionFactory
+    }
 
     func startCapture(
         cameraID: String,
@@ -56,17 +84,14 @@ final class AVFoundationDevVlogsCameraCaptureService: DevVlogsCameraCapturing {
         }
 
         let id = UUID()
-        let box = DevVlogsCameraSessionBox(
-            outputURL: outputURL,
-            onStarted: onStarted
-        )
-        activeCapture = ActiveCapture(id: id, box: box)
+        let session = sessionFactory(outputURL, onStarted)
+        activeCapture = ActiveCapture(id: id, session: session)
         do {
             let gate = DevVlogsCameraStartOperationGate()
             try await gate.wait(
-                timeout: Self.maximumOperationWait,
-                operation: { try await box.start(cameraID: cameraID) },
-                onLateSuccess: { _ = try? await box.stop() }
+                timeout: maximumOperationWait,
+                operation: { try await session.start(cameraID: cameraID) },
+                onLateSuccess: { session.forceStop() }
             )
             return id
         } catch {
@@ -79,10 +104,13 @@ final class AVFoundationDevVlogsCameraCaptureService: DevVlogsCameraCapturing {
         guard let capture = activeCapture, capture.id == id else {
             throw DevVlogsCameraCaptureError.stopFailed
         }
-        activeCapture = nil
+        defer {
+            if activeCapture?.id == id { activeCapture = nil }
+        }
         return try await DevVlogsCameraStopOperationGate().wait(
-            timeout: Self.maximumOperationWait,
-            operation: { try await capture.box.stop() }
+            timeout: maximumOperationWait,
+            operation: { try await capture.session.stop() },
+            onTimeout: { capture.session.forceStop() }
         )
     }
 
@@ -90,15 +118,24 @@ final class AVFoundationDevVlogsCameraCaptureService: DevVlogsCameraCapturing {
         guard let capture = activeCapture, capture.id == id else {
             return
         }
-        activeCapture = nil
+        defer {
+            if activeCapture?.id == id { activeCapture = nil }
+        }
         _ = try? await DevVlogsCameraStopOperationGate().wait(
-            timeout: Self.maximumOperationWait,
-            operation: { try await capture.box.stop() }
+            timeout: maximumOperationWait,
+            operation: { try await capture.session.stop() },
+            onTimeout: { capture.session.forceStop() }
         )
+    }
+
+    func cancelCurrentCapture() async {
+        guard let id = activeCapture?.id else { return }
+        await cancelCapture(id: id)
     }
 }
 
 nonisolated private final class DevVlogsCameraSessionBox: NSObject,
+    DevVlogsCameraSessionControlling,
     AVCaptureFileOutputRecordingDelegate, @unchecked Sendable {
     private let queue = DispatchQueue(label: "app.holdtype.dev-vlogs.camera-capture")
     private let outputURL: URL
@@ -107,7 +144,7 @@ nonisolated private final class DevVlogsCameraSessionBox: NSObject,
     private let movieOutput = AVCaptureMovieFileOutput()
 
     private var startedAtUptime = ProcessInfo.processInfo.systemUptime
-    private var stopContinuation: CheckedContinuation<DevVlogsCameraCaptureResult, Error>?
+    private var stopContinuations: [CheckedContinuation<DevVlogsCameraCaptureResult, Error>] = []
     private var terminalResult: Result<DevVlogsCameraCaptureResult, Error>?
 
     init(
@@ -157,13 +194,23 @@ nonisolated private final class DevVlogsCameraSessionBox: NSObject,
                     continuation.resume(with: terminalResult)
                     return
                 }
-                stopContinuation = continuation
+                stopContinuations.append(continuation)
                 if movieOutput.isRecording {
                     movieOutput.stopRecording()
                 } else {
                     finish(.failure(DevVlogsCameraCaptureError.stopFailed))
                 }
             }
+        }
+    }
+
+    func forceStop() {
+        queue.async { [self] in
+            guard terminalResult == nil else { return }
+            if movieOutput.isRecording {
+                movieOutput.stopRecording()
+            }
+            finish(.failure(DevVlogsCameraCaptureError.stopFailed))
         }
     }
 
@@ -184,9 +231,9 @@ nonisolated private final class DevVlogsCameraSessionBox: NSObject,
         }
         terminalResult = result
         captureSession.stopRunning()
-        let continuation = stopContinuation
-        stopContinuation = nil
-        continuation?.resume(with: result)
+        let continuations = stopContinuations
+        stopContinuations.removeAll()
+        continuations.forEach { $0.resume(with: result) }
     }
 }
 

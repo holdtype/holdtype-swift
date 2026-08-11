@@ -4,35 +4,20 @@ import Foundation
 import HoldTypeDomain
 
 @MainActor
-final class DevVlogsAudioReadLease {
-    let fileURL: URL
-
-    private let onRelease: () -> Void
-    private(set) var isReleased = false
-
-    init(fileURL: URL, onRelease: @escaping () -> Void = {}) {
-        self.fileURL = fileURL
-        self.onRelease = onRelease
-    }
-
-    func release() {
-        guard !isReleased else {
-            return
-        }
-        isReleased = true
-        onRelease()
-    }
-}
-
-@MainActor
 protocol DevVlogsAudioReadLeasing {
-    func acquireReadLease(for artifact: AudioRecordingArtifact) -> DevVlogsAudioReadLease
+    func acquireReadLease(for artifact: AudioRecordingArtifact) -> RecordingArtifactReadLease
 }
 
 @MainActor
 struct DefaultDevVlogsAudioReadLeaseProvider: DevVlogsAudioReadLeasing {
-    func acquireReadLease(for artifact: AudioRecordingArtifact) -> DevVlogsAudioReadLease {
-        DevVlogsAudioReadLease(fileURL: artifact.fileURL)
+    private let registry: RecordingArtifactReadLeaseRegistry
+
+    init(registry: RecordingArtifactReadLeaseRegistry? = nil) {
+        self.registry = registry ?? .shared
+    }
+
+    func acquireReadLease(for artifact: AudioRecordingArtifact) -> RecordingArtifactReadLease {
+        registry.acquire(for: artifact.fileURL)
     }
 }
 
@@ -44,18 +29,32 @@ protocol DevVlogsCaptureCoordinating: AnyObject {
     func dictationDidStart()
     func finishAttempt(audioArtifact: AudioRecordingArtifact) async
     func endAttemptWithoutAudio(reason: DevVlogsCaptureSkipReason)
+    func featureDidDisable()
 }
 
 @MainActor
 final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordinating {
     static let shared = DevVlogsCaptureCoordinator()
 
-    private struct ActiveAttempt {
+    private final class ActiveAttempt {
         let snapshot: DevVlogsCaptureSnapshot
         let destinationAccess: DevVlogsCaptureDestinationAccess
         let workspace: DevVlogsArchiveWorkspace
-        let cameraCaptureID: UUID
+        var cameraCaptureID: UUID?
         var audioStartedAtUptime: TimeInterval?
+        var audioLease: RecordingArtifactReadLease?
+        var finalizationTask: Task<Void, Never>?
+        var isTerminal = false
+
+        init(
+            snapshot: DevVlogsCaptureSnapshot,
+            destinationAccess: DevVlogsCaptureDestinationAccess,
+            workspace: DevVlogsArchiveWorkspace
+        ) {
+            self.snapshot = snapshot
+            self.destinationAccess = destinationAccess
+            self.workspace = workspace
+        }
     }
 
     @Published private(set) var state: DevVlogsCaptureState = .idle
@@ -73,6 +72,7 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
     private let attemptIDProvider: () -> UUID
 
     private var activeAttempt: ActiveAttempt?
+    private var visibleAttemptID: UUID?
 
     convenience init() {
         self.init(
@@ -125,30 +125,36 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
     func beginAttempt() async {
         let attemptID = attemptIDProvider()
         guard activeAttempt == nil else {
+            visibleAttemptID = attemptID
             state = .skipped(attemptID: attemptID, reason: .captureAlreadyActive)
             return
         }
 
         let settings = settingsProvider()
         guard settings.isEnabled else {
+            visibleAttemptID = attemptID
             state = .skipped(attemptID: attemptID, reason: .disabled)
             return
         }
         guard let triggerApplication = triggerApplicationProvider.currentTriggerApplication() else {
+            visibleAttemptID = attemptID
             state = .skipped(attemptID: attemptID, reason: .triggerApplicationUnknown)
             return
         }
         guard settings.applicationPolicy.isEligible(
             bundleIdentifier: triggerApplication.bundleIdentifier
         ) else {
+            visibleAttemptID = attemptID
             state = .skipped(attemptID: attemptID, reason: .triggerApplicationIneligible)
             return
         }
         guard let preferredCamera = settings.preferredCamera else {
+            visibleAttemptID = attemptID
             state = .skipped(attemptID: attemptID, reason: .preferredCameraUnavailable)
             return
         }
         guard cameraAuthorizationProvider() == .allowed else {
+            visibleAttemptID = attemptID
             state = .skipped(attemptID: attemptID, reason: .cameraPermissionUnavailable)
             return
         }
@@ -157,6 +163,7 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
         do {
             destinationAccess = try destinationProvider().acquireCaptureDestination()
         } catch {
+            visibleAttemptID = attemptID
             state = .skipped(attemptID: attemptID, reason: .destinationUnavailable)
             return
         }
@@ -174,115 +181,145 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
             )
         } catch {
             destinationAccess.release()
+            visibleAttemptID = attemptID
             state = .failed(attemptID: attemptID, message: Self.message(for: error))
             return
         }
 
+        let attempt = ActiveAttempt(
+            snapshot: snapshot,
+            destinationAccess: destinationAccess,
+            workspace: workspace
+        )
+        activeAttempt = attempt
+        visibleAttemptID = attemptID
         state = .preparing(attemptID: attemptID)
         do {
             let cameraCaptureID = try await cameraCapture.startCapture(
                 cameraID: preferredCamera.id,
                 outputURL: workspace.cameraURL
             ) { [weak self] _ in
-                guard case .preparing(let currentID) = self?.state,
-                      currentID == attemptID else {
+                guard let self, self.owns(attempt), self.visibleAttemptID == attemptID else {
                     return
                 }
-                self?.state = .capturing(attemptID: attemptID)
+                self.state = .capturing(attemptID: attemptID)
             }
-            activeAttempt = ActiveAttempt(
-                snapshot: snapshot,
-                destinationAccess: destinationAccess,
-                workspace: workspace,
-                cameraCaptureID: cameraCaptureID,
-                audioStartedAtUptime: nil
-            )
+            guard owns(attempt) else {
+                await cameraCapture.cancelCapture(id: cameraCaptureID)
+                return
+            }
+            attempt.cameraCaptureID = cameraCaptureID
         } catch {
-            destinationAccess.release()
+            guard owns(attempt) else { return }
             archive.abandonWorkspaceIfEmpty(workspace)
-            state = .skipped(attemptID: attemptID, reason: .preferredCameraUnavailable)
+            terminalize(
+                attempt,
+                state: .skipped(attemptID: attemptID, reason: .preferredCameraUnavailable),
+                tearDownCamera: false
+            )
         }
     }
 
     func dictationDidStart() {
-        guard var attempt = activeAttempt else {
-            return
-        }
+        guard let attempt = activeAttempt, !attempt.isTerminal else { return }
         attempt.audioStartedAtUptime = uptime()
-        activeAttempt = attempt
     }
 
     func finishAttempt(audioArtifact: AudioRecordingArtifact) async {
-        guard let attempt = takeActiveAttempt() else {
-            return
+        guard let attempt = activeAttempt, !attempt.isTerminal else { return }
+        guard attempt.finalizationTask == nil else { return }
+        if visibleAttemptID == attempt.snapshot.attemptID {
+            state = .finalizing(attemptID: attempt.snapshot.attemptID)
         }
-        state = .finalizing(attemptID: attempt.snapshot.attemptID)
-
-        do {
-            let cameraResult = try await cameraCapture.stopCapture(id: attempt.cameraCaptureID)
-            guard let audioStartedAtUptime = attempt.audioStartedAtUptime else {
-                throw DevVlogsMediaFinalizerError.noOverlappingMedia
-            }
-            let audioLease = audioLeaseProvider.acquireReadLease(for: audioArtifact)
-            defer { audioLease.release() }
-            try archive.stageAudio(from: audioLease.fileURL, into: attempt.workspace)
-            Task { @MainActor [self] in
-                await finalizeAndPublish(
-                    attempt: attempt,
-                    cameraResult: cameraResult,
-                    audioStartedAtUptime: audioStartedAtUptime
-                )
-            }
-        } catch {
-            attempt.destinationAccess.release()
-            state = .failed(
-                attemptID: attempt.snapshot.attemptID,
-                message: Self.message(for: error)
-            )
+        attempt.audioLease = audioLeaseProvider.acquireReadLease(for: audioArtifact)
+        attempt.finalizationTask = Task { @MainActor [weak self, attempt] in
+            await self?.finalizeAndPublish(attempt: attempt)
         }
     }
 
     func endAttemptWithoutAudio(reason: DevVlogsCaptureSkipReason) {
-        guard let attempt = takeActiveAttempt() else {
-            return
-        }
-        state = .skipped(attemptID: attempt.snapshot.attemptID, reason: reason)
-        Task { @MainActor [cameraCapture] in
-            await cameraCapture.cancelCapture(id: attempt.cameraCaptureID)
-            attempt.destinationAccess.release()
-        }
+        guard let attempt = activeAttempt, !attempt.isTerminal else { return }
+        terminalize(
+            attempt,
+            state: .skipped(attemptID: attempt.snapshot.attemptID, reason: reason),
+            tearDownCamera: true
+        )
     }
 
-    private func takeActiveAttempt() -> ActiveAttempt? {
-        let attempt = activeAttempt
-        activeAttempt = nil
-        return attempt
+    func featureDidDisable() {
+        guard let attempt = activeAttempt, !attempt.isTerminal else { return }
+        terminalize(
+            attempt,
+            state: .skipped(attemptID: attempt.snapshot.attemptID, reason: .disabled),
+            tearDownCamera: true
+        )
     }
 
-    private func finalizeAndPublish(
-        attempt: ActiveAttempt,
-        cameraResult: DevVlogsCameraCaptureResult,
-        audioStartedAtUptime: TimeInterval
-    ) async {
-        defer { attempt.destinationAccess.release() }
+    private func finalizeAndPublish(attempt: ActiveAttempt) async {
         do {
+            guard let cameraCaptureID = attempt.cameraCaptureID,
+                  let audioStartedAtUptime = attempt.audioStartedAtUptime,
+                  let audioLease = attempt.audioLease else {
+                throw DevVlogsMediaFinalizerError.noOverlappingMedia
+            }
+            let cameraResult = try await cameraCapture.stopCapture(id: cameraCaptureID)
+            guard owns(attempt) else { return }
+            attempt.cameraCaptureID = nil
+            try archive.stageAudio(from: audioLease.fileURL, into: attempt.workspace)
             let media = try await mediaFinalizer.finalize(
                 camera: cameraResult,
                 audioURL: attempt.workspace.audioURL,
                 audioStartedAtUptime: audioStartedAtUptime,
                 outputURL: attempt.workspace.finalizedURL
             )
+            guard owns(attempt) else { return }
             let published = try archive.publish(
                 snapshot: attempt.snapshot,
                 workspace: attempt.workspace,
                 media: media
             )
-            state = .saved(clipID: published.id)
+            terminalize(attempt, state: .saved(clipID: published.id), tearDownCamera: false)
         } catch {
-            state = .failed(
-                attemptID: attempt.snapshot.attemptID,
-                message: Self.message(for: error)
+            guard owns(attempt) else { return }
+            terminalize(
+                attempt,
+                state: .failed(
+                    attemptID: attempt.snapshot.attemptID,
+                    message: Self.message(for: error)
+                ),
+                tearDownCamera: true
             )
+        }
+    }
+
+    private func owns(_ attempt: ActiveAttempt) -> Bool {
+        activeAttempt === attempt && !attempt.isTerminal
+    }
+
+    private func terminalize(
+        _ attempt: ActiveAttempt,
+        state terminalState: DevVlogsCaptureState,
+        tearDownCamera: Bool
+    ) {
+        guard owns(attempt) else { return }
+        attempt.isTerminal = true
+        activeAttempt = nil
+        attempt.finalizationTask?.cancel()
+        attempt.finalizationTask = nil
+        attempt.audioLease?.release()
+        attempt.audioLease = nil
+        attempt.destinationAccess.release()
+        if visibleAttemptID == attempt.snapshot.attemptID {
+            state = terminalState
+        }
+        guard tearDownCamera else { return }
+        let cameraCaptureID = attempt.cameraCaptureID
+        Task { @MainActor [cameraCapture] in
+            if let cameraCaptureID {
+                await cameraCapture.cancelCapture(id: cameraCaptureID)
+            } else {
+                await cameraCapture.cancelCurrentCapture()
+            }
         }
     }
 
