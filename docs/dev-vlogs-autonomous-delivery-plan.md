@@ -63,7 +63,6 @@ The user can:
   Quick Look;
 - delete unwanted source clips only in Finder;
 - rely on automatic disk refresh or request an explicit Refresh;
-- choose the local output folder;
 - create one video;
 - monitor progress or cancel;
 - play, reveal, or share a completed artifact.
@@ -75,6 +74,9 @@ The only initial output policy is `Original`:
 - no hidden source-video re-encode;
 - no Twitter, Facebook, square, portrait, caption, or other social presets;
 - no provider account, credential, upload, or public-post action.
+
+These are Build invariants, not a pre-build policy or disclosure block in the
+Publish interface.
 
 If the selected scope's remaining clips cannot be assembled through the
 accepted compatible passthrough path, V1 fails the Build truthfully without an
@@ -218,7 +220,8 @@ Work classification: `shipping_product`.
 
 - Add Publish as the final sidebar section.
 - Implement a polished Settings-quality screen with Source Day, day summary,
-  Finder/Refresh, Output, Build Progress, and Result groups.
+  Finder/Refresh, the primary Create Video action, Build Progress, and Result
+  groups, without a pre-build Output/policy block.
 - Provide truthful product states:
   - no recordings;
   - empty selected day;
@@ -231,8 +234,7 @@ Work classification: `shipping_product`.
   - completed artifact.
 - Expose `Create Video`, Cancel, Play, Reveal, and Share only when their
   owning capability/state exists.
-- Show only the `Original` output policy; do not display future social
-  profiles.
+- Do not display output-policy or future social-profile controls.
 - Keep the empty shipping state truthful until real archive data exists.
 
 ### Supporting work

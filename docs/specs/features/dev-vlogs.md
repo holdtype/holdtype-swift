@@ -674,10 +674,10 @@ authority to begin publication work.
 - `DV-UI-8`: Camera preview, video player, controls, layout, state, and visible
   feedback are SwiftUI. Platform APIs remain narrow non-visual adapters.
 - `DV-UI-9`: Publish uses Settings-quality grouped presentation for Source
-  Day, day summary/status, Open in Finder, Refresh, Original Output, Build
-  Progress, and Result as appropriate to its state. It offers All Applications
-  plus one application present that day and exposes no clip editing controls.
-  Deterministic previews and tests cover no
+  Day, day summary/status, Open in Finder, Refresh, the primary Create Video
+  action, Build Progress, and Result as appropriate to its state. It offers All
+  Applications plus one application present that day and exposes no pre-build
+  Output/policy block or clip editing controls. Deterministic previews and tests cover no
   recordings, empty day, populated day, invalid or missing sources, ready, building,
   cancelled, failed, and completed artifact states. `Original` is the only
   output policy. Create Video, Cancel, Play, Reveal, and Share are visible only
@@ -983,10 +983,11 @@ prototype rather than copying an established end-to-end pattern.
 
 - add Publish as the final currently visible sidebar destination;
 - do not add a Library navigation destination;
-- ship a truthful Release no-recordings state with Original as the only output
-  policy and no media or remote-publication action;
-- complete Source Day, day summary, Finder/Refresh, Output, Build Progress,
-  and Result hierarchy through deterministic preview/test inputs;
+- ship a truthful Release no-recordings state with no media or
+  remote-publication action;
+- complete Source Day, day summary, Finder/Refresh, primary Create Video,
+  Build Progress, and Result hierarchy through deterministic preview/test
+  inputs, without a pre-build Output/policy block;
 - keep every action absent unless the injected state owner explicitly enables
   it.
 

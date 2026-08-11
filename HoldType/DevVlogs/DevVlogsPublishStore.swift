@@ -312,7 +312,7 @@ final class DevVlogsPublishStore: ObservableObject {
         let artifact = DevVlogsPublishArtifact(
             buildID: recipe.id,
             name: "Dev Vlog — \(day.date.formatted(date: .abbreviated, time: .omitted)).mov",
-            detail: "\(DevVlogsFormatting.duration(validated.duration)) · \(DevVlogsFormatting.byteCount(validated.byteCount)) · Original",
+            detail: "\(DevVlogsFormatting.duration(validated.duration)) · \(DevVlogsFormatting.byteCount(validated.byteCount))",
             outputLocation: "Recorded day / Builds",
             fileURL: validated.fileURL
         )

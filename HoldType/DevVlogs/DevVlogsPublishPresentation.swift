@@ -13,7 +13,6 @@ nonisolated enum DevVlogsPublishAction: Hashable {
 
 nonisolated enum DevVlogsPublishSection: Hashable {
     case source
-    case output
     case buildProgress
     case result
 }
@@ -85,11 +84,11 @@ nonisolated enum DevVlogsPublishState: Equatable {
     var visibleSections: [DevVlogsPublishSection] {
         switch self {
         case .noRecordings, .emptyDay, .selectionReady, .selectionUnavailable:
-            return [.source, .output]
+            return [.source]
         case .building:
-            return [.source, .output, .buildProgress]
+            return [.source, .buildProgress]
         case .cancelled, .failed, .completed:
-            return [.source, .output, .result]
+            return [.source, .result]
         }
     }
 

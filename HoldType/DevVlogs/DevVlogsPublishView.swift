@@ -72,7 +72,6 @@ struct DevVlogsPublishView: View {
     var body: some View {
         Form {
             sourceSection
-            outputSection
 
             if case .building(_, let progress) = presentation.state {
                 buildProgressSection(progress)
@@ -127,6 +126,12 @@ struct DevVlogsPublishView: View {
                         .font(.footnote)
                         .foregroundStyle(.orange)
                 }
+
+                if presentation.enables(.createVideo) {
+                    Button("Create Video") { onAction(.createVideo) }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.return, modifiers: [.command])
+                }
             } else {
                 emptyMessage(
                     title: "No recordings yet",
@@ -160,25 +165,6 @@ struct DevVlogsPublishView: View {
             LabeledContent("Availability", value: summary.invalidCount == 0 ? "Ready" : "\(summary.invalidCount) unavailable")
         }
         .padding(.vertical, 2)
-    }
-
-    private var outputSection: some View {
-        Section {
-            LabeledContent("Quality", value: "Original")
-            LabeledContent("Location") {
-                Text(presentation.state.selection?.outputLocation ?? "Select a recorded day")
-                    .foregroundStyle(presentation.state.selection == nil ? .secondary : .primary)
-            }
-            if presentation.enables(.createVideo) {
-                Button("Create Video") { onAction(.createVideo) }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.return, modifiers: [.command])
-            }
-        } header: {
-            Text("Output")
-        } footer: {
-            Text("Original uses compatible video passthrough. Publish creates a local artifact and never uploads it.")
-        }
     }
 
     private func buildProgressSection(_ progress: DevVlogsPublishBuildProgress) -> some View {

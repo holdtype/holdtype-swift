@@ -145,7 +145,7 @@ navigation, controls, state, overlays, and feedback stay in SwiftUI.
 | Capture | Preferred camera, bounded preview, visible recording behavior | Later Phase 1 setup increment after its lifecycle is truthful |
 | Applications | Selected-app allowlist or all-apps-with-exclusions policy | Later Phase 1 setup increment |
 | Storage | Destination, bookmark health, free space, archive size, Finder actions | Later Phase 1 setup increment; no numeric thresholds without evidence |
-| Publish | Day and application scope, Finder review/Refresh, Original output, build progress/result, Reveal, and Share | Real archive-backed workflow; no separate Library or clip editor |
+| Publish | Day and application scope, Finder review/Refresh, primary Create Video, build progress/result, Reveal, and Share | Real archive-backed workflow; no pre-build Output/policy block, separate Library, or clip editor |
 
 The first implementation should not render empty placeholder sections for work
 that is not delivered. Stable navigation entries become visible when their

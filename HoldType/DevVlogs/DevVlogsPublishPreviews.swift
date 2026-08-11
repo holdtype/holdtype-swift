@@ -82,7 +82,7 @@ private enum DevVlogsPublishPreviewFixtures {
                 DevVlogsPublishArtifact(
                     buildID: UUID(),
                     name: "Dev Vlog — August 11.mov",
-                    detail: "1m 13s · Original",
+                    detail: "1m 13s · 128 MB",
                     outputLocation: "Recorded day / Builds",
                     fileURL: URL(fileURLWithPath: "/Preview/Dev Vlog.mov")
                 )
