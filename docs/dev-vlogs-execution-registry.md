@@ -151,23 +151,27 @@ remains evidence under the dispositions below.
 | --- | --- | --- | --- | --- |
 | `DV-P0C-CONTRACT` | `DV-ACTIVE-1` | user authority and terminal Phase 0B dispositions | accepted_with_residual at `835c455` | Phase 1 shipping. |
 | `DV-P0C-REVIEW` | `DV-ACTIVE-1` | `DV-P0C-CONTRACT@835c455` | accepted_with_residual | No material blocker; preserve the editorial residual below and do not open a repair cycle. |
-| `DV-P1-SETUP` | `DV-ACTIVE-1` | accepted `DV-P0C-REVIEW` | next shipping packet | Release `Dev Vlogs…`, separate SwiftUI window, Overview default, truthful Off/Setup; no capture or Camera request on open. |
-| `DV-P2-CAPTURE` | current Active epoch | accepted Phase 1 plus dependent residual closure | queued | One playable exact-once clip without dictation regression. |
+| `DV-P1-SETUP` | `DV-ACTIVE-1` | accepted `DV-P0C-REVIEW` | accepted_with_residual at `ceeee8b` | Release `Dev Vlogs…`, separate SwiftUI window, Overview default, truthful Off/Setup; focused tests/build accepted. Computer Use transport blocked the post-repair visual pass. |
+| `DV-P1-CAMERA-SETUP` | `DV-ACTIVE-1` | accepted `DV-P1-SETUP` source/build review | next shipping packet | Genuine Camera status/request/recovery and preferred-camera discovery/selection; no passive request, preview, capture, fallback, or dictation dependency. |
+| `DV-P2-CAPTURE` | current Active epoch | accepted full Phase 1 plus dependent residual closure | queued | One playable exact-once clip without dictation regression. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
 | `DV-P4-BUILD` | current Active epoch | accepted Phase 3 and `DV-BUILD-6` when applicable | queued | Deterministic local Build, Export, Reveal, and Share. |
 | `DV-FINAL-QA` | final Active epoch | accepted Phase 4 | queued | Proportional build/test/runtime/visual/protected-domain verification. |
 
 ## Current Coordination State
 
-- Shipping capability delivered by Phase 0C: none. This was the second and
-  final admitted support-only checkpoint before shipping implementation; its
-  proportional review is accepted with no material blocker.
-- Capability unlocked: the smallest Phase 1 Release slice—`Dev Vlogs…`, a
-  separate normal SwiftUI window, Overview default, and truthful Off/Setup
-  state—is contract-ready and does not depend on preview, capture, storage
-  thresholds, mux preservation, or `DV-BUILD-6`.
-- Support depth: `2/2`, closed. No further support-only checkpoint or contract
-  repair is admitted before the Phase 1 shipping slice.
+- Shipping capability delivered: commit `ceeee8b` provides the Release
+  `Dev Vlogs…` action, separate singleton SwiftUI window, Overview-only first
+  slice, persisted off-by-default enablement, and truthful Off/Setup state.
+  Independent `DV-P1-SETUP-REVIEW-R1` accepted the repaired source, focused
+  tests, and build.
+- Runtime residual: Computer Use timed out before the post-repair menu/window
+  interaction. The exact 30-second operator check is menu -> `Dev Vlogs…` ->
+  title/Overview/Off -> enable/Setup required -> close/reopen persistence, with
+  no Camera prompt, preview, or capture. Do not represent this visual journey
+  as accepted until that observation is recorded.
+- Support depth: reset to `0` by the Phase 1 shipping checkpoint. Verification
+  remained proportional: one review and one one-line repair/re-review.
 - Editorial residual: Dev Vlogs still calls the human-readable folder
   hierarchy "part of the draft contract" in one sentence. Active authority is
   otherwise unambiguous; correct that wording only during a later natural
@@ -176,9 +180,10 @@ remains evidence under the dispositions below.
 - Outcome plan remains 60/25/15: approximately 60% shipping implementation,
   25% verification/review/QA, and 15% discovery/diagnostics/tooling/
   coordination, adjusted only for demonstrated risk.
-- Exact next capability: after `DV-P0C-REVIEW`, dispatch `DV-P1-SETUP` as
-  `shipping_product`. Do not substitute more evidence, models, tooling, or
-  Debug work.
+- Exact next capability: dispatch `DV-P1-CAMERA-SETUP` as `shipping_product`.
+  It may add genuine Camera status/request/recovery and explicit preferred-
+  camera discovery/selection, but no preview acceptance, passive permission
+  request, capture, fallback device, storage work, or Debug tooling.
 - Direct publication remains outside the goal.
 
 ## Contract Delta — `DV-ACTIVE-1`
