@@ -9,6 +9,11 @@ Started: 2026-08-08
 Governing plan:
 [`docs/dev-vlogs-implementation-plan.md`](dev-vlogs-implementation-plan.md).
 
+Approved autonomous delivery plan:
+[`docs/dev-vlogs-autonomous-delivery-plan.md`](dev-vlogs-autonomous-delivery-plan.md),
+committed at `3753db1` and activated as the persistent-goal objective on
+2026-08-11.
+
 Pinned contract:
 [`docs/specs/features/dev-vlogs.md`](specs/features/dev-vlogs.md), revision
 `DV-ACTIVE-1`, activated under explicit user authority on 2026-08-11;
@@ -156,7 +161,8 @@ remains evidence under the dispositions below.
 | `DV-P1-APPLICATIONS` | `DV-ACTIVE-1` | accepted `DV-P1-CAMERA-SETUP` | accepted_with_residual at `b27d859` | Selected-app default and explicit all-apps-with-exclusions policy, durable bundle-ID identity, validated app picker/editor; no capture integration. Computer Use visual QA remains blocked. |
 | `DV-P1-STORAGE` | `DV-ACTIVE-1` | accepted `DV-P1-APPLICATIONS` | accepted_with_residual at `9f8c01c` | Default/custom bookmark-backed destination, truthful availability, and complete Phase 1 readiness ship without numeric thresholds or capture writes. Computer Use visual QA remains blocked. |
 | `DV-P1-UI-POLISH` | `DV-ACTIVE-1` | accepted Phase 1 setup and user-approved UI polish plan | accepted_with_residual at `b9114a5` | Settings-quality Release UI and exact lower-priority menu placement accepted; bounded MenuBarExtra, final close/reopen, and Dark runtime observations remain residuals. |
-| `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-1` | accepted Phase 1 source/build review plus explicit user authority for one bounded Phase 0B dependency check | awaiting_user_authority | Review existing W10 and run at most one Continuity attempt to close or precisely retain R09 `reading_failed`; no new tooling architecture. |
+| `DV-P2-PUBLISH-UI` | `DV-ACTIVE-1` pending approved Publish delta | accepted Phase 1 UI plus autonomous plan `3753db1` | running | Ship Publish as the final visible section with a truthful empty runtime state and complete deterministic presentation states; no Library/media engine or direct publication. |
+| `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-1` | accepted Phase 1 source/build review plus user-approved autonomous plan `3753db1` | queued after Publish UI | Review existing W10 and run at most one Continuity attempt to close or precisely retain R09 `reading_failed`; no new tooling architecture. |
 | `DV-P2-CAPTURE` | current Active epoch | accepted `DV-P2-PRESERVATION-GATE` | queued | One playable exact-once shipping clip without dictation regression. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
 | `DV-P4-BUILD` | current Active epoch | accepted Phase 3 and `DV-BUILD-6` when applicable | queued | Deterministic local Build, Export, Reveal, and Share. |
@@ -201,6 +207,16 @@ remains evidence under the dispositions below.
 - Phase 1 source/build/UI status: complete and accepted with the bounded visual
   residuals above. Passive navigation showed no Camera prompt, preview, or
   capture, and no Phase 0B or Debug expansion was introduced.
+- Autonomous completion authority: the user approved
+  `docs/dev-vlogs-autonomous-delivery-plan.md` and activated the persistent
+  goal. Execution proceeds through Publish UI, bounded one-clip capture,
+  Library/Delete/Publish artifact creation, and integrated final QA without
+  intermediate operator approval unless a recorded economic or external-
+  authority stop condition is reached.
+- Current shipping packet: `DV-P2-PUBLISH-UI` is the sole writable owner for
+  the approved Publish contract/UI slice. It may not implement Library,
+  capture, media, or direct publication and may not create another Debug
+  subsystem.
 - Editorial residual: Dev Vlogs still calls the human-readable folder
   hierarchy "part of the draft contract" in one sentence. Active authority is
   otherwise unambiguous; correct that wording only during a later natural
@@ -209,12 +225,12 @@ remains evidence under the dispositions below.
 - Outcome plan remains 60/25/15: approximately 60% shipping implementation,
   25% verification/review/QA, and 15% discovery/diagnostics/tooling/
   coordination, adjusted only for demonstrated risk.
-- Exact next dependency: obtain explicit user authority for
-  `DV-P2-PRESERVATION-GATE`. The bounded packet may review the already-written
-  W10 mapping and perform at most one real Continuity attempt to determine the
-  exact R09 `reading_failed` side/operation. It may not create another Debug
-  subsystem or expand Phase 0B. If the attempt does not close strict source
-  preservation, stop with the exact residual before shipping capture.
+- Exact next dependency: accept `DV-P2-PUBLISH-UI`, then run the already
+  user-authorized bounded `DV-P2-PRESERVATION-GATE`. That gate may review the
+  existing W10 mapping and perform at most one real Continuity attempt. It may
+  not create another Debug subsystem or expand Phase 0B. If the attempt does
+  not close strict source preservation, stop with the exact residual before
+  shipping capture.
 - Direct publication remains outside the goal.
 
 ## Contract Delta — `DV-ACTIVE-1`
