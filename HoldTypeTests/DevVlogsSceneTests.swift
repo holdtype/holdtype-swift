@@ -9,7 +9,7 @@ struct DevVlogsSceneTests {
         #expect(HoldTypeWindowTitle.titled("Dev Vlogs") == "HoldType: Dev Vlogs")
     }
 
-    @Test func storageIsTheFourthVisibleDevVlogsSection() throws {
+    @Test func publishIsTheFinalVisibleDevVlogsSectionWithoutALibraryPlaceholder() throws {
         let sourceURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -20,10 +20,15 @@ struct DevVlogsSceneTests {
         let capture = try #require(source.range(of: "sidebarRow(title: \"Capture\""))
         let applications = try #require(source.range(of: "sidebarRow(title: \"Applications\""))
         let storage = try #require(source.range(of: "sidebarRow(title: \"Storage\""))
+        let publish = try #require(source.range(of: "sidebarRow(title: \"Publish\""))
 
         #expect(overview.lowerBound < capture.lowerBound)
         #expect(capture.lowerBound < applications.lowerBound)
         #expect(applications.lowerBound < storage.lowerBound)
+        #expect(storage.lowerBound < publish.lowerBound)
+        #expect(!source.contains("sidebarRow(title: \"Library\""))
+        #expect(source.contains("case .publish:"))
+        #expect(source.contains("DevVlogsPublishView()"))
     }
 
     @Test func windowRootOwnsOnlyPassiveReadinessRefreshes() throws {

@@ -1,12 +1,12 @@
 # HoldType Dev Vlogs Implementation Plan
 
-Status: active delivery plan. Phase 0C is complete/preserved; Phase 1 is next
-after proportional contract review.
+Status: active delivery plan. Phase 0C and Phase 1 setup/UI are accepted;
+the approved Publish presentation slice is current.
 
 Date: 2026-08-11
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-ACTIVE-1`.
+`DV-ACTIVE-2`.
 
 Active persistent-goal registry:
 [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
@@ -31,7 +31,7 @@ ambient recorder, or a second failure dependency for dictation.
 
 - Task: deliver Dev Vlogs through Phase 4, beginning with the smallest
   Release-path setup slice.
-- Change mode: scoped `evolve` under `DV-ACTIVE-1`; reconcile only when evidence
+- Change mode: scoped `evolve` under `DV-ACTIVE-2`; reconcile only when evidence
   proves a contract omission or discrepancy.
 - User-authorized outcome: Active Dev Vlogs implementation authority and
   outcome-first delivery, explicitly authorized on 2026-08-11.
@@ -61,7 +61,7 @@ ambient recorder, or a second failure dependency for dictation.
   into Permissions, or changing iOS.
 - Material user decisions: only the `DV-BUILD-6` incompatible-source fallback
   remains pending in Section 11; it gates Phase 4 fallback only.
-- Current contract revision: `DV-ACTIVE-1`.
+- Current contract revision: `DV-ACTIVE-2`.
 - Required review and QA: proportional `DV-P0C-REVIEW` before Phase 1
   implementation acceptance; focused evidence per delivered capability; real
   macOS UI/device/storage QA before the corresponding acceptance or release
@@ -143,19 +143,18 @@ navigation, controls, state, overlays, and feedback stay in SwiftUI.
 | Capture | Preferred camera, bounded preview, visible recording behavior | Later Phase 1 setup increment after its lifecycle is truthful |
 | Applications | Selected-app allowlist or all-apps-with-exclusions policy | Later Phase 1 setup increment |
 | Storage | Destination, bookmark health, free space, archive size, Finder actions | Later Phase 1 setup increment; no numeric thresholds without evidence |
-| Library | Days, app groups, clips, playback, inclusion, Reveal, Delete | Local clip MVP |
-| Builds | Saved recipes, progress, retry, completed exports, Share | Build/export phase |
-| Permissions | Genuine Camera status/action and shared Microphone status | Later Phase 1 setup increment after passive window delivery |
-| Publishing | Destination accounts and publication attempts | Deferred phase only |
+| Library | Days, app groups, clips, playback, inclusion, Reveal, Delete | Local clip MVP; hidden until usable |
+| Publish | Source day, clip selection, Original output, build progress/result, Reveal, and Share | Empty Release presentation now; real Library-backed workflow in the build/export phase |
 
 The first implementation should not render empty placeholder sections for work
 that is not delivered. Stable navigation entries become visible when their
 contained workflow is usable. Overview may summarize a blocked permission or
 storage state, but the detailed recovery stays in its owning section.
 
-### 4.3 Permissions boundary
+### 4.3 Permission presentation boundary
 
-The Dev Vlogs Permissions section may contain:
+Dev Vlogs may present these genuine statuses in their owning sections without
+adding a separate Permissions navigation destination:
 
 - Camera: genuine macOS authorization state, request action, and System
   Settings recovery.
@@ -170,9 +169,9 @@ It must not contain:
 - destination choice, mount state, bookmark state, or free-space health;
 - a fictional permission for building or publishing.
 
-Feature enablement belongs in Overview. Destination access belongs in Storage.
-Any privacy explanation about local camera archives belongs near enablement and
-capture setup.
+Feature enablement belongs in Overview. Camera permission belongs in Capture.
+Destination access belongs in Storage. Any privacy explanation about local
+camera archives belongs near enablement and capture setup.
 
 ## 5. Technical Ownership Plan
 
@@ -601,7 +600,7 @@ or override individual items.
 
 | ID | Decision | Recommended V1 answer | Why |
 | --- | --- | --- | --- |
-| `DV-D01` | Default section and sidebar order | Overview first; then Capture, Applications, Storage, Library, Builds, Permissions | Overview can explain readiness without making permission the whole feature; detailed recovery remains easy to reach. |
+| `DV-D01` | Default section and sidebar order | Overview first; then Capture, Applications, Storage, Library, Publish | Publish is the final local artifact-preparation workflow; permission recovery stays with its owning section and direct publication remains absent. |
 | `DV-D02` | App-policy prominence | Selected apps is the recommended/default path; all-apps-with-exclusions is secondary | Safer privacy posture and matches the developer-tool use case. |
 | `DV-D03` | Focus change during dictation | Freeze the trigger app at start; do not stop or move the vlog when focus later changes | One dictation maps to one clip and one folder without fragile focus tracking. |
 | `DV-D04` | V1 audio source | Always the same dictation microphone | Avoids a second capture owner and keeps the spoken take consistent. |

@@ -5,6 +5,7 @@ private enum DevVlogsNavigationItem: String {
     case capture
     case applications
     case storage
+    case publish
 }
 
 @MainActor
@@ -42,6 +43,8 @@ struct DevVlogsWindowRoot: View {
                     .tag(DevVlogsNavigationItem.applications.rawValue)
                 sidebarRow(title: "Storage", systemImage: "externaldrive")
                     .tag(DevVlogsNavigationItem.storage.rawValue)
+                sidebarRow(title: "Publish", systemImage: "film.stack")
+                    .tag(DevVlogsNavigationItem.publish.rawValue)
             }
             .listStyle(.sidebar)
             .navigationTitle("Dev Vlogs")
@@ -66,6 +69,8 @@ struct DevVlogsWindowRoot: View {
                 DevVlogsApplicationsView(settingsStore: settingsStore)
             case .storage:
                 DevVlogsStorageView(settingsStore: settingsStore, destinationStore: destinationStore)
+            case .publish:
+                DevVlogsPublishView()
             }
         }
         .frame(minWidth: 760, minHeight: 520)
