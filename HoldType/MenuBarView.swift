@@ -139,6 +139,8 @@ struct MenuBarView: View {
         _ action: MenuBarPresentation.UtilityAction
     ) {
         switch action {
+        case .devVlogs:
+            openDevVlogs()
         case .editFixes:
             openFixesEditor()
         case .history:
@@ -146,6 +148,17 @@ struct MenuBarView: View {
         case .settings:
             openSettingsScene()
         }
+    }
+
+    private func openDevVlogs() {
+        DevVlogsWindowRequest.openAfterMenuDismissal(
+            dismissMenu: {
+                dismiss()
+            },
+            openDevVlogs: {
+                openWindow(id: DevVlogsScene.identifier)
+            }
+        )
     }
 
     private func openFixesEditor() {

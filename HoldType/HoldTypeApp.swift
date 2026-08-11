@@ -66,6 +66,7 @@ struct HoldTypeApp: App {
         .menuBarExtraStyle(.window)
 
         SettingsScene()
+        DevVlogsScene()
         FixesEditorScene()
         TranscriptHistoryScene()
         TranscriptionFailurePromptScene()

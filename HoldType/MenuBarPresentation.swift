@@ -25,12 +25,15 @@ enum HoldTypeWindowTitle {
 
 struct MenuBarPresentation: Equatable {
     enum UtilityAction: CaseIterable, Hashable {
+        case devVlogs
         case editFixes
         case history
         case settings
 
         var title: String {
             switch self {
+            case .devVlogs:
+                return MenuBarPresentation.devVlogsTitle
             case .editFixes:
                 return MenuBarPresentation.editFixesTitle
             case .history:
@@ -48,6 +51,7 @@ struct MenuBarPresentation: Equatable {
     static let translationShortcutHint = GlobalHotkeyShortcut.translationDictation.menuHoldText
     static let pasteLastResultShortcutHint = GlobalHotkeyShortcut.appClipboardPaste.menuKeyEquivalentText
     static let editFixesTitle = "Manage Fixes…"
+    static let devVlogsTitle = "Dev Vlogs…"
     static let historyTitle = "Transcript History"
     static let settingsTitle = "Settings\u{2026}"
     static let checkForUpdatesTitle = "Check for Updates..."

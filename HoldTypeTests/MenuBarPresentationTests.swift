@@ -93,6 +93,31 @@ struct MenuBarPresentationTests {
         #expect(events == ["dismiss menu", "schedule", "activate", "open"])
     }
 
+    @Test @MainActor func openingDevVlogsActivatesBeforeOpeningWindow() {
+        var events: [String] = []
+        var scheduledAction: (@MainActor () -> Void)?
+
+        DevVlogsWindowRequest.openAfterMenuDismissal(
+            dismissMenu: {
+                events.append("dismiss menu")
+            },
+            scheduleAfterMenuDismissal: { action in
+                events.append("schedule")
+                scheduledAction = action
+            },
+            activateApplication: {
+                events.append("activate")
+            },
+            openDevVlogs: {
+                events.append("open")
+            }
+        )
+
+        #expect(events == ["dismiss menu", "schedule"])
+        scheduledAction?()
+        #expect(events == ["dismiss menu", "schedule", "activate", "open"])
+    }
+
     @Test @MainActor func openingSettingsActivatesBeforeRefreshingAndOpeningWindow() {
         var events: [String] = []
         var scheduledAction: (@MainActor () -> Void)?
@@ -147,13 +172,14 @@ struct MenuBarPresentationTests {
         #expect(presentation.isPasteLastResultEnabled)
         #expect(MenuBarPresentation.pasteLastResultShortcutHint == "⌃⌘V")
         #expect(MenuBarPresentation.editFixesTitle == "Manage Fixes…")
+        #expect(MenuBarPresentation.devVlogsTitle == "Dev Vlogs…")
         #expect(
             MenuBarPresentation.utilityActions
-                == [.editFixes, .history, .settings]
+                == [.devVlogs, .editFixes, .history, .settings]
         )
         #expect(
             MenuBarPresentation.utilityActions.map(\.title)
-                == ["Manage Fixes…", "Transcript History", "Settings…"]
+                == ["Dev Vlogs…", "Manage Fixes…", "Transcript History", "Settings…"]
         )
         #expect(
             !MenuBarPresentation.utilityActions.map(\.title)
