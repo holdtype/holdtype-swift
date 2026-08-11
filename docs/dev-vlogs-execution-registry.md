@@ -16,8 +16,9 @@ committed at `3753db1` and activated as the persistent-goal objective on
 
 Pinned contract:
 [`docs/specs/features/dev-vlogs.md`](specs/features/dev-vlogs.md), revision
-`DV-ACTIVE-1`, activated under explicit user authority on 2026-08-11;
-independent `DV-P0C-REVIEW` accepted it with one editorial residual.
+`DV-ACTIVE-2`, advanced under the approved autonomous plan on 2026-08-11;
+independent `DV-P2-PUBLISH-UI-REVIEW` accepted the contract/UI delta with one
+bounded runtime-observation residual.
 
 Historical packet and receipt bodies are preserved verbatim in the
 [registry archive](dev-vlogs-execution-registry-archive.md). They are evidence,
@@ -77,7 +78,8 @@ reconciliation recorded below.
 | `DV-DRAFT-2@8081c10` | Earlier discovery Draft | superseded | Historical evidence only. |
 | `DV-DRAFT-3@ed108fa` | Accepted-decision Draft plus protocol | superseded | Historical evidence only. |
 | `DV-DRAFT-4@2f3266a` | Native-source Draft | superseded | Phase 0B evidence basis; not current authority. |
-| `DV-ACTIVE-1` | User-authorized Dev Vlogs contract and narrow adjacent clauses | current / review accepted_with_residual | Active, Evolving implementation authority. Capability acceptance remains scenario- and residual-gated. |
+| `DV-ACTIVE-1` | User-authorized Dev Vlogs contract and narrow adjacent clauses | superseded by `DV-ACTIVE-2` | Historical Phase 1 authority; accepted setup/UI behavior remains protected. |
+| `DV-ACTIVE-2` | Approved Publish information architecture and local-artifact presentation | current / review accepted_with_residual | Active, Evolving implementation authority. Publish is local artifact preparation; direct/social publication remains outside V1. |
 
 Any open packet based on affected `DV-DRAFT-4` clauses is retired or must be
 revalidated before its result can be accepted. Historical Phase 0B evidence
@@ -88,8 +90,9 @@ remains evidence under the dispositions below.
 - Task: activate the Dev Vlogs V1 contract and make the smallest Release-path
   setup slice dependency-ready.
 - Change mode: scoped `evolve` plus `reconcile`.
-- User-authorized outcome: `DV-ACTIVE-1` and project-local coordination under
-  explicit authority dated 2026-08-11.
+- User-authorized outcome: `DV-ACTIVE-1` plus the approved autonomous Publish
+  evolution recorded as `DV-ACTIVE-2`, under explicit authority dated
+  2026-08-11.
 - Authorized domains: Dev Vlogs V1 clauses and only the named Camera privacy,
   local preferences, menu entry, shared-audio lease, and separate vlog-media
   durability integrations.
@@ -103,14 +106,15 @@ remains evidence under the dispositions below.
   behavior remains protected.
 - Required evidence: capability-specific scenarios in the acceptance map;
   independent `DV-P0C-REVIEW` accepted the contract before Phase 1 dispatch.
-- Allowed specification delta: `DV-ACTIVE-1`, active acceptance mapping, and
-  the exact narrow adjacent clauses named above.
+- Allowed specification delta: `DV-ACTIVE-2`, active acceptance mapping, the
+  approved final Publish IA/local-artifact meaning, and the exact narrow
+  adjacent clauses named above.
 - Forbidden delta: weakened capture/storage acceptance, invented thresholds,
   hidden capture, silent fallback, automatic deletion, second microphone
   ownership, iOS change, publication, or CLI.
 - Material decision requiring the user: `DV-BUILD-6` only, before Phase 4
   incompatible-source fallback.
-- Pinned epoch: `DV-ACTIVE-1`.
+- Pinned epoch: `DV-ACTIVE-2`.
 
 ## Accepted Phase 0B Evidence
 
@@ -161,8 +165,8 @@ remains evidence under the dispositions below.
 | `DV-P1-APPLICATIONS` | `DV-ACTIVE-1` | accepted `DV-P1-CAMERA-SETUP` | accepted_with_residual at `b27d859` | Selected-app default and explicit all-apps-with-exclusions policy, durable bundle-ID identity, validated app picker/editor; no capture integration. Computer Use visual QA remains blocked. |
 | `DV-P1-STORAGE` | `DV-ACTIVE-1` | accepted `DV-P1-APPLICATIONS` | accepted_with_residual at `9f8c01c` | Default/custom bookmark-backed destination, truthful availability, and complete Phase 1 readiness ship without numeric thresholds or capture writes. Computer Use visual QA remains blocked. |
 | `DV-P1-UI-POLISH` | `DV-ACTIVE-1` | accepted Phase 1 setup and user-approved UI polish plan | accepted_with_residual at `b9114a5` | Settings-quality Release UI and exact lower-priority menu placement accepted; bounded MenuBarExtra, final close/reopen, and Dark runtime observations remain residuals. |
-| `DV-P2-PUBLISH-UI` | `DV-ACTIVE-1` pending approved Publish delta | accepted Phase 1 UI plus autonomous plan `3753db1` | running | Ship Publish as the final visible section with a truthful empty runtime state and complete deterministic presentation states; no Library/media engine or direct publication. |
-| `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-1` | accepted Phase 1 source/build review plus user-approved autonomous plan `3753db1` | queued after Publish UI | Review existing W10 and run at most one Continuity attempt to close or precisely retain R09 `reading_failed`; no new tooling architecture. |
+| `DV-P2-PUBLISH-UI` | `DV-ACTIVE-2` | accepted Phase 1 UI plus autonomous plan `3753db1` | accepted_with_residual at `d9da88e` | Publish is the final visible section with a truthful no-recordings Release state; deterministic rich states are presentation-only. Computer Use window reacquisition remained blocked; source/tests/build review accepted. |
+| `DV-P2-PRESERVATION-GATE` | `DV-ACTIVE-2` | accepted `DV-P2-PUBLISH-UI-REVIEW` plus user-approved autonomous plan `3753db1` | dependency-ready | Review existing W10 and run at most one Continuity attempt to close or precisely retain R09 `reading_failed`; no new tooling architecture. |
 | `DV-P2-CAPTURE` | current Active epoch | accepted `DV-P2-PRESERVATION-GATE` | queued | One playable exact-once shipping clip without dictation regression. |
 | `DV-P3-LIBRARY` | current Active epoch | accepted Phase 2 | queued | Library, review, exclusion, and explicit exact deletion. |
 | `DV-P4-BUILD` | current Active epoch | accepted Phase 3 and `DV-BUILD-6` when applicable | queued | Deterministic local Build, Export, Reveal, and Share. |
@@ -213,10 +217,12 @@ remains evidence under the dispositions below.
   Library/Delete/Publish artifact creation, and integrated final QA without
   intermediate operator approval unless a recorded economic or external-
   authority stop condition is reached.
-- Current shipping packet: `DV-P2-PUBLISH-UI` is the sole writable owner for
-  the approved Publish contract/UI slice. It may not implement Library,
-  capture, media, or direct publication and may not create another Debug
-  subsystem.
+- Publish UI delivered by `d9da88e`: Publish is the final visible Dev Vlogs
+  section and the Release runtime truthfully shows no recordings and no
+  enabled artifact action. Rich empty-day/ready/building/cancelled/failed/
+  completed presentations are deterministic injected states only. Independent
+  review accepted the contract/source/tests/build and retained the bounded
+  Computer Use window-reacquisition residual without a repair cycle.
 - Editorial residual: Dev Vlogs still calls the human-readable folder
   hierarchy "part of the draft contract" in one sentence. Active authority is
   otherwise unambiguous; correct that wording only during a later natural
@@ -225,15 +231,43 @@ remains evidence under the dispositions below.
 - Outcome plan remains 60/25/15: approximately 60% shipping implementation,
   25% verification/review/QA, and 15% discovery/diagnostics/tooling/
   coordination, adjusted only for demonstrated risk.
-- Exact next dependency: accept `DV-P2-PUBLISH-UI`, then run the already
-  user-authorized bounded `DV-P2-PRESERVATION-GATE`. That gate may review the
+- Exact next dependency: run the already user-authorized bounded
+  `DV-P2-PRESERVATION-GATE`. That gate may review the
   existing W10 mapping and perform at most one real Continuity attempt. It may
   not create another Debug subsystem or expand Phase 0B. If the attempt does
   not close strict source preservation, stop with the exact residual before
   shipping capture.
 - Direct publication remains outside the goal.
 
-## Contract Delta — `DV-ACTIVE-1`
+## Contract Delta — `DV-ACTIVE-2`
+
+- Change ID: `DV-DELTA-ACTIVE-2-PUBLISH`.
+- Change mode: scoped `evolve` plus `reconcile`.
+- Authorized by: the user-approved autonomous delivery plan `3753db1`.
+- Domain and clauses: Dev Vlogs IA/presentation portions of `DV-UI-*`,
+  `DV-BUILD-*`, `DV-SHARE-1`, `DV-D01`, `DV-D09`, and `DV-D12`.
+- Previous behavior: future V1 IA named separate Library, Builds, and
+  Permissions destinations while the accepted Phase 1 product exposed only
+  Overview, Capture, Applications, and Storage.
+- New behavior: the complete V1 IA ends with Library and Publish. Publish is
+  the user-facing local-artifact preparation workflow; Build remains an
+  internal durable recipe. Direct/social publication and social output
+  profiles remain outside V1. The current Release exposes Publish with a
+  truthful no-recordings state and no media action until its later owners
+  exist.
+- Evidence basis: approved plan `3753db1`, accepted Phase 1 visual baseline,
+  implementation `d9da88e`, and independent
+  `DV-P2-PUBLISH-UI-REVIEW` accept_with_residual.
+- Compatibility: additive Dev Vlogs UI evolution; accepted Phase 1 setup and
+  every protected adjacent macOS behavior remain unchanged.
+- QA/design impact: native final navigation row, Settings-quality semantic
+  Form, deterministic presentation states, focused tests, macOS builds, and a
+  bounded Computer Use residual.
+- Specification paths: Dev Vlogs contract and implementation plan.
+- Independent review: accepted_with_residual; no repair dependency.
+- New epoch: `DV-ACTIVE-2`.
+
+## Historical Contract Delta — `DV-ACTIVE-1`
 
 - Change ID: `DV-DELTA-ACTIVE-1`.
 - Change mode: scoped `evolve` plus `reconcile`.
