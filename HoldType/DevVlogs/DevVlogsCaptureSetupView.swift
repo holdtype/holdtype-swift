@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DevVlogsCaptureSetupView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var settingsStore: DevVlogsSettingsStore
     @ObservedObject var cameraSetupStore: DevVlogsCameraSetupStore
 
@@ -24,6 +25,16 @@ struct DevVlogsCaptureSetupView: View {
         .navigationTitle(HoldTypeWindowTitle.titled("Dev Vlogs"))
         .task {
             cameraSetupStore.refresh()
+        }
+        .onReceive(cameraSetupStore.cameraDeviceChangePublisher()) { _ in
+            cameraSetupStore.refreshAfterCameraDeviceChange()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else {
+                return
+            }
+
+            cameraSetupStore.refreshAfterApplicationActivation()
         }
     }
 
@@ -58,7 +69,7 @@ struct DevVlogsCaptureSetupView: View {
                 .font(.title2.weight(.semibold))
 
             if let preferredCamera = settingsStore.preferredCamera,
-               !cameraSetupStore.cameras.contains(preferredCamera) {
+               !cameraSetupStore.cameras.contains(where: { $0.hasSameIdentity(as: preferredCamera) }) {
                 Text("\(preferredCamera.label) is unavailable. Dev Vlogs will wait for this camera to return.")
                     .foregroundStyle(.secondary)
             }

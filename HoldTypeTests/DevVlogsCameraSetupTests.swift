@@ -1,3 +1,5 @@
+import Combine
+import AVFoundation
 import Foundation
 import Testing
 @testable import HoldType
@@ -63,10 +65,72 @@ struct DevVlogsCameraSetupTests {
                 label: "Desk Camera",
                 isConnected: true,
                 isSuspended: false
+            ),
+            DevVlogsCameraDiscoveryCandidate(
+                id: "continuity",
+                label: "Continuity Camera",
+                isConnected: true,
+                isSuspended: false
             )
         ])
 
-        #expect(cameras == [DevVlogsCamera(id: "desk", label: "Desk Camera")])
+        #expect(cameras == [
+            DevVlogsCamera(id: "continuity", label: "Continuity Camera"),
+            DevVlogsCamera(id: "desk", label: "Desk Camera")
+        ])
+    }
+
+    @Test func discoveryIncludesContinuityCameraWhenTheDeploymentSupportsIt() {
+        if #available(macOS 14.0, *) {
+            #expect(DevVlogsCameraDiscovery.deviceTypes.contains(.continuityCamera))
+        }
+    }
+
+    @Test func cameraDeviceChangeNotificationRefreshesTheCurrentCameraList() {
+        let notificationCenter = NotificationCenter()
+        let notificationName = Notification.Name("DevVlogsCameraSetupTests.camera-changed")
+        let client = CameraSetupClientFake(
+            status: .allowed,
+            cameras: [DevVlogsCamera(id: "desk", label: "Desk Camera")],
+            cameraDeviceChangeNotifications: [notificationName]
+        )
+        let store = DevVlogsCameraSetupStore(client: client)
+        store.refresh()
+        client.cameras = [DevVlogsCamera(id: "continuity", label: "Continuity Camera")]
+
+        var refreshCount = 0
+        let cancellable = store.cameraDeviceChangePublisher(notificationCenter: notificationCenter)
+            .sink { _ in
+                refreshCount += 1
+                store.refreshAfterCameraDeviceChange()
+            }
+        notificationCenter.post(name: notificationName, object: nil)
+
+        #expect(refreshCount == 1)
+        #expect(store.cameras == [DevVlogsCamera(id: "continuity", label: "Continuity Camera")])
+        withExtendedLifetime(cancellable) {}
+    }
+
+    @Test func applicationActivationRefreshesPermissionAndCamerasWithoutRequestingAccess() {
+        let client = CameraSetupClientFake(status: .denied)
+        let store = DevVlogsCameraSetupStore(client: client)
+        store.refresh()
+        client.status = .allowed
+        client.cameras = [DevVlogsCamera(id: "desk", label: "Desk Camera")]
+
+        store.refreshAfterApplicationActivation()
+
+        #expect(store.permissionStatus == .allowed)
+        #expect(store.cameras == [DevVlogsCamera(id: "desk", label: "Desk Camera")])
+        #expect(client.requestAccessCount == 0)
+    }
+
+    @Test func stableIDAvailabilityDoesNotChangeWhenTheDisplayLabelChanges() {
+        let remembered = DevVlogsCamera(id: "stable-id", label: "Desk Camera")
+        let rediscovered = DevVlogsCamera(id: "stable-id", label: "Renamed Desk Camera")
+
+        #expect(remembered.hasSameIdentity(as: rediscovered))
+        #expect(remembered != rediscovered)
     }
 
     @Test func discoveryFailureIsUnavailableRatherThanAFalsePermissionState() {
@@ -82,8 +146,9 @@ struct DevVlogsCameraSetupTests {
     private final class CameraSetupClientFake: DevVlogsCameraSetupClient {
         var status: DevVlogsCameraAuthorizationStatus
         let requestedStatus: DevVlogsCameraAuthorizationStatus?
-        let cameras: [DevVlogsCamera]
+        var cameras: [DevVlogsCamera]
         let discoveryFails: Bool
+        let cameraDeviceChangeNotifications: [Notification.Name]
         private(set) var requestAccessCount = 0
         private(set) var openSettingsCount = 0
 
@@ -91,12 +156,14 @@ struct DevVlogsCameraSetupTests {
             status: DevVlogsCameraAuthorizationStatus,
             requestedStatus: DevVlogsCameraAuthorizationStatus? = nil,
             cameras: [DevVlogsCamera] = [],
-            discoveryFails: Bool = false
+            discoveryFails: Bool = false,
+            cameraDeviceChangeNotifications: [Notification.Name] = []
         ) {
             self.status = status
             self.requestedStatus = requestedStatus
             self.cameras = cameras
             self.discoveryFails = discoveryFails
+            self.cameraDeviceChangeNotifications = cameraDeviceChangeNotifications
         }
 
         func authorizationStatus() -> DevVlogsCameraAuthorizationStatus {

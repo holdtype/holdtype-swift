@@ -56,6 +56,10 @@ enum DevVlogsCameraAuthorizationStatus: Equatable {
 struct DevVlogsCamera: Identifiable, Equatable {
     let id: String
     let label: String
+
+    func hasSameIdentity(as other: DevVlogsCamera) -> Bool {
+        id == other.id
+    }
 }
 
 struct DevVlogsCameraDiscoveryCandidate: Equatable {
@@ -66,6 +70,19 @@ struct DevVlogsCameraDiscoveryCandidate: Equatable {
 }
 
 enum DevVlogsCameraDiscovery {
+    static var deviceTypes: [AVCaptureDevice.DeviceType] {
+        var deviceTypes: [AVCaptureDevice.DeviceType] = [
+            .builtInWideAngleCamera,
+            .external
+        ]
+
+        if #available(macOS 14.0, *) {
+            deviceTypes.append(.continuityCamera)
+        }
+
+        return deviceTypes
+    }
+
     static func availableCameras(
         from candidates: [DevVlogsCameraDiscoveryCandidate]
     ) -> [DevVlogsCamera] {
@@ -80,6 +97,8 @@ enum DevVlogsCameraDiscovery {
 }
 
 protocol DevVlogsCameraSetupClient {
+    var cameraDeviceChangeNotifications: [Notification.Name] { get }
+
     func authorizationStatus() -> DevVlogsCameraAuthorizationStatus
     func availableCameras() throws -> [DevVlogsCamera]
     func requestAccess(completion: @escaping (Bool) -> Void)
@@ -87,6 +106,11 @@ protocol DevVlogsCameraSetupClient {
 }
 
 struct AVFoundationDevVlogsCameraSetupClient: DevVlogsCameraSetupClient {
+    let cameraDeviceChangeNotifications = [
+        AVCaptureDevice.wasConnectedNotification,
+        AVCaptureDevice.wasDisconnectedNotification
+    ]
+
     func authorizationStatus() -> DevVlogsCameraAuthorizationStatus {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -102,7 +126,11 @@ struct AVFoundationDevVlogsCameraSetupClient: DevVlogsCameraSetupClient {
 
     func availableCameras() throws -> [DevVlogsCamera] {
         DevVlogsCameraDiscovery.availableCameras(
-            from: AVCaptureDevice.devices(for: .video).map {
+            from: AVCaptureDevice.DiscoverySession(
+                deviceTypes: DevVlogsCameraDiscovery.deviceTypes,
+                mediaType: .video,
+                position: .unspecified
+            ).devices.map {
                 DevVlogsCameraDiscoveryCandidate(
                     id: $0.uniqueID,
                     label: $0.localizedName,
@@ -136,6 +164,8 @@ struct DevVlogsCameraSetupPreviewClient: DevVlogsCameraSetupClient {
     let status: DevVlogsCameraAuthorizationStatus
     let cameras: [DevVlogsCamera]
     let discoveryFails: Bool
+
+    let cameraDeviceChangeNotifications: [Notification.Name] = []
 
     init(
         status: DevVlogsCameraAuthorizationStatus,
@@ -192,6 +222,27 @@ final class DevVlogsCameraSetupStore: ObservableObject {
             cameras = []
             permissionStatus = .unavailable
         }
+    }
+
+    func cameraDeviceChangePublisher(
+        notificationCenter: NotificationCenter = .default
+    ) -> AnyPublisher<Void, Never> {
+        Publishers.MergeMany(
+            client.cameraDeviceChangeNotifications.map { notificationName in
+                notificationCenter.publisher(for: notificationName)
+                    .map { _ in () }
+                    .eraseToAnyPublisher()
+            }
+        )
+        .eraseToAnyPublisher()
+    }
+
+    func refreshAfterCameraDeviceChange() {
+        refresh()
+    }
+
+    func refreshAfterApplicationActivation() {
+        refresh()
     }
 
     func requestAccessIfNeeded(isEnabled: Bool) {
