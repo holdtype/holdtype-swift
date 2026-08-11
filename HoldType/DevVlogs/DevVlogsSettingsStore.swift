@@ -1,20 +1,6 @@
 import Combine
 import Foundation
 
-enum DevVlogsReadiness: Equatable {
-    case off
-    case setupRequired
-
-    var title: String {
-        switch self {
-        case .off:
-            return "Off"
-        case .setupRequired:
-            return "Setup required"
-        }
-    }
-}
-
 final class DevVlogsSettingsStore: ObservableObject {
     private enum Key {
         static let isEnabled = "holdtype.dev-vlogs.is-enabled"
@@ -53,7 +39,19 @@ final class DevVlogsSettingsStore: ObservableObject {
     }
 
     var readiness: DevVlogsReadiness {
-        isEnabled ? .setupRequired : .off
+        DevVlogsReadinessReducer.reduce(
+            DevVlogsReadinessInput(
+                isEnabled: isEnabled,
+                preferredCamera: preferredCamera,
+                cameraPermissionStatus: .unavailable,
+                availableCameras: [],
+                applicationPolicy: applicationPolicy,
+                destination: DevVlogsDestinationStatus(
+                    selection: .proposedDefault(path: "~/Movies/HoldType Dev Vlogs"),
+                    availability: .needsSetup
+                )
+            )
+        )
     }
 
     func setEnabled(_ isEnabled: Bool) {

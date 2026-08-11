@@ -9,7 +9,7 @@ struct DevVlogsSceneTests {
         #expect(HoldTypeWindowTitle.titled("Dev Vlogs") == "HoldType: Dev Vlogs")
     }
 
-    @Test func applicationsIsTheThirdVisibleDevVlogsSection() throws {
+    @Test func storageIsTheFourthVisibleDevVlogsSection() throws {
         let sourceURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -19,8 +19,10 @@ struct DevVlogsSceneTests {
         let overview = try #require(source.range(of: "Label(\"Overview\""))
         let capture = try #require(source.range(of: "Label(\"Capture\""))
         let applications = try #require(source.range(of: "Label(\"Applications\""))
+        let storage = try #require(source.range(of: "Label(\"Storage\""))
 
         #expect(overview.lowerBound < capture.lowerBound)
         #expect(capture.lowerBound < applications.lowerBound)
+        #expect(applications.lowerBound < storage.lowerBound)
     }
 }
