@@ -8,13 +8,16 @@ struct IOSTextFixCatalogCanonicalEncoding {
 }
 
 enum IOSTextFixCatalogWireCodec {
-    private static let currentSchemaVersion = 2
+    private static let currentSchemaVersion = 3
     private static let rootFields: Set<String> = ["schemaVersion", "actions"]
     private static let v1ActionFields: Set<String> = [
         "id", "kind", "title", "icon", "prompt", "isEnabled",
     ]
     private static let v2ActionFields = v1ActionFields.union([
         "processingProfile", "customModel", "reasoningEffort",
+    ])
+    private static let v3ActionFields = v2ActionFields.union([
+        "usesBuiltInWritingSkill",
     ])
 
     static func encode(
@@ -33,7 +36,7 @@ enum IOSTextFixCatalogWireCodec {
             return IOSTextFixCatalogCanonicalEncoding(
                 catalog: canonicalCatalog,
                 data: try encoder.encode(
-                    IOSTextFixCatalogWireV2(catalog: canonicalCatalog)
+                    IOSTextFixCatalogWireV3(catalog: canonicalCatalog)
                 )
             )
         } catch {
@@ -113,9 +116,16 @@ enum IOSTextFixCatalogWireCodec {
             object: object,
             path: path
         )
-        try reader.rejectUnexpectedFields(
-            allowing: schemaVersion == 1 ? v1ActionFields : v2ActionFields
-        )
+        let allowedFields: Set<String>
+        switch schemaVersion {
+        case 1:
+            allowedFields = v1ActionFields
+        case 2:
+            allowedFields = v2ActionFields
+        default:
+            allowedFields = v3ActionFields
+        }
+        try reader.rejectUnexpectedFields(allowing: allowedFields)
 
         let kindPath = "\(path).kind"
         let rawKind = try reader.requiredString("kind")
@@ -137,6 +147,9 @@ enum IOSTextFixCatalogWireCodec {
             reader,
             schemaVersion: schemaVersion
         )
+        let usesBuiltInWritingSkill = schemaVersion >= 3
+            ? try reader.requiredBoolean("usesBuiltInWritingSkill")
+            : false
 
         do {
             return try TextFixAction(
@@ -153,6 +166,7 @@ enum IOSTextFixCatalogWireCodec {
                 icon: icon,
                 prompt: prompt,
                 processingProfile: processingProfile,
+                usesBuiltInWritingSkill: usesBuiltInWritingSkill,
                 isEnabled: isEnabled
             )
         } catch let error as IOSTextFixCatalogRepositoryError {

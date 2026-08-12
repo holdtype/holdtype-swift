@@ -45,6 +45,7 @@ public struct TextFixAction:
         case emptyPrompt
         case promptTooLarge(maximumUTF8ByteCount: Int)
         case unexpectedProcessingProfile
+        case unexpectedBuiltInWritingSkill
         case builtInActionCannotBeDisabled
     }
 
@@ -60,6 +61,7 @@ public struct TextFixAction:
     public let icon: TextFixIcon
     public let prompt: String?
     public let processingProfile: TextFixProcessingProfile
+    public let usesBuiltInWritingSkill: Bool
     public let isEnabled: Bool
 
     public init(
@@ -69,6 +71,7 @@ public struct TextFixAction:
         icon: TextFixIcon,
         prompt: String?,
         processingProfile: TextFixProcessingProfile = .inherit,
+        usesBuiltInWritingSkill: Bool = false,
         isEnabled: Bool = true
     ) throws {
         try Self.validateIdentifier(id)
@@ -80,6 +83,7 @@ public struct TextFixAction:
             icon: icon,
             prompt: prompt,
             processingProfile: processingProfile,
+            usesBuiltInWritingSkill: usesBuiltInWritingSkill,
             isEnabled: isEnabled
         )
 
@@ -90,6 +94,7 @@ public struct TextFixAction:
             icon: icon,
             prompt: prompt,
             processingProfile: processingProfile,
+            usesBuiltInWritingSkill: usesBuiltInWritingSkill,
             isEnabled: isEnabled
         )
     }
@@ -112,6 +117,7 @@ public struct TextFixAction:
                 "icon": icon.rawValue,
                 "prompt": "<redacted>",
                 "processingPreset": processingProfile.preset.rawValue,
+                "usesBuiltInWritingSkill": usesBuiltInWritingSkill,
                 "isEnabled": isEnabled,
             ]
         )
@@ -125,6 +131,7 @@ public struct TextFixAction:
             icon: icon,
             prompt: prompt,
             processingProfile: processingProfile,
+            usesBuiltInWritingSkill: usesBuiltInWritingSkill,
             isEnabled: isEnabled
         )
     }
@@ -136,6 +143,7 @@ public struct TextFixAction:
         icon: TextFixIcon,
         prompt: String?,
         processingProfile: TextFixProcessingProfile,
+        usesBuiltInWritingSkill: Bool,
         isEnabled: Bool
     ) {
         self.id = id
@@ -144,6 +152,7 @@ public struct TextFixAction:
         self.icon = icon
         self.prompt = prompt
         self.processingProfile = processingProfile
+        self.usesBuiltInWritingSkill = usesBuiltInWritingSkill
         self.isEnabled = isEnabled
     }
 
@@ -176,6 +185,7 @@ public struct TextFixAction:
         icon: TextFixIcon,
         prompt: String?,
         processingProfile: TextFixProcessingProfile,
+        usesBuiltInWritingSkill: Bool,
         isEnabled: Bool
     ) throws {
         switch kind {
@@ -190,6 +200,7 @@ public struct TextFixAction:
                 expectedIcon: .translate,
                 prompt: prompt,
                 processingProfile: processingProfile,
+                usesBuiltInWritingSkill: usesBuiltInWritingSkill,
                 isEnabled: isEnabled
             )
         case .fix:
@@ -203,6 +214,7 @@ public struct TextFixAction:
                 expectedIcon: .fix,
                 prompt: prompt,
                 processingProfile: processingProfile,
+                usesBuiltInWritingSkill: usesBuiltInWritingSkill,
                 isEnabled: isEnabled
             )
         case .customPrompt:
@@ -230,6 +242,7 @@ public struct TextFixAction:
         expectedIcon: TextFixIcon,
         prompt: String?,
         processingProfile: TextFixProcessingProfile,
+        usesBuiltInWritingSkill: Bool,
         isEnabled: Bool
     ) throws {
         guard title == expectedTitle else {
@@ -244,6 +257,9 @@ public struct TextFixAction:
         guard processingProfile == .inherit else {
             throw ValidationError.unexpectedProcessingProfile
         }
+        guard !usesBuiltInWritingSkill else {
+            throw ValidationError.unexpectedBuiltInWritingSkill
+        }
         guard isEnabled else {
             throw ValidationError.builtInActionCannotBeDisabled
         }
@@ -256,6 +272,7 @@ public struct TextFixAction:
         icon: .translate,
         prompt: nil,
         processingProfile: .inherit,
+        usesBuiltInWritingSkill: false,
         isEnabled: true
     )
 
@@ -266,6 +283,7 @@ public struct TextFixAction:
         icon: .fix,
         prompt: nil,
         processingProfile: .inherit,
+        usesBuiltInWritingSkill: false,
         isEnabled: true
     )
 
@@ -274,7 +292,8 @@ public struct TextFixAction:
         title: String,
         icon: TextFixIcon,
         prompt: String,
-        processingProfile: TextFixProcessingProfile = .inherit
+        processingProfile: TextFixProcessingProfile = .inherit,
+        usesBuiltInWritingSkill: Bool = false
     ) -> TextFixAction {
         TextFixAction(
             validatedID: id,
@@ -283,6 +302,7 @@ public struct TextFixAction:
             icon: icon,
             prompt: prompt,
             processingProfile: processingProfile,
+            usesBuiltInWritingSkill: usesBuiltInWritingSkill,
             isEnabled: true
         )
     }

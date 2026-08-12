@@ -108,14 +108,16 @@ actor TransformationSequencedURLLoader: URLLoading {
     private let steps: [Step]
     private var requestCount = 0
     private var cancellationCount = 0
+    private var storedRequests: [URLRequest] = []
 
     init(steps: [Step]) {
         self.steps = steps
     }
 
-    func loadData(for _: URLRequest) async throws -> (Data, URLResponse) {
+    func loadData(for request: URLRequest) async throws -> (Data, URLResponse) {
         let index = requestCount
         requestCount += 1
+        storedRequests.append(request)
         guard steps.indices.contains(index) else {
             throw URLError(.badServerResponse)
         }
@@ -132,6 +134,10 @@ actor TransformationSequencedURLLoader: URLLoading {
                 throw CancellationError()
             }
         }
+    }
+
+    func requests() -> [URLRequest] {
+        storedRequests
     }
 
     func waitForRequestCount(_ expectedCount: Int) async throws {

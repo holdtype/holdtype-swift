@@ -23,7 +23,7 @@ struct IOSTextFixCatalogStrictDecodingTests {
             ),
             (
                 Data(
-                    #"{"actions":[],"future":"PRIVATE","schemaVersion":3}"#.utf8
+                    #"{"actions":[],"future":"PRIVATE","schemaVersion":4}"#.utf8
                 ),
                 .unsupportedSchemaVersion
             ),
@@ -266,6 +266,7 @@ struct IOSTextFixCatalogStrictDecodingTests {
         )
         let loaded = try await validRepository.load()
         #expect(loaded.actions[2].processingProfile == .gpt56SolMax)
+        #expect(!loaded.actions[2].usesBuiltInWritingSkill)
 
         let invalidRows: [([String: Any], IOSTextFixCatalogRepositoryError)] = [
             (
@@ -315,6 +316,50 @@ struct IOSTextFixCatalogStrictDecodingTests {
             ),
             expectedError: .missingRequiredValue(path: "actions[2].customModel")
         )
+    }
+
+    @Test func versionThreeWritingSkillPreferenceIsRequiredAndStrict() async throws {
+        let builtIns = TextFixCatalog.defaults.actions.prefix(2).map(
+            textFixV3ActionObject
+        )
+        let validCustom = textFixV3ActionObject(
+            try makeCustomTextFixAction(usesBuiltInWritingSkill: true)
+        )
+        let validData = try textFixRootData(
+            actions: builtIns + [validCustom],
+            schemaVersion: 3
+        )
+        let loaded = try await makeTextFixCatalogRepository(
+            fileSystem: TextFixCatalogFileSystemFake(data: validData)
+        ).load()
+        #expect(loaded.actions[2].usesBuiltInWritingSkill)
+
+        for (row, error) in [
+            (
+                removingTextFixField(validCustom, key: "usesBuiltInWritingSkill"),
+                IOSTextFixCatalogRepositoryError.missingRequiredValue(
+                    path: "actions[2].usesBuiltInWritingSkill"
+                )
+            ),
+            (
+                replacingTextFixField(
+                    validCustom,
+                    key: "usesBuiltInWritingSkill",
+                    value: "true"
+                ),
+                IOSTextFixCatalogRepositoryError.invalidValueType(
+                    path: "actions[2].usesBuiltInWritingSkill"
+                )
+            ),
+        ] {
+            await expectLoadFailure(
+                data: try textFixRootData(
+                    actions: builtIns + [row],
+                    schemaVersion: 3
+                ),
+                expectedError: error
+            )
+        }
     }
 
     @Test func oneMiBSourceCeilingFailsBeforeDecodeAndNeverRewrites() async {

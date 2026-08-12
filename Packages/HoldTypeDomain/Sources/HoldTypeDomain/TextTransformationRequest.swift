@@ -14,6 +14,7 @@ public struct TextTransformationRequest:
         case emptyPrompt
         case promptTooLarge(maximumUTF8ByteCount: Int)
         case emptyModel
+        case unsupportedBuiltInWritingSkillModel
         case invalidRequestTimeout
     }
 
@@ -24,6 +25,7 @@ public struct TextTransformationRequest:
     public let prompt: String
     public let model: String
     public let reasoningEffort: TextFixReasoningEffort
+    public let usesBuiltInWritingSkill: Bool
     public let requestTimeoutSeconds: TimeInterval?
 
     public init(
@@ -31,6 +33,7 @@ public struct TextTransformationRequest:
         prompt: String,
         model: String,
         reasoningEffort: TextFixReasoningEffort = .low,
+        usesBuiltInWritingSkill: Bool = false,
         requestTimeoutSeconds: TimeInterval? = nil
     ) throws {
         guard !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -52,6 +55,10 @@ public struct TextTransformationRequest:
         guard !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ValidationError.emptyModel
         }
+        if usesBuiltInWritingSkill,
+           !TextFixWritingSkillCompatibility.supports(model: model) {
+            throw ValidationError.unsupportedBuiltInWritingSkillModel
+        }
         if let requestTimeoutSeconds,
            (!requestTimeoutSeconds.isFinite || requestTimeoutSeconds <= 0) {
             throw ValidationError.invalidRequestTimeout
@@ -61,6 +68,7 @@ public struct TextTransformationRequest:
         self.prompt = prompt
         self.model = model
         self.reasoningEffort = reasoningEffort
+        self.usesBuiltInWritingSkill = usesBuiltInWritingSkill
         self.requestTimeoutSeconds = requestTimeoutSeconds
     }
 
@@ -83,6 +91,7 @@ public struct TextTransformationRequest:
                 "prompt": "<redacted>",
                 "modelCharacterCount": model.count,
                 "reasoningEffort": reasoningEffort.rawValue,
+                "usesBuiltInWritingSkill": usesBuiltInWritingSkill,
                 "requestTimeoutSeconds": requestTimeoutSeconds as Any,
             ]
         )

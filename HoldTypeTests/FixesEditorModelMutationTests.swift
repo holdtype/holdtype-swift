@@ -92,6 +92,7 @@ struct FixesEditorModelMutationTests {
         model.setSelectedPrompt("Rewrite clearly and return only the result.")
         model.setSelectedIcon(.formal)
         model.setSelectedProcessingPreset(.gpt56SolMax)
+        model.setSelectedUsesBuiltInWritingSkill(true)
         await model.saveSelectedDraft()
 
         let snapshot = await store.snapshot()
@@ -100,6 +101,7 @@ struct FixesEditorModelMutationTests {
         #expect(updated.title == "Improve This Writing")
         #expect(updated.icon == .formal)
         #expect(updated.processingProfile == .gpt56SolMax)
+        #expect(updated.usesBuiltInWritingSkill)
         #expect(snapshot.catalog.actions.count == TextFixCatalog.defaults.actions.count)
     }
 

@@ -108,6 +108,117 @@ struct OpenAITextTransformationServiceTests {
         #expect(output == expectedOutput)
     }
 
+    @Test func writingSkillCreatesInlineContainerAndReusesIt() async throws {
+        let archive = Data("test-skill-zip".utf8)
+        let loader = TransformationSequencedURLLoader(
+            steps: [
+                .success(
+                    Data(#"{"id":"container-writing"}"#.utf8),
+                    makeTransformationHTTPResponse(statusCode: 200)
+                ),
+                .success(
+                    try responseData(output: "First rewrite"),
+                    makeTransformationHTTPResponse(statusCode: 200)
+                ),
+                .success(
+                    try responseData(output: "Second rewrite"),
+                    makeTransformationHTTPResponse(statusCode: 200)
+                ),
+            ]
+        )
+        let sleeper = TransformationFakeTimeoutSleeper()
+        let service = makeService(
+            loader: loader,
+            sleeper: sleeper,
+            writingSkillArchive: { archive }
+        )
+        let request = try TextTransformationRequest(
+            sourceText: "Original source",
+            prompt: "Make it more natural.",
+            model: "gpt-5.6-terra",
+            usesBuiltInWritingSkill: true
+        )
+
+        #expect(try await service.transform(request, credential: testCredential()) == "First rewrite")
+        #expect(try await service.transform(request, credential: testCredential()) == "Second rewrite")
+
+        let requests = await loader.requests()
+        #expect(requests.count == 3)
+        let containerRequest = requests[0]
+        #expect(containerRequest.url == OpenAITextTransformationService.defaultContainerEndpointURL)
+        #expect(containerRequest.timeoutInterval == 20)
+        let containerPayload = try decodedRequestPayload(from: containerRequest)
+        #expect(containerPayload["name"] as? String == "holdtype-writing-skill")
+        let skills = try #require(containerPayload["skills"] as? [[String: Any]])
+        let skill = try #require(skills.first)
+        #expect(skill["type"] as? String == "inline")
+        #expect(skill["name"] as? String == "de-ai-writing")
+        let source = try #require(skill["source"] as? [String: Any])
+        #expect(source["type"] as? String == "base64")
+        #expect(source["media_type"] as? String == "application/zip")
+        #expect(source["data"] as? String == archive.base64EncodedString())
+
+        for transformationRequest in requests.dropFirst() {
+            let payload = try decodedRequestPayload(from: transformationRequest)
+            #expect(payload["tool_choice"] as? String == "required")
+            let tools = try #require(payload["tools"] as? [[String: Any]])
+            let tool = try #require(tools.first)
+            #expect(tool["type"] as? String == "shell")
+            let environment = try #require(tool["environment"] as? [String: Any])
+            #expect(environment["type"] as? String == "container_reference")
+            #expect(environment["container_id"] as? String == "container-writing")
+            let input = try #require(payload["input"] as? [[String: Any]])
+            let content = try #require(input.first?["content"] as? [[String: Any]])
+            #expect(content.count == 2)
+            #expect((content.first?["text"] as? String)?.contains("Use the de-ai-writing skill") == true)
+            #expect(content.last?["text"] as? String == "Original source")
+        }
+        #expect(sleeper.sleepCalls == [20, 5, 5])
+    }
+
+    @Test func expiredWritingSkillContainerIsRecreatedOnce() async throws {
+        let loader = TransformationSequencedURLLoader(
+            steps: [
+                .success(
+                    Data(#"{"id":"container-old"}"#.utf8),
+                    makeTransformationHTTPResponse(statusCode: 200)
+                ),
+                .success(
+                    Data(#"{"error":"expired"}"#.utf8),
+                    makeTransformationHTTPResponse(statusCode: 404)
+                ),
+                .success(
+                    Data(#"{"id":"container-new"}"#.utf8),
+                    makeTransformationHTTPResponse(statusCode: 200)
+                ),
+                .success(
+                    try responseData(output: "Recovered rewrite"),
+                    makeTransformationHTTPResponse(statusCode: 200)
+                ),
+            ]
+        )
+        let service = makeService(
+            loader: loader,
+            writingSkillArchive: { Data("test-skill-zip".utf8) }
+        )
+        let request = try TextTransformationRequest(
+            sourceText: "Original",
+            prompt: "Rewrite it.",
+            model: "gpt-5.6-sol",
+            usesBuiltInWritingSkill: true
+        )
+
+        let output = try await service.transform(request, credential: testCredential())
+
+        #expect(output == "Recovered rewrite")
+        let requests = await loader.requests()
+        #expect(requests.count == 4)
+        let retryPayload = try decodedRequestPayload(from: requests[3])
+        let retryTools = try #require(retryPayload["tools"] as? [[String: Any]])
+        let retryEnvironment = try #require(retryTools.first?["environment"] as? [String: Any])
+        #expect(retryEnvironment["container_id"] as? String == "container-new")
+    }
+
     @Test func requestSpecificReasoningAndTimeoutOverrideServiceDefaults() async throws {
         let loader = TransformationFakeURLLoader(
             result: .success(
@@ -288,13 +399,17 @@ struct OpenAITextTransformationServiceTests {
     private func makeService(
         loader: any URLLoading,
         sleeper: TransformationFakeTimeoutSleeper = TransformationFakeTimeoutSleeper(),
-        requestTimeout: TimeInterval = 5
+        requestTimeout: TimeInterval = 5,
+        writingSkillArchive: @escaping @Sendable () throws -> Data = {
+            Data("unused-test-skill".utf8)
+        }
     ) -> OpenAITextTransformationService {
         OpenAITextTransformationService(
             endpointURL: OpenAITextTransformationService.defaultEndpointURL,
             urlLoader: loader,
             timeoutSleeper: sleeper,
-            requestTimeout: requestTimeout
+            requestTimeout: requestTimeout,
+            writingSkillArchive: writingSkillArchive
         )
     }
 

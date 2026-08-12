@@ -205,6 +205,10 @@ final class FixesEditorModel: ObservableObject {
         mutateSelectedDraft { $0.reasoningEffort = effort }
     }
 
+    func setSelectedUsesBuiltInWritingSkill(_ isEnabled: Bool) {
+        mutateSelectedDraft { $0.usesBuiltInWritingSkill = isEnabled }
+    }
+
     func setSelectedEnabled(_ isEnabled: Bool) {
         mutateSelectedDraft { $0.isEnabled = isEnabled }
     }

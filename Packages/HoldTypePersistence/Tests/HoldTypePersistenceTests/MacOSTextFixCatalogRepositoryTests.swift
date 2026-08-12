@@ -63,7 +63,7 @@ struct MacOSTextFixCatalogRepositoryTests {
         #expect(fileSystem.replacementCallCount == 0)
     }
 
-    @Test func macOSAndIOSFacadesUseTheSameStrictCanonicalV2Codec()
+    @Test func macOSAndIOSFacadesUseTheSameStrictCanonicalV3Codec()
         async throws {
         let action = try makeCustomTextFixAction(
             id: "custom.macos",
@@ -93,7 +93,7 @@ struct MacOSTextFixCatalogRepositoryTests {
     @Test func macOSFutureOrCorruptCatalogIsPreservedWithoutAWrite() async {
         let fixtures = [
             Data(
-                #"{"actions":[],"future":"private","schemaVersion":3}"#.utf8
+                #"{"actions":[],"future":"private","schemaVersion":4}"#.utf8
             ),
             Data(#"{"actions":[],"schemaVersion":1,"schemaVersion":1}"#.utf8),
         ]

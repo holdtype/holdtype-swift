@@ -18,11 +18,13 @@ public protocol OpenAITextTransformationServing {
 
 public struct OpenAITextTransformationService: OpenAITextTransformationServing, Sendable {
     static let defaultEndpointURL = URL(string: "https://api.openai.com/v1/responses")!
+    static let defaultContainerEndpointURL = URL(string: "https://api.openai.com/v1/containers")!
     static let defaultRequestTimeout: TimeInterval = 20
     static let defaultMaxOutputTokens = 4096
     static let maximumOutputUTF8ByteCount = 64 * 1024
 
     private let endpointURL: URL
+    private let containerEndpointURL: URL
     private let urlLoader: any URLLoading
     private let timeoutSleeper: any TranscriptionTimeoutSleeping
     private let requestTimeout: TimeInterval
@@ -30,6 +32,8 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let requestTaskCoordinator: OpenAIRequestTaskCoordinator
+    private let writingSkillContainerCache: OpenAIWritingSkillContainerCache
+    private let writingSkillArchive: @Sendable () throws -> Data
     private let usageReporter: OpenAITextUsageReporter
 
     public init(
@@ -37,6 +41,7 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
     ) {
         self.init(
             endpointURL: Self.defaultEndpointURL,
+            containerEndpointURL: Self.defaultContainerEndpointURL,
             urlLoader: URLSession.shared,
             timeoutSleeper: TaskTranscriptionTimeoutSleeper(),
             requestTimeout: Self.defaultRequestTimeout,
@@ -44,12 +49,15 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
             encoder: JSONEncoder(),
             decoder: JSONDecoder(),
             requestTaskCoordinator: OpenAIRequestTaskCoordinator(),
+            writingSkillContainerCache: OpenAIWritingSkillContainerCache(),
+            writingSkillArchive: BundledWritingSkillArchive.load,
             usageReporter: usageReporter
         )
     }
 
     init(
         endpointURL: URL,
+        containerEndpointURL: URL = Self.defaultContainerEndpointURL,
         urlLoader: any URLLoading = URLSession.shared,
         timeoutSleeper: any TranscriptionTimeoutSleeping = TaskTranscriptionTimeoutSleeper(),
         requestTimeout: TimeInterval = Self.defaultRequestTimeout,
@@ -57,9 +65,14 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
         encoder: JSONEncoder = JSONEncoder(),
         decoder: JSONDecoder = JSONDecoder(),
         requestTaskCoordinator: OpenAIRequestTaskCoordinator = OpenAIRequestTaskCoordinator(),
+        writingSkillContainerCache: OpenAIWritingSkillContainerCache =
+            OpenAIWritingSkillContainerCache(),
+        writingSkillArchive: @escaping @Sendable () throws -> Data =
+            BundledWritingSkillArchive.load,
         usageReporter: @escaping OpenAITextUsageReporter = { _ in }
     ) {
         self.endpointURL = endpointURL
+        self.containerEndpointURL = containerEndpointURL
         self.urlLoader = urlLoader
         self.timeoutSleeper = timeoutSleeper
         self.requestTimeout = requestTimeout > 0 ? requestTimeout : Self.defaultRequestTimeout
@@ -67,6 +80,8 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
         self.encoder = encoder
         self.decoder = decoder
         self.requestTaskCoordinator = requestTaskCoordinator
+        self.writingSkillContainerCache = writingSkillContainerCache
+        self.writingSkillArchive = writingSkillArchive
         self.usageReporter = usageReporter
     }
 
@@ -74,19 +89,39 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
         _ request: TextTransformationRequest,
         credential: OpenAICredential
     ) async throws -> String {
-        var urlRequest = try makeAuthorizedRequest(
-            transformationRequest: request,
-            credential: credential
-        )
         let effectiveTimeout = request.requestTimeoutSeconds ?? requestTimeout
-        urlRequest.timeoutInterval = effectiveTimeout
-
-        let (data, httpResponse) = try await loadWithTimeout(
-            urlRequest,
-            timeout: effectiveTimeout
-        )
-        try validateHTTPResponse(httpResponse)
-        let response = try decodeResponse(from: data)
+        let response: OpenAITextTransformationResponse
+        if request.usesBuiltInWritingSkill {
+            let containerID = try await resolveWritingSkillContainer(
+                credential: credential
+            )
+            do {
+                response = try await performTransformation(
+                    request,
+                    credential: credential,
+                    containerID: containerID,
+                    timeout: effectiveTimeout
+                )
+            } catch OpenAITextTransformationServiceError.writingSkillContainerExpired {
+                await writingSkillContainerCache.invalidate(containerID: containerID)
+                let replacementContainerID = try await resolveWritingSkillContainer(
+                    credential: credential
+                )
+                response = try await performTransformation(
+                    request,
+                    credential: credential,
+                    containerID: replacementContainerID,
+                    timeout: effectiveTimeout
+                )
+            }
+        } else {
+            response = try await performTransformation(
+                request,
+                credential: credential,
+                containerID: nil,
+                timeout: effectiveTimeout
+            )
+        }
         await reportTextUsage(
             responseModel: response.model,
             requestedModel: request.model,
@@ -102,21 +137,49 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
 
     private func makeAuthorizedRequest(
         transformationRequest: TextTransformationRequest,
-        credential: OpenAICredential
+        credential: OpenAICredential,
+        containerID: String?
     ) throws -> URLRequest {
         do {
+            let usesWritingSkill = containerID != nil
+            let inputText = usesWritingSkill
+                ? "Use the de-ai-writing skill for this transformation. "
+                    + "Preserve the source language, genre, audience, formatting, meaning, "
+                    + "and factual claims unless the Fix instruction explicitly changes them. "
+                    + "Return only the transformed text."
+                : transformationRequest.sourceText
+            let inputContent = usesWritingSkill
+                ? [
+                    OpenAITextTransformationInputContent(type: "input_text", text: inputText),
+                    OpenAITextTransformationInputContent(
+                        type: "input_text",
+                        text: transformationRequest.sourceText
+                    ),
+                ]
+                : [
+                    OpenAITextTransformationInputContent(
+                        type: "input_text",
+                        text: transformationRequest.sourceText
+                    ),
+                ]
+            let tools = containerID.map { containerID in
+                [
+                    OpenAITextTransformationTool(
+                        type: "shell",
+                        environment: OpenAITextTransformationToolEnvironment(
+                            type: "container_reference",
+                            containerID: containerID
+                        )
+                    ),
+                ]
+            }
             let payload = OpenAITextTransformationRequestPayload(
                 model: transformationRequest.model,
                 instructions: transformationRequest.prompt,
                 input: [
                     OpenAITextTransformationInputMessage(
                         role: "user",
-                        content: [
-                            OpenAITextTransformationInputContent(
-                                type: "input_text",
-                                text: transformationRequest.sourceText
-                            ),
-                        ]
+                        content: inputContent
                     ),
                 ],
                 reasoning: OpenAITextTransformationReasoning(
@@ -126,7 +189,8 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
                     format: OpenAITextTransformationTextFormat(type: "text"),
                     verbosity: "low"
                 ),
-                toolChoice: "none",
+                tools: tools,
+                toolChoice: usesWritingSkill ? "required" : "none",
                 maxOutputTokens: maxOutputTokens,
                 store: false
             )
@@ -141,6 +205,83 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
         } catch {
             throw OpenAITextTransformationServiceError.invalidRequest
         }
+    }
+
+    private func performTransformation(
+        _ transformationRequest: TextTransformationRequest,
+        credential: OpenAICredential,
+        containerID: String?,
+        timeout: TimeInterval
+    ) async throws -> OpenAITextTransformationResponse {
+        var urlRequest = try makeAuthorizedRequest(
+            transformationRequest: transformationRequest,
+            credential: credential,
+            containerID: containerID
+        )
+        urlRequest.timeoutInterval = timeout
+        let (data, httpResponse) = try await loadWithTimeout(
+            urlRequest,
+            timeout: timeout
+        )
+        if containerID != nil,
+           (httpResponse as? HTTPURLResponse)?.statusCode == 404 {
+            throw OpenAITextTransformationServiceError.writingSkillContainerExpired
+        }
+        try validateHTTPResponse(httpResponse)
+        return try decodeResponse(from: data)
+    }
+
+    private func resolveWritingSkillContainer(
+        credential: OpenAICredential
+    ) async throws -> String {
+        if let cached = await writingSkillContainerCache.containerID() {
+            return cached
+        }
+
+        let archive = try writingSkillArchive()
+        let payload = OpenAIWritingSkillContainerRequestPayload(
+            name: "holdtype-writing-skill",
+            skills: [
+                OpenAIInlineWritingSkill(
+                    type: "inline",
+                    name: "de-ai-writing",
+                    description: "Rewrite prose so it sounds less AI-written while preserving facts.",
+                    source: OpenAIInlineWritingSkillSource(
+                        type: "base64",
+                        mediaType: "application/zip",
+                        data: archive.base64EncodedString()
+                    )
+                ),
+            ]
+        )
+        var request = URLRequest(url: containerEndpointURL)
+        request.httpMethod = "POST"
+        request.timeoutInterval = Self.defaultRequestTimeout
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(credential.apiKey)", forHTTPHeaderField: "Authorization")
+        do {
+            request.httpBody = try encoder.encode(payload)
+        } catch {
+            throw OpenAITextTransformationServiceError.invalidRequest
+        }
+
+        let (data, response) = try await loadWithTimeout(
+            request,
+            timeout: Self.defaultRequestTimeout
+        )
+        try validateHTTPResponse(response)
+        let container: OpenAIWritingSkillContainerResponse
+        do {
+            container = try decoder.decode(OpenAIWritingSkillContainerResponse.self, from: data)
+        } catch {
+            throw OpenAITextTransformationServiceError.writingSkillUnavailable
+        }
+        guard !container.id.isEmpty else {
+            throw OpenAITextTransformationServiceError.writingSkillUnavailable
+        }
+        await writingSkillContainerCache.store(containerID: container.id)
+        return container.id
     }
 
     private func loadWithTimeout(
@@ -246,6 +387,8 @@ public enum OpenAITextTransformationServiceError:
     case badRequest
     case providerRejected(statusCode: Int)
     case invalidResponse
+    case writingSkillUnavailable
+    case writingSkillContainerExpired
     case emptyOutput
     case outputTooLarge(maximumUTF8ByteCount: Int)
 
@@ -273,6 +416,8 @@ public enum OpenAITextTransformationServiceError:
             return "OpenAI rejected the Fix request."
         case .invalidResponse:
             return "OpenAI returned an unreadable Fix response."
+        case .writingSkillUnavailable, .writingSkillContainerExpired:
+            return "HoldType’s built-in writing skill is unavailable. Try again."
         case .emptyOutput:
             return "The Fix returned no usable text."
         case .outputTooLarge:

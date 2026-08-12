@@ -97,6 +97,28 @@ struct TextTransformationRequestTests {
         }
     }
 
+    @Test func writingSkillRequiresARecognizedCompatibleModel() throws {
+        let request = try TextTransformationRequest(
+            sourceText: "Source",
+            prompt: "Rewrite it.",
+            model: "gpt-5.6-terra",
+            usesBuiltInWritingSkill: true
+        )
+
+        #expect(request.usesBuiltInWritingSkill)
+        #expect(
+            throws: TextTransformationRequest.ValidationError
+                .unsupportedBuiltInWritingSkillModel
+        ) {
+            try TextTransformationRequest(
+                sourceText: "Source",
+                prompt: "Rewrite it.",
+                model: "custom-provider-model",
+                usesBuiltInWritingSkill: true
+            )
+        }
+    }
+
     @Test func runtimeRequestIsSendableNotCodableAndRedactsSensitiveText() throws {
         requireSendable(TextTransformationRequest.self)
         let sourceSecret = "PRIVATE-SOURCE-CANARY"

@@ -99,6 +99,58 @@ struct TextFixExecutionServiceTests {
         #expect(request.model == "custom-model")
         #expect(request.reasoningEffort == .low)
         #expect(request.requestTimeoutSeconds == 20)
+        #expect(!request.usesBuiltInWritingSkill)
+    }
+
+    @Test func customFixProjectsBuiltInWritingSkillPreference() async throws {
+        let transformation = FakeFixTransformationService(output: "Natural")
+        let service = makeService(transformation: transformation)
+        var settings = AppSettings.defaults
+        settings.textCorrectionModelPreset = .custom
+        settings.customTextCorrectionModel = "gpt-5.6-terra"
+        let action = try TextFixAction(
+            id: "custom.humanize",
+            kind: .customPrompt,
+            title: "Humanize",
+            icon: .rewrite,
+            prompt: "Preserve the meaning.",
+            usesBuiltInWritingSkill: true
+        )
+
+        _ = try await service.execute(
+            action: action,
+            sourceText: "Source",
+            settings: settings,
+            credential: credential
+        )
+
+        #expect(transformation.requests.first?.usesBuiltInWritingSkill == true)
+    }
+
+    @Test func unsupportedWritingSkillModelFailsBeforeProviderWork() async throws {
+        let transformation = FakeFixTransformationService(output: "Unused")
+        let service = makeService(transformation: transformation)
+        var settings = AppSettings.defaults
+        settings.textCorrectionModelPreset = .custom
+        settings.customTextCorrectionModel = "unknown-provider-model"
+        let action = try TextFixAction(
+            id: "custom.humanize",
+            kind: .customPrompt,
+            title: "Humanize",
+            icon: .rewrite,
+            prompt: "Preserve the meaning.",
+            usesBuiltInWritingSkill: true
+        )
+
+        await #expect(throws: TextFixExecutionError.unsupportedBuiltInWritingSkillModel) {
+            try await service.execute(
+                action: action,
+                sourceText: "Source",
+                settings: settings,
+                credential: credential
+            )
+        }
+        #expect(transformation.requests.isEmpty)
     }
 
     @Test func premiumCustomFixUsesItsOwnModelReasoningAndTimeout() async throws {

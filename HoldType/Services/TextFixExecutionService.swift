@@ -132,11 +132,16 @@ struct TextFixExecutionService: TextFixExecuting {
         let processing = action.processingProfile.resolved(
             inheritedModel: settings.resolvedTextCorrectionModel
         )
+        if action.usesBuiltInWritingSkill,
+           !TextFixWritingSkillCompatibility.supports(model: processing.model) {
+            throw TextFixExecutionError.unsupportedBuiltInWritingSkillModel
+        }
         let request = try TextTransformationRequest(
             sourceText: sourceText,
             prompt: prompt,
             model: processing.model,
             reasoningEffort: processing.reasoningEffort,
+            usesBuiltInWritingSkill: action.usesBuiltInWritingSkill,
             requestTimeoutSeconds: processing.requestTimeoutSeconds
         )
         return try await transformationService.transform(
@@ -148,8 +153,14 @@ struct TextFixExecutionService: TextFixExecuting {
 
 enum TextFixExecutionError: Error, Equatable, LocalizedError {
     case missingCustomPrompt
+    case unsupportedBuiltInWritingSkillModel
 
     var errorDescription: String? {
-        "This Fix is missing its instruction."
+        switch self {
+        case .missingCustomPrompt:
+            "This Fix is missing its instruction."
+        case .unsupportedBuiltInWritingSkillModel:
+            "The selected model does not support HoldType’s built-in writing skill."
+        }
     }
 }

@@ -11,6 +11,7 @@ struct OpenAITextTransformationRequestPayload: Encodable {
     let input: [OpenAITextTransformationInputMessage]
     let reasoning: OpenAITextTransformationReasoning
     let text: OpenAITextTransformationTextConfig
+    let tools: [OpenAITextTransformationTool]?
     let toolChoice: String
     let maxOutputTokens: Int
     let store: Bool
@@ -21,9 +22,25 @@ struct OpenAITextTransformationRequestPayload: Encodable {
         case input
         case reasoning
         case text
+        case tools
         case toolChoice = "tool_choice"
         case maxOutputTokens = "max_output_tokens"
         case store
+    }
+}
+
+struct OpenAITextTransformationTool: Encodable {
+    let type: String
+    let environment: OpenAITextTransformationToolEnvironment
+}
+
+struct OpenAITextTransformationToolEnvironment: Encodable {
+    let type: String
+    let containerID: String
+
+    enum CodingKeys: String, CodingKey {
+        case type
+        case containerID = "container_id"
     }
 }
 

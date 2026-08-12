@@ -14,6 +14,7 @@ struct FixesEditorDraft:
     var processingPreset: TextFixProcessingProfile.Preset
     var customModel: String
     var reasoningEffort: TextFixReasoningEffort
+    var usesBuiltInWritingSkill: Bool
     var isEnabled: Bool
     let isNew: Bool
 
@@ -25,6 +26,7 @@ struct FixesEditorDraft:
         processingPreset = action.processingProfile.preset
         customModel = action.processingProfile.customModel ?? ""
         reasoningEffort = action.processingProfile.customReasoningEffort ?? .low
+        usesBuiltInWritingSkill = action.usesBuiltInWritingSkill
         isEnabled = action.isEnabled
         isNew = false
     }
@@ -37,6 +39,7 @@ struct FixesEditorDraft:
         processingPreset: TextFixProcessingProfile.Preset = .inherit,
         customModel: String = "",
         reasoningEffort: TextFixReasoningEffort = .low,
+        usesBuiltInWritingSkill: Bool = false,
         isEnabled: Bool = true
     ) {
         self.id = id
@@ -46,6 +49,7 @@ struct FixesEditorDraft:
         self.processingPreset = processingPreset
         self.customModel = customModel
         self.reasoningEffort = reasoningEffort
+        self.usesBuiltInWritingSkill = usesBuiltInWritingSkill
         self.isEnabled = isEnabled
         isNew = true
     }
@@ -78,6 +82,7 @@ struct FixesEditorDraft:
                 "processingPreset": processingPreset.rawValue,
                 "customModel": "<redacted>",
                 "reasoningEffort": reasoningEffort.rawValue,
+                "usesBuiltInWritingSkill": usesBuiltInWritingSkill,
                 "isEnabled": isEnabled,
                 "isNew": isNew,
             ]
@@ -106,6 +111,7 @@ struct FixesEditorDraft:
             icon: icon,
             prompt: prompt,
             processingProfile: processingProfile,
+            usesBuiltInWritingSkill: usesBuiltInWritingSkill,
             isEnabled: isEnabled
         )
     }
@@ -122,6 +128,7 @@ struct FixesEditorDraft:
             || customModel != (action.processingProfile.customModel ?? "")
             || reasoningEffort
                 != (action.processingProfile.customReasoningEffort ?? .low)
+            || usesBuiltInWritingSkill != action.usesBuiltInWritingSkill
             || isEnabled != action.isEnabled
     }
 }

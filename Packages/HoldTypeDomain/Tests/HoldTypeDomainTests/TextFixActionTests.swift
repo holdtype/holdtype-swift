@@ -15,6 +15,7 @@ struct TextFixActionTests {
             icon: .rewrite,
             prompt: prompt,
             processingProfile: processingProfile,
+            usesBuiltInWritingSkill: true,
             isEnabled: false
         )
 
@@ -24,6 +25,7 @@ struct TextFixActionTests {
         #expect(action.icon == .rewrite)
         #expect(action.prompt == prompt)
         #expect(action.processingProfile == processingProfile)
+        #expect(action.usesBuiltInWritingSkill)
         #expect(action.isEnabled == false)
     }
 
@@ -91,6 +93,16 @@ struct TextFixActionTests {
                 icon: .translate,
                 prompt: nil,
                 processingProfile: .gpt56SolMax
+            )
+        }
+        #expect(throws: TextFixAction.ValidationError.unexpectedBuiltInWritingSkill) {
+            try TextFixAction(
+                id: TextFixAction.fixIdentifier,
+                kind: .fix,
+                title: "Correct Text",
+                icon: .fix,
+                prompt: nil,
+                usesBuiltInWritingSkill: true
             )
         }
     }

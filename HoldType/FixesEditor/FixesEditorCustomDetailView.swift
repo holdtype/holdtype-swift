@@ -9,6 +9,7 @@ struct FixesEditorCustomDetailView: View {
         Form {
             identitySection
             FixesEditorProcessingSection(model: model)
+            writingSkillSection
             promptSection
         }
         .formStyle(.grouped)
@@ -51,6 +52,27 @@ struct FixesEditorCustomDetailView: View {
             )
             .disabled(model.activity.isBusy)
             .help("Disabled Fixes stay in the editor but are hidden from action pickers.")
+        }
+    }
+
+    private var writingSkillSection: some View {
+        Section("Writing style") {
+            Toggle(
+                "Humanize text",
+                isOn: Binding(
+                    get: { model.selectedDraft?.usesBuiltInWritingSkill ?? false },
+                    set: model.setSelectedUsesBuiltInWritingSkill
+                )
+            )
+            .disabled(model.activity.isBusy)
+
+            Text(
+                "Uses HoldType’s built-in writing guidelines through OpenAI. "
+                    + "No local skill installation is required, and processing may take longer."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 

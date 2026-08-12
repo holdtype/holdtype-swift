@@ -33,6 +33,7 @@ func makeCustomTextFixAction(
     icon: TextFixIcon = .custom,
     prompt: String = "Rewrite this text.",
     processingProfile: TextFixProcessingProfile = .inherit,
+    usesBuiltInWritingSkill: Bool = false,
     isEnabled: Bool = true
 ) throws -> TextFixAction {
     try TextFixAction(
@@ -42,6 +43,7 @@ func makeCustomTextFixAction(
         icon: icon,
         prompt: prompt,
         processingProfile: processingProfile,
+        usesBuiltInWritingSkill: usesBuiltInWritingSkill,
         isEnabled: isEnabled
     )
 }
@@ -66,6 +68,12 @@ func textFixV2ActionObject(_ action: TextFixAction) -> [String: Any] {
     if let effort = action.processingProfile.customReasoningEffort {
         object["reasoningEffort"] = effort.rawValue
     }
+    return object
+}
+
+func textFixV3ActionObject(_ action: TextFixAction) -> [String: Any] {
+    var object = textFixV2ActionObject(action)
+    object["usesBuiltInWritingSkill"] = action.usesBuiltInWritingSkill
     return object
 }
 

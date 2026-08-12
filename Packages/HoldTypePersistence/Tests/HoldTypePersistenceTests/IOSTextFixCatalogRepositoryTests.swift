@@ -84,10 +84,11 @@ struct IOSTextFixCatalogRepositoryTests {
         #expect(loaded.actions[1].title == "Correct Text")
         #expect(loaded.actions[2] == custom)
         #expect(loaded.actions[2].processingProfile == .inherit)
+        #expect(!loaded.actions[2].usesBuiltInWritingSkill)
         #expect(fileSystem.replacementCallCount == 0)
     }
 
-    @Test func canonicalV2SaveRoundTripsProfilesOrderStateAndExactPromptWhitespace()
+    @Test func canonicalV3SaveRoundTripsSkillProfilesOrderStateAndExactPromptWhitespace()
         async throws {
         let first = try makeCustomTextFixAction(
             id: "custom.first",
@@ -95,6 +96,7 @@ struct IOSTextFixCatalogRepositoryTests {
             icon: .rewrite,
             prompt: " \n  Preserve all of this whitespace. \t ",
             processingProfile: .gpt56Terra,
+            usesBuiltInWritingSkill: true,
             isEnabled: false
         )
         let customProfile = try TextFixProcessingProfile.custom(
@@ -130,6 +132,7 @@ struct IOSTextFixCatalogRepositoryTests {
         #expect(loaded.actions[2].title == " First title ")
         #expect(!loaded.actions[2].isEnabled)
         #expect(loaded.actions[2].processingProfile == .gpt56Terra)
+        #expect(loaded.actions[2].usesBuiltInWritingSkill)
         #expect(loaded.actions[3].processingProfile.customModel == "gpt-custom-fix")
         #expect(loaded.actions[3].processingProfile.customReasoningEffort == .xhigh)
         #expect(fileSystem.replacementPolicies == [
@@ -141,12 +144,14 @@ struct IOSTextFixCatalogRepositoryTests {
             JSONSerialization.jsonObject(with: data) as? [String: Any]
         )
         #expect(Set(root.keys) == ["schemaVersion", "actions"])
-        #expect(root["schemaVersion"] as? Int == 2)
+        #expect(root["schemaVersion"] as? Int == 3)
         let rows = try #require(root["actions"] as? [[String: Any]])
         #expect(rows.count == 4)
         #expect(rows[0]["prompt"] == nil)
         #expect(rows[2]["prompt"] as? String == first.prompt)
         #expect(rows[2]["processingProfile"] as? String == "gpt-5.6-terra")
+        #expect(rows[2]["usesBuiltInWritingSkill"] as? Bool == true)
+        #expect(rows[3]["usesBuiltInWritingSkill"] as? Bool == false)
         #expect(rows[3]["processingProfile"] as? String == "custom")
         #expect(rows[3]["customModel"] as? String == "gpt-custom-fix")
         #expect(rows[3]["reasoningEffort"] as? String == "xhigh")

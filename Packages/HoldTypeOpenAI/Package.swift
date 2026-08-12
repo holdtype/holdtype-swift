@@ -22,6 +22,9 @@ let package = Package(
             name: "HoldTypeOpenAI",
             dependencies: [
                 .product(name: "HoldTypeDomain", package: "HoldTypeDomain"),
+            ],
+            resources: [
+                .copy("Resources/de-ai-writing.zip"),
             ]
         ),
         .testTarget(
