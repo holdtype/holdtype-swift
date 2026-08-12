@@ -78,6 +78,47 @@ struct OpenAITextUsageStoreTests {
         #expect(isClose(event.estimatedCostUSD, 0.001_065))
     }
 
+    @Test func gpt56FixModelsUseReviewedFrozenPricesInOneCategory() throws {
+        let timestamp = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let usages = try [
+            OpenAITextResponseUsage(
+                model: "gpt-5.6-terra",
+                inputTokens: 1_000,
+                cachedInputTokens: 200,
+                outputTokens: 100,
+                reasoningTokens: 40
+            ),
+            OpenAITextResponseUsage(
+                model: "gpt-5.6-sol",
+                inputTokens: 1_000,
+                cachedInputTokens: 200,
+                outputTokens: 100,
+                reasoningTokens: 40
+            ),
+            OpenAITextResponseUsage(
+                model: "gpt-5.6",
+                inputTokens: 1_000,
+                cachedInputTokens: 200,
+                outputTokens: 100,
+                reasoningTokens: 40
+            ),
+        ]
+        let events = usages.map {
+            OpenAIUsageEvent(timestamp: timestamp, category: .fixes, usage: $0)
+        }
+
+        #expect(isClose(events[0].estimatedCostUSD, 0.002_84))
+        #expect(isClose(events[1].estimatedCostUSD, 0.007_1))
+        #expect(isClose(events[2].estimatedCostUSD, 0.007_1))
+
+        let summary = OpenAIUsageSummary.make(events: events, now: timestamp)
+        let fixes = try #require(summary.categories[.fixes])
+        #expect(fixes.requestCount == 3)
+        #expect(fixes.pricedRequestCount == 3)
+        #expect(isClose(fixes.estimatedCostUSD, 0.017_04))
+        #expect(!summary.hasUnpricedUsage)
+    }
+
     @Test func missingProviderUsageShowsNoticeWithoutInventingEvent() throws {
         let persistence = TextUsagePersistence()
         let store = OpenAIUsageStore(persistence: persistence)

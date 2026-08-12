@@ -39,6 +39,18 @@ struct OpenAITextPricingSnapshot: Codable, Equatable, Sendable {
 struct OpenAITextUsagePricing: Sendable {
     nonisolated static let current: OpenAITextUsagePricing = {
         let source = "OpenAI model pricing reviewed 2026-08-12"
+        let gpt56Sol = OpenAITextPricingSnapshot(
+            inputUSDPerMillionTokens: 5,
+            cachedInputUSDPerMillionTokens: 0.5,
+            outputUSDPerMillionTokens: 30,
+            source: source
+        )
+        let gpt56Terra = OpenAITextPricingSnapshot(
+            inputUSDPerMillionTokens: 2,
+            cachedInputUSDPerMillionTokens: 0.2,
+            outputUSDPerMillionTokens: 12,
+            source: source
+        )
         let gpt55 = OpenAITextPricingSnapshot(
             inputUSDPerMillionTokens: 5,
             cachedInputUSDPerMillionTokens: 0.5,
@@ -59,6 +71,9 @@ struct OpenAITextUsagePricing: Sendable {
         )
         return OpenAITextUsagePricing(
             rates: [
+                "gpt-5.6": gpt56Sol,
+                "gpt-5.6-sol": gpt56Sol,
+                "gpt-5.6-terra": gpt56Terra,
                 "gpt-5.5": gpt55,
                 "gpt-5.5-2026-04-23": gpt55,
                 "gpt-5.4": gpt54,
