@@ -31,8 +31,10 @@ class PageProbe(HTMLParser):
         self.lightbox_links: list[dict[str, str | None]] = []
         self.lightbox_link_image_count = 0
         self.metadata: list[dict[str, str | None]] = []
+        self.json_ld_parts: list[str] = []
         self.title_parts: list[str] = []
         self.in_title = False
+        self.in_json_ld = False
         self.in_lightbox_link = False
 
     @property
@@ -49,6 +51,8 @@ class PageProbe(HTMLParser):
             self.links.append(attributes)
         elif tag == "meta":
             self.metadata.append(attributes)
+        elif tag == "script" and attributes.get("type") == "application/ld+json":
+            self.in_json_ld = True
         elif tag == "a" and "data-locale-link" in attributes:
             self.language_links.append(attributes)
         elif tag == "a" and (
@@ -66,12 +70,16 @@ class PageProbe(HTMLParser):
     def handle_endtag(self, tag: str) -> None:
         if tag == "title":
             self.in_title = False
+        elif tag == "script" and self.in_json_ld:
+            self.in_json_ld = False
         elif tag == "a" and self.in_lightbox_link:
             self.in_lightbox_link = False
 
     def handle_data(self, data: str) -> None:
         if self.in_title:
             self.title_parts.append(data)
+        elif self.in_json_ld:
+            self.json_ld_parts.append(data)
 
 
 class BuildSiteTests(unittest.TestCase):
@@ -208,12 +216,48 @@ class BuildSiteTests(unittest.TestCase):
                 self.assertEqual(metadata["twitter:card"], "summary_large_image")
                 self.assertEqual(metadata["twitter:image"], build_site.SOCIAL_PREVIEW_URL)
                 self.assertEqual(metadata["twitter:image:alt"], metadata["og:image:alt"])
+                self.assertEqual(
+                    metadata["robots"],
+                    "index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1",
+                )
+
+                structured_data = json.loads("".join(probe.json_ld_parts))
+                self.assertEqual(structured_data["@context"], "https://schema.org")
+                graph = structured_data["@graph"]
+                nodes_by_type = {node["@type"]: node for node in graph}
+                plain_title = probe.title.replace("\u2066", "").replace("\u2069", "")
+                plain_description = (metadata["description"] or "").replace(
+                    "\u2066", ""
+                ).replace("\u2069", "")
+                self.assertEqual(
+                    set(nodes_by_type),
+                    {"WebSite", "WebPage", "SoftwareApplication"}
+                    if code == "en"
+                    else {"WebPage", "SoftwareApplication"},
+                )
+                webpage = nodes_by_type["WebPage"]
+                application = nodes_by_type["SoftwareApplication"]
+                self.assertEqual(webpage["url"], canonical_url)
+                self.assertEqual(webpage["name"], plain_title)
+                self.assertEqual(webpage["description"], plain_description)
+                self.assertEqual(webpage["inLanguage"], code)
+                self.assertEqual(application["name"], "HoldType")
+                self.assertEqual(application["description"], plain_description)
+                self.assertEqual(application["operatingSystem"], "macOS 14+")
+                self.assertEqual(application["applicationCategory"], "UtilitiesApplication")
+                self.assertTrue(application["isAccessibleForFree"])
+                self.assertEqual(application["offers"]["price"], 0)
+                self.assertEqual(
+                    application["downloadUrl"],
+                    "https://github.com/holdtype/holdtype-swift/releases/latest/download/HoldType.dmg",
+                )
 
                 self.assertNotIn("data-i18n", rendered)
                 self.assertNotIn("data-token-ref", rendered)
                 self.assertNotIn("data-site-og-image", rendered)
                 self.assertNotIn("data-locale-config", rendered)
                 self.assertNotIn("data-language-suggestion", rendered)
+                self.assertNotIn("data-structured-data", rendered)
 
             root_html = rendered_pages["en"]
             russian_html = rendered_pages["ru"]

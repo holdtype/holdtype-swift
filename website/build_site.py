@@ -353,6 +353,106 @@ def runtime_payload(
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
 
 
+def structured_data_payload(
+    *,
+    current: Mapping[str, Any],
+    messages: Mapping[str, Any],
+    tokens: Mapping[str, str],
+    links: Mapping[str, Any],
+) -> str:
+    clean_tokens = {
+        key: value.replace("\u2066", "").replace("\u2069", "")
+        for key, value in tokens.items()
+    }
+    title = messages.get("meta.title")
+    description = messages.get("meta.description")
+    if not isinstance(title, str) or not isinstance(description, str):
+        raise SiteBuildError("structured data requires plain meta title and description")
+
+    def trusted_url(ref: str) -> str:
+        record = links.get(ref)
+        if not isinstance(record, dict) or not isinstance(record.get("href"), str):
+            raise SiteBuildError(f"structured data requires trusted link {ref!r}")
+        return record["href"]
+
+    canonical_url = locale_url(current["path"])
+    website_id = f"{CANONICAL_ORIGIN}/#website"
+    webpage_id = f"{canonical_url}#webpage"
+    application_id = f"{CANONICAL_ORIGIN}/#softwareapplication"
+    graph: list[dict[str, Any]] = []
+    if not current["path"]:
+        graph.append(
+            {
+                "@type": "WebSite",
+                "@id": website_id,
+                "url": f"{CANONICAL_ORIGIN}/",
+                "name": clean_tokens["brand.holdType"],
+                "alternateName": "holdtype.app",
+                "inLanguage": [
+                    "en",
+                    "es",
+                    "de",
+                    "fr",
+                    "pt-BR",
+                    "ja",
+                    "zh-Hans",
+                    "ko",
+                    "ru",
+                    "ar",
+                ],
+            }
+        )
+    graph.extend(
+        [
+            {
+                "@type": "WebPage",
+                "@id": webpage_id,
+                "url": canonical_url,
+                "name": expand_tokens(title, clean_tokens, key="meta.title"),
+                "description": expand_tokens(
+                    description, clean_tokens, key="meta.description"
+                ),
+                "inLanguage": current["code"],
+                "isPartOf": {"@id": website_id},
+                "mainEntity": {"@id": application_id},
+                "primaryImageOfPage": {
+                    "@type": "ImageObject",
+                    "url": SOCIAL_PREVIEW_URL,
+                    "width": SOCIAL_PREVIEW_DIMENSIONS[0],
+                    "height": SOCIAL_PREVIEW_DIMENSIONS[1],
+                },
+            },
+            {
+                "@type": "SoftwareApplication",
+                "@id": application_id,
+                "name": clean_tokens["brand.holdType"],
+                "url": f"{CANONICAL_ORIGIN}/",
+                "mainEntityOfPage": {"@id": webpage_id},
+                "description": expand_tokens(
+                    description, clean_tokens, key="meta.description"
+                ),
+                "inLanguage": current["code"],
+                "operatingSystem": clean_tokens["fact.minimumOS"],
+                "applicationCategory": "UtilitiesApplication",
+                "isAccessibleForFree": True,
+                "downloadUrl": trusted_url("latestRelease"),
+                "image": SOCIAL_PREVIEW_URL,
+                "sameAs": [trusted_url("sourceRepository")],
+                "offers": {
+                    "@type": "Offer",
+                    "price": 0,
+                    "priceCurrency": "USD",
+                    "url": trusted_url("latestRelease"),
+                },
+            },
+        ]
+    )
+    payload = {"@context": "https://schema.org", "@graph": graph}
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":")).replace(
+        "<", "\\u003c"
+    )
+
+
 def parse_attribute_markers(value: str) -> dict[str, str]:
     result: dict[str, str] = {}
     for entry in value.split(";"):
@@ -503,6 +603,7 @@ class LocalizedHTMLParser(HTMLParser):
                 "data-locale-links",
                 "data-locale-open-graph",
                 "data-root-only",
+                "data-structured-data",
                 "data-token-attr",
                 "data-token-ref",
                 "data-video-ref",
@@ -636,6 +737,13 @@ class LocalizedHTMLParser(HTMLParser):
                 raise SiteBuildError("locale-config marker must be the only content marker on script")
             text_key = "__locale_config__"
 
+        if "data-structured-data" in attrs_dict:
+            if tag != "script" or text_key or rich_key or template_key:
+                raise SiteBuildError(
+                    "structured-data marker must be the only content marker on script"
+                )
+            text_key = "__structured_data__"
+
         if template_key:
             if template_key not in self.messages:
                 raise SiteBuildError(f"missing template message {template_key}")
@@ -669,6 +777,16 @@ class LocalizedHTMLParser(HTMLParser):
                     )
                 )
                 self.generated_markers["runtime"] += 1
+            elif text_key == "__structured_data__":
+                self.output.append(
+                    structured_data_payload(
+                        current=self.locale,
+                        messages=self.messages,
+                        tokens=self.tokens,
+                        links=self.links,
+                    )
+                )
+                self.generated_markers["structuredData"] += 1
             elif text_key == "__template__":
                 assert template_key is not None
                 message = self.messages[template_key]
@@ -945,7 +1063,9 @@ def render_locale_page(
         raise SiteBuildError(f"could not parse landing HTML: {error}") from error
     if parser.replacement_tag is not None:
         raise SiteBuildError(f"unclosed localized element <{parser.replacement_tag}>")
-    expected_markers = Counter({"languageLinks": 1, "runtime": 1})
+    expected_markers = Counter(
+        {"languageLinks": 1, "runtime": 1, "structuredData": 1}
+    )
     for locale in locales:
         expected_markers[f"alternate:{locale['code']}"] = 1
     expected_markers["alternate:x-default"] = 1
