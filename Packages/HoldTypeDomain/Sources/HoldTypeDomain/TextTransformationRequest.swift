@@ -14,6 +14,7 @@ public struct TextTransformationRequest:
         case emptyPrompt
         case promptTooLarge(maximumUTF8ByteCount: Int)
         case emptyModel
+        case invalidRequestTimeout
     }
 
     public static let maximumSourceUTF8ByteCount = 32 * 1024
@@ -22,8 +23,16 @@ public struct TextTransformationRequest:
     public let sourceText: String
     public let prompt: String
     public let model: String
+    public let reasoningEffort: TextFixReasoningEffort
+    public let requestTimeoutSeconds: TimeInterval?
 
-    public init(sourceText: String, prompt: String, model: String) throws {
+    public init(
+        sourceText: String,
+        prompt: String,
+        model: String,
+        reasoningEffort: TextFixReasoningEffort = .low,
+        requestTimeoutSeconds: TimeInterval? = nil
+    ) throws {
         guard !sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ValidationError.emptySource
         }
@@ -43,10 +52,16 @@ public struct TextTransformationRequest:
         guard !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ValidationError.emptyModel
         }
+        if let requestTimeoutSeconds,
+           (!requestTimeoutSeconds.isFinite || requestTimeoutSeconds <= 0) {
+            throw ValidationError.invalidRequestTimeout
+        }
 
         self.sourceText = sourceText
         self.prompt = prompt
         self.model = model
+        self.reasoningEffort = reasoningEffort
+        self.requestTimeoutSeconds = requestTimeoutSeconds
     }
 
     public var description: String {
@@ -67,6 +82,8 @@ public struct TextTransformationRequest:
                 "sourceText": "<redacted>",
                 "prompt": "<redacted>",
                 "modelCharacterCount": model.count,
+                "reasoningEffort": reasoningEffort.rawValue,
+                "requestTimeoutSeconds": requestTimeoutSeconds as Any,
             ]
         )
     }

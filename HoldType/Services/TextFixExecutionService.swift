@@ -121,10 +121,15 @@ struct TextFixExecutionService: TextFixExecuting {
         guard let prompt = action.prompt else {
             throw TextFixExecutionError.missingCustomPrompt
         }
+        let processing = action.processingProfile.resolved(
+            inheritedModel: settings.resolvedTextCorrectionModel
+        )
         let request = try TextTransformationRequest(
             sourceText: sourceText,
             prompt: prompt,
-            model: settings.resolvedTextCorrectionModel
+            model: processing.model,
+            reasoningEffort: processing.reasoningEffort,
+            requestTimeoutSeconds: processing.requestTimeoutSeconds
         )
         return try await transformationService.transform(
             request,

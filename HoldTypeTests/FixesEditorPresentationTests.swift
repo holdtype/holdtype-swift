@@ -20,6 +20,14 @@ struct FixesEditorPresentationTests {
         )
     }
 
+    @Test func premiumProcessingWarningNamesCostLatencyAndOpenAIAccount() {
+        let warning = FixesEditorProcessingSection.premiumWarning
+        #expect(warning.contains("Higher cost"))
+        #expect(warning.contains("slower"))
+        #expect(warning.contains("$0.08–$0.14"))
+        #expect(warning.contains("OpenAI API account"))
+    }
+
     @Test func finiteIconOptionsCoverEverySupportedToken() {
         #expect(FixesEditorIconOption.all.count == TextFixIcon.allCases.count)
         #expect(
@@ -99,6 +107,15 @@ struct FixesEditorPresentationTests {
         #expect(accepted.isValid)
         #expect(rejected.titleMessage?.contains("80") == true)
         #expect(rejected.promptMessage?.contains("8192") == true)
+
+        let customModelRejected = FixesEditorDraftValidation(
+            title: "Title",
+            prompt: "Prompt",
+            processingPreset: .custom,
+            customModel: " \n "
+        )
+        #expect(customModelRejected.customModelMessage == "Enter a model identifier.")
+        #expect(!customModelRejected.isValid)
     }
 
     @Test func draftDescriptionsAndReflectionRedactEditableContent() {

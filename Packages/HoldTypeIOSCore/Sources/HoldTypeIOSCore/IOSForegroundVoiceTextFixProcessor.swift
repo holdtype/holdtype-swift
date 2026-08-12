@@ -142,11 +142,16 @@ extension IOSForegroundVoiceProcessor {
             }
             let transformationRequest: TextTransformationRequest
             do {
+                let processing = request.action.processingProfile.resolved(
+                    inheritedModel: request.settings.textCorrectionConfiguration
+                        .resolvedModel
+                )
                 transformationRequest = try TextTransformationRequest(
                     sourceText: request.text,
                     prompt: prompt,
-                    model: request.settings.textCorrectionConfiguration
-                        .resolvedModel
+                    model: processing.model,
+                    reasoningEffort: processing.reasoningEffort,
+                    requestTimeoutSeconds: processing.requestTimeoutSeconds
                 )
             } catch {
                 return .failure(.invalidConfiguration)

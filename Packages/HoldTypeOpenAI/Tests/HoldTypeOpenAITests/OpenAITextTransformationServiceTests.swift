@@ -108,6 +108,38 @@ struct OpenAITextTransformationServiceTests {
         #expect(output == expectedOutput)
     }
 
+    @Test func requestSpecificReasoningAndTimeoutOverrideServiceDefaults() async throws {
+        let loader = TransformationFakeURLLoader(
+            result: .success(
+                try responseData(output: "Premium result"),
+                makeTransformationHTTPResponse(statusCode: 200)
+            )
+        )
+        let sleeper = TransformationFakeTimeoutSleeper()
+        let service = makeService(
+            loader: loader,
+            sleeper: sleeper,
+            requestTimeout: 4
+        )
+        let request = try TextTransformationRequest(
+            sourceText: "Source",
+            prompt: "Rewrite it.",
+            model: "gpt-5.6-sol",
+            reasoningEffort: .max,
+            requestTimeoutSeconds: 60
+        )
+
+        _ = try await service.transform(request, credential: testCredential())
+
+        let sentRequest = try #require(loader.requests.first)
+        #expect(sentRequest.timeoutInterval == 60)
+        #expect(sleeper.sleepCalls == [60])
+        let payload = try decodedRequestPayload(from: sentRequest)
+        let reasoning = try #require(payload["reasoning"] as? [String: Any])
+        #expect(payload["model"] as? String == "gpt-5.6-sol")
+        #expect(reasoning["effort"] as? String == "max")
+    }
+
     @Test func whitespaceOnlyAndMissingOutputAreRejected() async throws {
         for response in [
             try responseData(output: " \n\t "),

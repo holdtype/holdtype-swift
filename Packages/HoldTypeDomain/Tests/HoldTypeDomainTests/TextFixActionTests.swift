@@ -4,12 +4,17 @@ import HoldTypeDomain
 struct TextFixActionTests {
     @Test func customActionPreservesEveryValidatedValueExactly() throws {
         let prompt = "  Preserve this prompt exactly.\n"
+        let processingProfile = try TextFixProcessingProfile.custom(
+            model: "gpt-custom",
+            reasoningEffort: .high
+        )
         let action = try TextFixAction(
             id: "user.example",
             kind: .customPrompt,
             title: "  Example Fix  ",
             icon: .rewrite,
             prompt: prompt,
+            processingProfile: processingProfile,
             isEnabled: false
         )
 
@@ -18,6 +23,7 @@ struct TextFixActionTests {
         #expect(action.title == "  Example Fix  ")
         #expect(action.icon == .rewrite)
         #expect(action.prompt == prompt)
+        #expect(action.processingProfile == processingProfile)
         #expect(action.isEnabled == false)
     }
 
@@ -75,6 +81,16 @@ struct TextFixActionTests {
                 icon: .translate,
                 prompt: nil,
                 isEnabled: false
+            )
+        }
+        #expect(throws: TextFixAction.ValidationError.unexpectedProcessingProfile) {
+            try TextFixAction(
+                id: TextFixAction.translateIdentifier,
+                kind: .translate,
+                title: "Translate",
+                icon: .translate,
+                prompt: nil,
+                processingProfile: .gpt56SolMax
             )
         }
     }

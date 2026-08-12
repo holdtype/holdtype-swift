@@ -8,6 +8,7 @@ struct FixesEditorCustomDetailView: View {
     var body: some View {
         Form {
             identitySection
+            FixesEditorProcessingSection(model: model)
             promptSection
         }
         .formStyle(.grouped)

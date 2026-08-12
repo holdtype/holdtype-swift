@@ -44,6 +44,7 @@ public struct TextFixAction:
         case unexpectedPrompt
         case emptyPrompt
         case promptTooLarge(maximumUTF8ByteCount: Int)
+        case unexpectedProcessingProfile
         case builtInActionCannotBeDisabled
     }
 
@@ -58,6 +59,7 @@ public struct TextFixAction:
     public let title: String
     public let icon: TextFixIcon
     public let prompt: String?
+    public let processingProfile: TextFixProcessingProfile
     public let isEnabled: Bool
 
     public init(
@@ -66,6 +68,7 @@ public struct TextFixAction:
         title: String,
         icon: TextFixIcon,
         prompt: String?,
+        processingProfile: TextFixProcessingProfile = .inherit,
         isEnabled: Bool = true
     ) throws {
         try Self.validateIdentifier(id)
@@ -76,6 +79,7 @@ public struct TextFixAction:
             title: title,
             icon: icon,
             prompt: prompt,
+            processingProfile: processingProfile,
             isEnabled: isEnabled
         )
 
@@ -85,6 +89,7 @@ public struct TextFixAction:
             title: title,
             icon: icon,
             prompt: prompt,
+            processingProfile: processingProfile,
             isEnabled: isEnabled
         )
     }
@@ -106,6 +111,7 @@ public struct TextFixAction:
                 "titleCharacterCount": title.count,
                 "icon": icon.rawValue,
                 "prompt": "<redacted>",
+                "processingPreset": processingProfile.preset.rawValue,
                 "isEnabled": isEnabled,
             ]
         )
@@ -118,6 +124,7 @@ public struct TextFixAction:
             title: title,
             icon: icon,
             prompt: prompt,
+            processingProfile: processingProfile,
             isEnabled: isEnabled
         )
     }
@@ -128,6 +135,7 @@ public struct TextFixAction:
         title: String,
         icon: TextFixIcon,
         prompt: String?,
+        processingProfile: TextFixProcessingProfile,
         isEnabled: Bool
     ) {
         self.id = id
@@ -135,6 +143,7 @@ public struct TextFixAction:
         self.title = title
         self.icon = icon
         self.prompt = prompt
+        self.processingProfile = processingProfile
         self.isEnabled = isEnabled
     }
 
@@ -166,6 +175,7 @@ public struct TextFixAction:
         title: String,
         icon: TextFixIcon,
         prompt: String?,
+        processingProfile: TextFixProcessingProfile,
         isEnabled: Bool
     ) throws {
         switch kind {
@@ -179,6 +189,7 @@ public struct TextFixAction:
                 icon: icon,
                 expectedIcon: .translate,
                 prompt: prompt,
+                processingProfile: processingProfile,
                 isEnabled: isEnabled
             )
         case .fix:
@@ -191,6 +202,7 @@ public struct TextFixAction:
                 icon: icon,
                 expectedIcon: .fix,
                 prompt: prompt,
+                processingProfile: processingProfile,
                 isEnabled: isEnabled
             )
         case .customPrompt:
@@ -217,6 +229,7 @@ public struct TextFixAction:
         icon: TextFixIcon,
         expectedIcon: TextFixIcon,
         prompt: String?,
+        processingProfile: TextFixProcessingProfile,
         isEnabled: Bool
     ) throws {
         guard title == expectedTitle else {
@@ -227,6 +240,9 @@ public struct TextFixAction:
         }
         guard prompt == nil else {
             throw ValidationError.unexpectedPrompt
+        }
+        guard processingProfile == .inherit else {
+            throw ValidationError.unexpectedProcessingProfile
         }
         guard isEnabled else {
             throw ValidationError.builtInActionCannotBeDisabled
@@ -239,6 +255,7 @@ public struct TextFixAction:
         title: "Translate",
         icon: .translate,
         prompt: nil,
+        processingProfile: .inherit,
         isEnabled: true
     )
 
@@ -248,6 +265,7 @@ public struct TextFixAction:
         title: "Correct Text",
         icon: .fix,
         prompt: nil,
+        processingProfile: .inherit,
         isEnabled: true
     )
 
@@ -255,7 +273,8 @@ public struct TextFixAction:
         id: String,
         title: String,
         icon: TextFixIcon,
-        prompt: String
+        prompt: String,
+        processingProfile: TextFixProcessingProfile = .inherit
     ) -> TextFixAction {
         TextFixAction(
             validatedID: id,
@@ -263,6 +282,7 @@ public struct TextFixAction:
             title: title,
             icon: icon,
             prompt: prompt,
+            processingProfile: processingProfile,
             isEnabled: true
         )
     }

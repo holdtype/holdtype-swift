@@ -97,6 +97,35 @@ struct TextFixExecutionServiceTests {
         #expect(request.sourceText == "  one, two  ")
         #expect(request.prompt == action.prompt)
         #expect(request.model == "custom-model")
+        #expect(request.reasoningEffort == .low)
+        #expect(request.requestTimeoutSeconds == 20)
+    }
+
+    @Test func premiumCustomFixUsesItsOwnModelReasoningAndTimeout() async throws {
+        let transformation = FakeFixTransformationService(output: "Premium")
+        let service = makeService(transformation: transformation)
+        var settings = AppSettings.defaults
+        settings.textCorrectionModelPreset = .fast
+        let action = try TextFixAction(
+            id: "custom.premium",
+            kind: .customPrompt,
+            title: "Premium Rewrite",
+            icon: .rewrite,
+            prompt: "Rewrite naturally.",
+            processingProfile: .gpt56SolMax
+        )
+
+        _ = try await service.execute(
+            action: action,
+            sourceText: "Source",
+            settings: settings,
+            credential: credential
+        )
+
+        let request = try #require(transformation.requests.first)
+        #expect(request.model == "gpt-5.6-sol")
+        #expect(request.reasoningEffort == .max)
+        #expect(request.requestTimeoutSeconds == 60)
     }
 
     @Test func cancellationFansOutToEveryProvider() {

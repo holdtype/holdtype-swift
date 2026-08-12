@@ -72,9 +72,13 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
             transformationRequest: request,
             credential: credential
         )
-        urlRequest.timeoutInterval = requestTimeout
+        let effectiveTimeout = request.requestTimeoutSeconds ?? requestTimeout
+        urlRequest.timeoutInterval = effectiveTimeout
 
-        let (data, response) = try await loadWithTimeout(urlRequest)
+        let (data, response) = try await loadWithTimeout(
+            urlRequest,
+            timeout: effectiveTimeout
+        )
         try validateHTTPResponse(response)
         return try parseOutput(from: data)
     }
@@ -102,7 +106,9 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
                         ]
                     ),
                 ],
-                reasoning: OpenAITextTransformationReasoning(effort: "low"),
+                reasoning: OpenAITextTransformationReasoning(
+                    effort: transformationRequest.reasoningEffort.rawValue
+                ),
                 text: OpenAITextTransformationTextConfig(
                     format: OpenAITextTransformationTextFormat(type: "text"),
                     verbosity: "low"
@@ -124,12 +130,15 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
         }
     }
 
-    private func loadWithTimeout(_ request: URLRequest) async throws -> (Data, URLResponse) {
+    private func loadWithTimeout(
+        _ request: URLRequest,
+        timeout: TimeInterval
+    ) async throws -> (Data, URLResponse) {
         do {
             return try await requestTaskCoordinator.perform {
                 try await urlLoader.loadData(for: request)
             } deadline: {
-                try await timeoutSleeper.sleep(seconds: requestTimeout)
+                try await timeoutSleeper.sleep(seconds: timeout)
                 throw OpenAITextTransformationServiceError.timedOut
             }
         } catch let error as OpenAITextTransformationServiceError {

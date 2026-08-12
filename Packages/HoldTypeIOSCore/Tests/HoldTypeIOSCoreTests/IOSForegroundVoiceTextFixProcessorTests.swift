@@ -71,12 +71,9 @@ struct IOSForegroundVoiceTextFixProcessorTests {
         try await fixture.expectVoiceStateUnchanged()
     }
 
-    @Test func customFixProjectsExactSourcePromptModelAndReturnsExactOutput()
+    @Test func customFixProjectsExactSourcePromptProcessingProfileAndOutput()
         async throws {
-        var settings = IOSAppSettings.defaults
-        settings.textCorrectionConfiguration.modelPreset = .custom
-        settings.textCorrectionConfiguration.customModel = "gpt-custom-fix"
-        let fixture = try await ProcessorFixture(settings: settings)
+        let fixture = try await ProcessorFixture()
         defer { fixture.removeFiles() }
         let action = try TextFixAction(
             id: "test.expand",
@@ -84,6 +81,7 @@ struct IOSForegroundVoiceTextFixProcessorTests {
             title: "Expand",
             icon: .expand,
             prompt: "Expand without changing the language.",
+            processingProfile: .gpt56SolMax,
             isEnabled: true
         )
         let calls = TextFixProcessorCallLog()
@@ -95,7 +93,9 @@ struct IOSForegroundVoiceTextFixProcessorTests {
                     calls.record("transform")
                     #expect(request.sourceText == exactSource)
                     #expect(request.prompt == action.prompt)
-                    #expect(request.model == "gpt-custom-fix")
+                    #expect(request.model == "gpt-5.6-sol")
+                    #expect(request.reasoningEffort == .max)
+                    #expect(request.requestTimeoutSeconds == 60)
                     return exactOutput
                 }
             )

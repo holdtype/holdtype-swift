@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import HoldTypeDomain
 
@@ -9,12 +10,16 @@ struct TextTransformationRequestTests {
         let request = try TextTransformationRequest(
             sourceText: source,
             prompt: prompt,
-            model: model
+            model: model,
+            reasoningEffort: .max,
+            requestTimeoutSeconds: 60
         )
 
         #expect(request.sourceText == source)
         #expect(request.prompt == prompt)
         #expect(request.model == model)
+        #expect(request.reasoningEffort == .max)
+        #expect(request.requestTimeoutSeconds == 60)
     }
 
     @Test func rejectsBlankSourcePromptAndModel() {
@@ -38,6 +43,16 @@ struct TextTransformationRequestTests {
                 prompt: "Prompt",
                 model: " \n"
             )
+        }
+        for timeout: TimeInterval in [0, -1, .infinity, .nan] {
+            #expect(throws: TextTransformationRequest.ValidationError.invalidRequestTimeout) {
+                try TextTransformationRequest(
+                    sourceText: "Source",
+                    prompt: "Prompt",
+                    model: "model",
+                    requestTimeoutSeconds: timeout
+                )
+            }
         }
     }
 

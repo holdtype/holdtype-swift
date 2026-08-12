@@ -32,6 +32,7 @@ func makeCustomTextFixAction(
     title: String = "Example",
     icon: TextFixIcon = .custom,
     prompt: String = "Rewrite this text.",
+    processingProfile: TextFixProcessingProfile = .inherit,
     isEnabled: Bool = true
 ) throws -> TextFixAction {
     try TextFixAction(
@@ -40,12 +41,13 @@ func makeCustomTextFixAction(
         title: title,
         icon: icon,
         prompt: prompt,
+        processingProfile: processingProfile,
         isEnabled: isEnabled
     )
 }
 
-func textFixRootData(actions: Any?) throws -> Data {
-    var root: [String: Any] = ["schemaVersion": 1]
+func textFixRootData(actions: Any?, schemaVersion: Int = 1) throws -> Data {
+    var root: [String: Any] = ["schemaVersion": schemaVersion]
     if let actions {
         root["actions"] = actions
     }
@@ -53,6 +55,18 @@ func textFixRootData(actions: Any?) throws -> Data {
         withJSONObject: root,
         options: [.sortedKeys]
     )
+}
+
+func textFixV2ActionObject(_ action: TextFixAction) -> [String: Any] {
+    var object = textFixActionObject(action)
+    object["processingProfile"] = action.processingProfile.preset.rawValue
+    if let customModel = action.processingProfile.customModel {
+        object["customModel"] = customModel
+    }
+    if let effort = action.processingProfile.customReasoningEffort {
+        object["reasoningEffort"] = effort.rawValue
+    }
+    return object
 }
 
 func textFixBuiltInActionObjects() -> [[String: Any]] {

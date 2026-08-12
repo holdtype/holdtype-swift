@@ -23,7 +23,7 @@ struct IOSTextFixCatalogStrictDecodingTests {
             ),
             (
                 Data(
-                    #"{"actions":[],"future":"PRIVATE","schemaVersion":2}"#.utf8
+                    #"{"actions":[],"future":"PRIVATE","schemaVersion":3}"#.utf8
                 ),
                 .unsupportedSchemaVersion
             ),
@@ -243,6 +243,77 @@ struct IOSTextFixCatalogStrictDecodingTests {
                 actions: builtIns.map { $0 as Any } + tooManyCustomActions
             ),
             expectedError: .invalidCatalog
+        )
+    }
+
+    @Test func versionTwoProcessingProfilesAreRequiredAndStrict() async throws {
+        let builtIns = textFixBuiltInActionObjects().map { action in
+            replacingTextFixField(
+                action,
+                key: "processingProfile",
+                value: TextFixProcessingProfile.Preset.inherit.rawValue
+            )
+        }
+        let validCustom = textFixV2ActionObject(
+            try makeCustomTextFixAction(processingProfile: .gpt56SolMax)
+        )
+        let validData = try textFixRootData(
+            actions: builtIns + [validCustom],
+            schemaVersion: 2
+        )
+        let validRepository = makeTextFixCatalogRepository(
+            fileSystem: TextFixCatalogFileSystemFake(data: validData)
+        )
+        let loaded = try await validRepository.load()
+        #expect(loaded.actions[2].processingProfile == .gpt56SolMax)
+
+        let invalidRows: [([String: Any], IOSTextFixCatalogRepositoryError)] = [
+            (
+                removingTextFixField(validCustom, key: "processingProfile"),
+                .missingRequiredValue(path: "actions[2].processingProfile")
+            ),
+            (
+                replacingTextFixField(
+                    validCustom,
+                    key: "processingProfile",
+                    value: "future-profile"
+                ),
+                .invalidValue(path: "actions[2].processingProfile")
+            ),
+            (
+                replacingTextFixField(
+                    validCustom,
+                    key: "customModel",
+                    value: "not-allowed"
+                ),
+                .invalidValue(path: "actions[2]")
+            ),
+        ]
+        for (row, error) in invalidRows {
+            await expectLoadFailure(
+                data: try textFixRootData(
+                    actions: builtIns + [row],
+                    schemaVersion: 2
+                ),
+                expectedError: error
+            )
+        }
+
+        var customRow = textFixV2ActionObject(
+            try makeCustomTextFixAction(
+                processingProfile: try .custom(
+                    model: "gpt-custom",
+                    reasoningEffort: .high
+                )
+            )
+        )
+        customRow.removeValue(forKey: "customModel")
+        await expectLoadFailure(
+            data: try textFixRootData(
+                actions: builtIns + [customRow],
+                schemaVersion: 2
+            ),
+            expectedError: .missingRequiredValue(path: "actions[2].customModel")
         )
     }
 

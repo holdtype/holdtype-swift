@@ -1,6 +1,7 @@
 # Text Fixes
 
 Status: active product contract.
+Contract revision: 2.
 
 ## Goal
 
@@ -45,7 +46,16 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - New catalogs also include editable prompt actions for Improve Writing, Make
   Shorter, Summarize, Bullet Points, Change to Casual, and Markdown.
 - A custom Fix has one stable identifier, title, supported icon, prompt,
-  enabled state, and user-defined position after the two built-ins.
+  processing profile, enabled state, and user-defined position after the two
+  built-ins.
+- The processing profile is one of:
+  - `Use Writing & Correction Settings`, which preserves the existing saved
+    model route with low reasoning and is the default for new and migrated
+    custom Fixes;
+  - `GPT-5.6 Terra`, using `gpt-5.6-terra` with medium reasoning;
+  - `GPT-5.6 Sol — Best Quality`, using `gpt-5.6-sol` with maximum reasoning;
+  - `Custom`, using one non-empty model identifier limited to 128 UTF-8 bytes
+    and an explicit supported reasoning effort.
 - A title is required and limited to 80 user-perceived characters.
 - A custom prompt is required and limited to 8 KiB of UTF-8.
 - The icon comes from a finite HoldType-supported SF Symbols set so every
@@ -96,11 +106,15 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   actions are not queued.
 - The request freezes the action, exact source, target identity, and target
   revision or fingerprint.
-- Custom Fixes use the saved Writing & Correction model with their own prompt.
-  They do not inherit transcript-correction length-ratio safety rules.
+- Custom Fixes resolve the model and reasoning effort from their saved
+  processing profile. The default profile uses the saved Writing & Correction
+  model with low reasoning. They do not inherit transcript-correction
+  length-ratio safety rules.
 - Every remote request uses the current app-owned OpenAI credential, any
-  platform-level provider authorization that applies, `store: false`, explicit
-  cancellation, and a 20-second maximum wait.
+  platform-level provider authorization that applies, `store: false`, and
+  explicit cancellation. The normal maximum wait is 20 seconds. The explicit
+  `GPT-5.6 Sol — Best Quality` profile has a 60-second maximum wait because its
+  maximum reasoning effort is intentionally slower.
 - Custom Fix output is used exactly as returned. HoldType does not trim,
   normalize typography, strip Markdown, or rewrite meaningful whitespace.
   Empty or whitespace-only output is invalid.
@@ -200,8 +214,13 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   Title field receives keyboard focus with the temporary title selected so the
   person can type immediately. If deletion is irreversible, HoldType asks for
   confirmation before removing the Fix.
-- A selected custom Fix provides title, prompt, icon, and enabled state;
-  changes save automatically 500 ms after the most recent edit, and any
+- A selected custom Fix provides title, prompt, icon, processing profile, and
+  enabled state. The processing picker describes the resolved model and
+  reasoning effort. `GPT-5.6 Sol — Best Quality` shows a prominent warning that
+  it is slower, uses the person's OpenAI API account, and typically costs about
+  `$0.08–$0.14` for a medium social post at the pricing reviewed on 2026-08-12;
+  actual charges vary. Custom reveals model and reasoning controls. Changes
+  save automatically 500 ms after the most recent edit, and any
   pending change saves before the user selects another Fix or closes the
   editor. The detail pane has no Save or Delete buttons. Users drag custom rows
   to reorder them.
@@ -333,7 +352,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 ## Route / State / Data Implications
 
 - macOS persists one versioned local Fixes catalog and shortcut registration
-  status.
+  status. Catalog schema v2 stores the processing profile. Schema v1 loads as
+  `Use Writing & Correction Settings` without rewriting the source file until
+  the user next saves a valid catalog.
 - iOS persists one versioned app-private Fixes catalog.
 - iOS publishes one replaceable metadata snapshot plus one replaceable
   immediate-request/result record family to the existing App Group boundary.
@@ -345,8 +366,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 
 ## Verification Mapping
 
-- Domain and persistence tests cover initial defaults, CRUD, ordering,
-  validation, corruption, migration, byte bounds, and redaction.
+- Domain and persistence tests cover initial defaults, processing profiles,
+  v1-to-v2 migration, CRUD, ordering, validation, corruption, byte bounds, and
+  redaction.
 - Provider tests cover exact prompt/source projection, typed action routing,
   exact custom output, timeout, cancellation, empty output, late response, and
   no live calls.

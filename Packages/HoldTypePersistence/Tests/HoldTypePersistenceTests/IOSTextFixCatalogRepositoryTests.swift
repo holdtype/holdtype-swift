@@ -83,23 +83,30 @@ struct IOSTextFixCatalogRepositoryTests {
         #expect(loaded.actions[1].id == TextFixAction.fixIdentifier)
         #expect(loaded.actions[1].title == "Correct Text")
         #expect(loaded.actions[2] == custom)
+        #expect(loaded.actions[2].processingProfile == .inherit)
         #expect(fileSystem.replacementCallCount == 0)
     }
 
-    @Test func canonicalV1SaveRoundTripsOrderStateAndExactPromptWhitespace()
+    @Test func canonicalV2SaveRoundTripsProfilesOrderStateAndExactPromptWhitespace()
         async throws {
         let first = try makeCustomTextFixAction(
             id: "custom.first",
             title: " First title ",
             icon: .rewrite,
             prompt: " \n  Preserve all of this whitespace. \t ",
+            processingProfile: .gpt56Terra,
             isEnabled: false
+        )
+        let customProfile = try TextFixProcessingProfile.custom(
+            model: "  gpt-custom-fix  ",
+            reasoningEffort: .xhigh
         )
         let second = try makeCustomTextFixAction(
             id: "custom.second",
             title: "Second",
             icon: .formal,
-            prompt: "Return the result."
+            prompt: "Return the result.",
+            processingProfile: customProfile
         )
         let catalog = try makeTextFixCatalog(customActions: [first, second])
         let fileSystem = TextFixCatalogFileSystemFake()
@@ -122,6 +129,9 @@ struct IOSTextFixCatalogRepositoryTests {
         )
         #expect(loaded.actions[2].title == " First title ")
         #expect(!loaded.actions[2].isEnabled)
+        #expect(loaded.actions[2].processingProfile == .gpt56Terra)
+        #expect(loaded.actions[3].processingProfile.customModel == "gpt-custom-fix")
+        #expect(loaded.actions[3].processingProfile.customReasoningEffort == .xhigh)
         #expect(fileSystem.replacementPolicies == [
             expectedTextFixCatalogFilePolicy,
         ])
@@ -131,10 +141,15 @@ struct IOSTextFixCatalogRepositoryTests {
             JSONSerialization.jsonObject(with: data) as? [String: Any]
         )
         #expect(Set(root.keys) == ["schemaVersion", "actions"])
+        #expect(root["schemaVersion"] as? Int == 2)
         let rows = try #require(root["actions"] as? [[String: Any]])
         #expect(rows.count == 4)
         #expect(rows[0]["prompt"] == nil)
         #expect(rows[2]["prompt"] as? String == first.prompt)
+        #expect(rows[2]["processingProfile"] as? String == "gpt-5.6-terra")
+        #expect(rows[3]["processingProfile"] as? String == "custom")
+        #expect(rows[3]["customModel"] as? String == "gpt-custom-fix")
+        #expect(rows[3]["reasoningEffort"] as? String == "xhigh")
     }
 
     @Test func failedReadAndAtomicReplacementUseTypedErrorsAndPreserveBytes()

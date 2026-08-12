@@ -193,6 +193,18 @@ final class FixesEditorModel: ObservableObject {
         mutateSelectedDraft { $0.icon = icon }
     }
 
+    func setSelectedProcessingPreset(_ preset: TextFixProcessingProfile.Preset) {
+        mutateSelectedDraft { $0.processingPreset = preset }
+    }
+
+    func setSelectedCustomModel(_ model: String) {
+        mutateSelectedDraft { $0.customModel = model }
+    }
+
+    func setSelectedReasoningEffort(_ effort: TextFixReasoningEffort) {
+        mutateSelectedDraft { $0.reasoningEffort = effort }
+    }
+
     func setSelectedEnabled(_ isEnabled: Bool) {
         mutateSelectedDraft { $0.isEnabled = isEnabled }
     }
