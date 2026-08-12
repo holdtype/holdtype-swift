@@ -126,14 +126,15 @@ This spec covers:
   use saved-key presence or Keychain readability as a permission state.
 - The Settings window should include a Billing section for local OpenAI usage
   estimates.
-- Billing must be described as an estimate from this Mac's successful local
-  transcriptions, not the user's actual OpenAI invoice, balance, or account
-  usage dashboard.
+- Billing must be described as an estimate from successful OpenAI requests made
+  by HoldType on this Mac, not the user's actual OpenAI invoice, balance, or
+  account usage dashboard.
 - Billing should show today's estimated usage, recent average usage per day,
   the recent 30-day total, and a projected 30-day cost based on the recent
-  local daily average.
-- Billing should show a compact daily chart for recent local usage, with a
-  user-selectable view for estimated cost or audio minutes.
+  local daily average across locally priced OpenAI request categories.
+- Billing should show one compact daily chart with Cost, Audio, and Text views
+  plus a category breakdown. Detailed behavior is governed by
+  `openai-usage-estimate.md`.
 - If the selected transcription model has known local pricing, Billing may show
   estimated USD. If a model is unknown, Billing must still show minutes and
   explicitly mark cost as unavailable or partial instead of inventing a price.
@@ -600,7 +601,7 @@ action metadata and custom prompts but no source text, provider result,
 credential, host identity, or request history. Corrupt or unsupported bytes are
 preserved and reported instead of being silently replaced by defaults.
 
-Local OpenAI usage estimate records may store:
+Legacy local OpenAI transcription usage estimate records may store:
 
 - timestamp
 - transcription model
@@ -613,6 +614,10 @@ The current local price for `gpt-transcribe` is `$0.0045` per audio minute,
 reviewed against OpenAI model/pricing documentation on 2026-08-04. Future
 pricing changes apply only to newly saved records unless a later product
 contract explicitly defines another migration.
+
+The versioned macOS usage event model, text-token measurements, pricing
+snapshots, migration, aggregation, privacy, and Reset behavior are governed by
+`openai-usage-estimate.md`.
 
 Transcript history persistence and retention, failed-attempt retry audio, and
 clearing behavior are governed by `transcript-history.md`.

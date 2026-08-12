@@ -21,9 +21,12 @@ struct TranscriptTranslationService: TranscriptTranslationServing {
     private let openAITextTranslationService: any OpenAITextTranslationServing
 
     init(
-        openAITextTranslationService: any OpenAITextTranslationServing = OpenAITextTranslationService()
+        openAITextTranslationService: (any OpenAITextTranslationServing)? = nil
     ) {
         self.openAITextTranslationService = openAITextTranslationService
+            ?? OpenAITextTranslationService(
+                usageReporter: OpenAIUsageStore.reporter(for: .translation)
+            )
     }
 
     func translate(

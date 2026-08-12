@@ -30,8 +30,11 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let requestTaskCoordinator: OpenAIRequestTaskCoordinator
+    private let usageReporter: OpenAITextUsageReporter
 
-    public init() {
+    public init(
+        usageReporter: @escaping OpenAITextUsageReporter = { _ in }
+    ) {
         self.init(
             endpointURL: Self.defaultEndpointURL,
             urlLoader: URLSession.shared,
@@ -40,7 +43,8 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
             maxOutputTokens: Self.defaultMaxOutputTokens,
             encoder: JSONEncoder(),
             decoder: JSONDecoder(),
-            requestTaskCoordinator: OpenAIRequestTaskCoordinator()
+            requestTaskCoordinator: OpenAIRequestTaskCoordinator(),
+            usageReporter: usageReporter
         )
     }
 
@@ -52,7 +56,8 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
         maxOutputTokens: Int = Self.defaultMaxOutputTokens,
         encoder: JSONEncoder = JSONEncoder(),
         decoder: JSONDecoder = JSONDecoder(),
-        requestTaskCoordinator: OpenAIRequestTaskCoordinator = OpenAIRequestTaskCoordinator()
+        requestTaskCoordinator: OpenAIRequestTaskCoordinator = OpenAIRequestTaskCoordinator(),
+        usageReporter: @escaping OpenAITextUsageReporter = { _ in }
     ) {
         self.endpointURL = endpointURL
         self.urlLoader = urlLoader
@@ -62,6 +67,7 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
         self.encoder = encoder
         self.decoder = decoder
         self.requestTaskCoordinator = requestTaskCoordinator
+        self.usageReporter = usageReporter
     }
 
     public func transform(
@@ -75,12 +81,19 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
         let effectiveTimeout = request.requestTimeoutSeconds ?? requestTimeout
         urlRequest.timeoutInterval = effectiveTimeout
 
-        let (data, response) = try await loadWithTimeout(
+        let (data, httpResponse) = try await loadWithTimeout(
             urlRequest,
             timeout: effectiveTimeout
         )
-        try validateHTTPResponse(response)
-        return try parseOutput(from: data)
+        try validateHTTPResponse(httpResponse)
+        let response = try decodeResponse(from: data)
+        await reportTextUsage(
+            responseModel: response.model,
+            requestedModel: request.model,
+            usage: response.usage,
+            reporter: usageReporter
+        )
+        return try parseOutput(from: response)
     }
 
     public func cancelActiveTransformation() {
@@ -177,14 +190,15 @@ public struct OpenAITextTransformationService: OpenAITextTransformationServing, 
         }
     }
 
-    private func parseOutput(from data: Data) throws -> String {
-        let response: OpenAITextTransformationResponse
+    private func decodeResponse(from data: Data) throws -> OpenAITextTransformationResponse {
         do {
-            response = try decoder.decode(OpenAITextTransformationResponse.self, from: data)
+            return try decoder.decode(OpenAITextTransformationResponse.self, from: data)
         } catch {
             throw OpenAITextTransformationServiceError.invalidResponse
         }
+    }
 
+    private func parseOutput(from response: OpenAITextTransformationResponse) throws -> String {
         let output = response.outputText ?? response.firstOutputText ?? ""
         guard !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw OpenAITextTransformationServiceError.emptyOutput

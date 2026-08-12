@@ -86,6 +86,10 @@ started with a dedicated shortcut.
   is not a post-transcription output intent. It changes only the captured text
   target and never Last Transcript, Last Result, History, or automatic
   insertion.
+- A successful translation provider response may create a local macOS text-usage
+  event from provider-reported token counts as governed by
+  `openai-usage-estimate.md`. Accounting does not store source or translated
+  text and does not change Last Transcript, Last Result, or History.
 
 ## Runtime Translation Request
 
@@ -204,9 +208,8 @@ The active dictation session state must carry an output intent so the
 recording-start event can determine whether the stopped session should produce
 normal output or translated output.
 
-Usage estimates for audio transcription remain governed by
-`openai-transcription.md`; translation token accounting requires a future
-usage-estimate spec before the Billing section may claim translation costs.
+Audio transcription remains governed by `openai-transcription.md`; macOS text
+translation usage is governed by `openai-usage-estimate.md`.
 
 ## Verification mapping
 
@@ -232,7 +235,3 @@ usage-estimate spec before the Billing section may claim translation costs.
 - Translation boundary tests should prove that no full `AppSettings`,
   transcription model/prompt, local replacement configuration, or output
   preference reaches the provider adapter.
-
-## Unknowns requiring confirmation
-
-- Whether Billing should estimate text translation costs.

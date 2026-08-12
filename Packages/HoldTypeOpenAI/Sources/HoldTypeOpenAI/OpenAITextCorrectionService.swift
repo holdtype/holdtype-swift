@@ -30,8 +30,11 @@ public struct OpenAITextCorrectionService: OpenAITextCorrectionServing, Sendable
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let requestTaskCoordinator: OpenAIRequestTaskCoordinator
+    private let usageReporter: OpenAITextUsageReporter
 
-    public init() {
+    public init(
+        usageReporter: @escaping OpenAITextUsageReporter = { _ in }
+    ) {
         self.init(
             endpointURL: Self.defaultEndpointURL,
             urlLoader: URLSession.shared,
@@ -40,7 +43,8 @@ public struct OpenAITextCorrectionService: OpenAITextCorrectionServing, Sendable
             maxOutputTokens: Self.defaultMaxOutputTokens,
             encoder: JSONEncoder(),
             decoder: JSONDecoder(),
-            requestTaskCoordinator: OpenAIRequestTaskCoordinator()
+            requestTaskCoordinator: OpenAIRequestTaskCoordinator(),
+            usageReporter: usageReporter
         )
     }
 
@@ -52,7 +56,8 @@ public struct OpenAITextCorrectionService: OpenAITextCorrectionServing, Sendable
         maxOutputTokens: Int = Self.defaultMaxOutputTokens,
         encoder: JSONEncoder = JSONEncoder(),
         decoder: JSONDecoder = JSONDecoder(),
-        requestTaskCoordinator: OpenAIRequestTaskCoordinator = OpenAIRequestTaskCoordinator()
+        requestTaskCoordinator: OpenAIRequestTaskCoordinator = OpenAIRequestTaskCoordinator(),
+        usageReporter: @escaping OpenAITextUsageReporter = { _ in }
     ) {
         self.endpointURL = endpointURL
         self.urlLoader = urlLoader
@@ -62,6 +67,7 @@ public struct OpenAITextCorrectionService: OpenAITextCorrectionServing, Sendable
         self.encoder = encoder
         self.decoder = decoder
         self.requestTaskCoordinator = requestTaskCoordinator
+        self.usageReporter = usageReporter
     }
 
     public func correct(
@@ -76,9 +82,16 @@ public struct OpenAITextCorrectionService: OpenAITextCorrectionServing, Sendable
         )
         request.timeoutInterval = requestTimeout
 
-        let (data, response) = try await loadWithTimeout(request)
-        try validateHTTPResponse(response)
-        return try parseCorrection(from: data)
+        let (data, httpResponse) = try await loadWithTimeout(request)
+        try validateHTTPResponse(httpResponse)
+        let response = try decodeResponse(from: data)
+        await reportTextUsage(
+            responseModel: response.model,
+            requestedModel: configuration.resolvedModel,
+            usage: response.usage,
+            reporter: usageReporter
+        )
+        return try parseCorrection(from: response)
     }
 
     public func cancelActiveCorrection() {
@@ -169,17 +182,20 @@ public struct OpenAITextCorrectionService: OpenAITextCorrectionServing, Sendable
         }
     }
 
-    private func parseCorrection(from data: Data) throws -> String {
+    private func decodeResponse(from data: Data) throws -> OpenAITextCorrectionResponse {
         do {
-            let response = try decoder.decode(OpenAITextCorrectionResponse.self, from: data)
+            return try decoder.decode(OpenAITextCorrectionResponse.self, from: data)
+        } catch {
+            throw OpenAITextCorrectionServiceError.invalidResponse
+        }
+    }
+
+    private func parseCorrection(from response: OpenAITextCorrectionResponse) throws -> String {
+        do {
             let outputText = response.outputText ?? response.firstOutputText
             return try AcceptedTranscript(rawText: outputText ?? "").text
         } catch AcceptedTranscript.ValidationError.emptyText {
             throw OpenAITextCorrectionServiceError.emptyCorrection
-        } catch let error as OpenAITextCorrectionServiceError {
-            throw error
-        } catch {
-            throw OpenAITextCorrectionServiceError.invalidResponse
         }
     }
 
@@ -293,8 +309,10 @@ private struct OpenAITextCorrectionTextFormat: Encodable {
 }
 
 private struct OpenAITextCorrectionResponse: Decodable {
+    let model: String?
     let outputText: String?
     let output: [OpenAITextCorrectionOutputItem]?
+    let usage: OpenAITextResponseUsageWire?
 
     var firstOutputText: String? {
         output?
@@ -305,8 +323,10 @@ private struct OpenAITextCorrectionResponse: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case model
         case outputText = "output_text"
         case output
+        case usage
     }
 }
 

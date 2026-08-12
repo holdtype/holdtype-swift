@@ -128,7 +128,11 @@ model-based correction on.
   transcript is the normal transcription result.
 - The immediate built-in Fix action may force this saved correction model and
   prompt for one captured text target without enabling automatic correction.
-  It changes no dictation, Latest, History, or Usage state.
+  It changes no dictation, Latest, History, or transcription-usage state.
+- A successful correction provider response may create a local macOS text-usage
+  event from provider-reported token counts as governed by
+  `openai-usage-estimate.md`. This accounting does not store transcript text or
+  change dictation, Latest, or History state.
 
 ## Invariants
 
@@ -246,9 +250,8 @@ Keychain still stores only the OpenAI API key.
 OpenAI correction uses the same Keychain API key as transcription but is a
 separate request from the audio transcription request.
 
-Usage estimates for audio transcription remain governed by
-`openai-transcription.md`; text-correction token accounting requires a future
-usage-estimate spec before the Billing section may claim correction costs.
+Audio transcription remains governed by `openai-transcription.md`; macOS text
+correction usage is governed by `openai-usage-estimate.md`.
 
 ## Verification mapping
 
@@ -274,5 +277,4 @@ usage-estimate spec before the Billing section may claim correction costs.
 
 - Whether local plain-typography cleanup should remain default-on after
   real-world dictation testing.
-- Whether correction usage should appear in the Billing estimate.
 - Whether future presets should expose style modes beyond minimal correction.

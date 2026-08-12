@@ -20,16 +20,24 @@ struct TextFixExecutionService: TextFixExecuting {
     private let transformationService: any OpenAITextTransformationServing
 
     init(
-        translationService: any TranscriptTranslationServing =
-            TranscriptTranslationService(),
-        correctionService: any OpenAITextCorrectionServing =
-            OpenAITextCorrectionService(),
-        transformationService: any OpenAITextTransformationServing =
-            OpenAITextTransformationService()
+        translationService: (any TranscriptTranslationServing)? = nil,
+        correctionService: (any OpenAITextCorrectionServing)? = nil,
+        transformationService: (any OpenAITextTransformationServing)? = nil
     ) {
         self.translationService = translationService
+            ?? TranscriptTranslationService(
+                openAITextTranslationService: OpenAITextTranslationService(
+                    usageReporter: OpenAIUsageStore.reporter(for: .translation)
+                )
+            )
         self.correctionService = correctionService
+            ?? OpenAITextCorrectionService(
+                usageReporter: OpenAIUsageStore.reporter(for: .textCorrection)
+            )
         self.transformationService = transformationService
+            ?? OpenAITextTransformationService(
+                usageReporter: OpenAIUsageStore.reporter(for: .fixes)
+            )
     }
 
     func execute(

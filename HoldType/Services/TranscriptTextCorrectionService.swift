@@ -22,10 +22,13 @@ struct TranscriptTextCorrectionService: TextCorrectionServing {
     private let localPostProcessor: TranscriptTextPostProcessor
 
     init(
-        openAITextCorrectionService: any OpenAITextCorrectionServing = OpenAITextCorrectionService(),
+        openAITextCorrectionService: (any OpenAITextCorrectionServing)? = nil,
         localPostProcessor: TranscriptTextPostProcessor = TranscriptTextPostProcessor()
     ) {
         self.openAITextCorrectionService = openAITextCorrectionService
+            ?? OpenAITextCorrectionService(
+                usageReporter: OpenAIUsageStore.reporter(for: .textCorrection)
+            )
         self.localPostProcessor = localPostProcessor
     }
 

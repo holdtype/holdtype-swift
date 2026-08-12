@@ -28,6 +28,7 @@ struct SettingsDetailView: View {
     let transcriptHistoryError: String?
     let openAIUsageSummary: OpenAIUsageSummary
     let openAIUsageStorageError: String?
+    let openAIUsageEstimateNotice: String?
     let recordingCacheSummary: RecordingCacheSummary
     let recordingCacheError: String?
     let diagnosticReportSummary: DiagnosticReportSummary
@@ -112,6 +113,7 @@ struct SettingsDetailView: View {
             BillingSettingsSection(
                 summary: openAIUsageSummary,
                 storageErrorMessage: openAIUsageStorageError,
+                estimateNoticeMessage: openAIUsageEstimateNotice,
                 onResetUsage: onResetOpenAIUsage
             )
         case .transcription:
@@ -197,6 +199,7 @@ struct SettingsDetailView: View {
         transcriptHistoryError: nil,
         openAIUsageSummary: .empty(),
         openAIUsageStorageError: nil,
+        openAIUsageEstimateNotice: nil,
         recordingCacheSummary: RecordingCacheSummary(
             directoryURL: URL(fileURLWithPath: "/tmp/HoldType/Recordings"),
             items: []

@@ -172,7 +172,7 @@ struct OpenAIUsageStoreTests {
         #expect(persistence.removedKeys == [OpenAIUsageStore.defaultStorageKey])
     }
 
-    @Test func legacyBareArrayLoadsAndResavesTheSameSevenKeys() throws {
+    @Test func legacyBareArrayMigratesToVersionedTranscriptionEvents() throws {
         let now = makeDate(year: 2026, month: 6, day: 22, hour: 12)
         let identifier = try #require(
             UUID(uuidString: "71111111-1111-1111-1111-111111111111")
@@ -204,17 +204,15 @@ struct OpenAIUsageStoreTests {
         )
 
         let data = try #require(persistence.savedData)
-        let rows = try #require(
-            JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        let root = try #require(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
         )
-        let expectedKeys: Set<String> = [
-            "id", "timestamp", "model", "durationSeconds",
-            "priceUSDPerMinute", "estimatedCostUSD", "pricingSource",
-        ]
-        #expect(Set(try #require(rows.first).keys) == [
-            "id", "timestamp", "model", "durationSeconds",
-        ])
-        #expect(Set(try #require(rows.last).keys) == expectedKeys)
+        #expect(root["schemaVersion"] as? Int == 2)
+        let rows = try #require(root["events"] as? [[String: Any]])
+        #expect(rows.count == 2)
+        #expect(rows.allSatisfy { $0["category"] as? String == "transcription" })
+        #expect(rows.allSatisfy { $0["audioDurationSeconds"] != nil })
+        #expect(rows.allSatisfy { $0["durationSeconds"] == nil })
     }
 
     @Test func legacyUnknownPriceMayOmitItsThreeOptionalKeys() throws {

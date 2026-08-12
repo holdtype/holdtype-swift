@@ -137,6 +137,7 @@ struct SettingsView: View {
                 transcriptHistoryError: transcriptHistoryStore.storageErrorMessage,
                 openAIUsageSummary: OpenAIUsageSummary.make(events: openAIUsageStore.entries),
                 openAIUsageStorageError: openAIUsageStore.storageErrorMessage,
+                openAIUsageEstimateNotice: openAIUsageStore.estimateNoticeMessage,
                 recordingCacheSummary: recordingCacheSummary,
                 recordingCacheError: recordingCacheErrorMessage,
                 diagnosticReportSummary: diagnosticReportSummary,

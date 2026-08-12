@@ -1,13 +1,7 @@
-//
-//  OpenAIUsageStore.swift
-//  HoldType
-//
-//  Created by Codex on 6/22/26.
-//
-
 import Combine
 import Foundation
 import HoldTypeDomain
+import HoldTypeOpenAI
 
 protocol OpenAIUsagePersistence {
     func loadData(forKey key: String) throws -> Data?
@@ -16,17 +10,9 @@ protocol OpenAIUsagePersistence {
 }
 
 extension UserDefaults: OpenAIUsagePersistence {
-    func loadData(forKey key: String) throws -> Data? {
-        data(forKey: key)
-    }
-
-    func saveData(_ data: Data, forKey key: String) throws {
-        set(data, forKey: key)
-    }
-
-    func removeData(forKey key: String) throws {
-        removeObject(forKey: key)
-    }
+    func loadData(forKey key: String) throws -> Data? { data(forKey: key) }
+    func saveData(_ data: Data, forKey key: String) throws { set(data, forKey: key) }
+    func removeData(forKey key: String) throws { removeObject(forKey: key) }
 }
 
 enum OpenAIUsageStoreError: Error, Equatable, LocalizedError {
@@ -37,14 +23,10 @@ enum OpenAIUsageStoreError: Error, Equatable, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .loadFailed:
-            return "OpenAI usage estimate could not be loaded."
-        case .unreadableUsage:
-            return "Saved OpenAI usage estimate could not be read."
-        case .saveFailed:
-            return "OpenAI usage estimate could not be saved."
-        case .clearFailed:
-            return "OpenAI usage estimate could not be cleared."
+        case .loadFailed: return "OpenAI usage estimate could not be loaded."
+        case .unreadableUsage: return "Saved OpenAI usage estimate could not be read."
+        case .saveFailed: return "OpenAI usage estimate could not be saved."
+        case .clearFailed: return "OpenAI usage estimate could not be cleared."
         }
     }
 }
@@ -57,11 +39,13 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
 
     @Published private(set) var entries: [OpenAIUsageEvent]
     @Published private(set) var storageErrorMessage: String?
+    @Published private(set) var estimateNoticeMessage: String?
 
     private let persistence: any OpenAIUsagePersistence
     private let storageKey: String
     private let retentionDays: Int
-    private let pricing: OpenAIUsagePricing
+    private let transcriptionPricing: OpenAIUsagePricing
+    private let textPricing: OpenAITextUsagePricing
     private let calendar: Calendar
     private let now: () -> Date
     private let encoder: JSONEncoder
@@ -71,7 +55,8 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
         userDefaults: UserDefaults = .standard,
         storageKey: String = OpenAIUsageStore.defaultStorageKey,
         retentionDays: Int = OpenAIUsageStore.defaultRetentionDays,
-        pricing: OpenAIUsagePricing = .current,
+        transcriptionPricing: OpenAIUsagePricing = .current,
+        textPricing: OpenAITextUsagePricing = .current,
         calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init,
         encoder: JSONEncoder = JSONEncoder(),
@@ -81,7 +66,8 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
             persistence: userDefaults,
             storageKey: storageKey,
             retentionDays: retentionDays,
-            pricing: pricing,
+            transcriptionPricing: transcriptionPricing,
+            textPricing: textPricing,
             calendar: calendar,
             now: now,
             encoder: encoder,
@@ -93,7 +79,8 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
         persistence: any OpenAIUsagePersistence,
         storageKey: String = OpenAIUsageStore.defaultStorageKey,
         retentionDays: Int = OpenAIUsageStore.defaultRetentionDays,
-        pricing: OpenAIUsagePricing = .current,
+        transcriptionPricing: OpenAIUsagePricing = .current,
+        textPricing: OpenAITextUsagePricing = .current,
         calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init,
         encoder: JSONEncoder = JSONEncoder(),
@@ -102,15 +89,29 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
         self.persistence = persistence
         self.storageKey = storageKey
         self.retentionDays = max(1, retentionDays)
-        self.pricing = pricing
+        self.transcriptionPricing = transcriptionPricing
+        self.textPricing = textPricing
         self.calendar = calendar
         self.now = now
         self.encoder = encoder
         self.decoder = decoder
-        self.entries = []
-        self.storageErrorMessage = nil
-
+        entries = []
+        storageErrorMessage = nil
+        estimateNoticeMessage = nil
         reload()
+    }
+
+    nonisolated static func reporter(
+        for category: OpenAIUsageCategory
+    ) -> OpenAITextUsageReporter {
+        { observation in
+            await MainActor.run {
+                OpenAIUsageStore.shared.recordTextUsage(
+                    observation,
+                    category: category
+                )
+            }
+        }
     }
 
     func reload() {
@@ -124,57 +125,76 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
     }
 
     func recordSuccessfulTranscriptionUsage(_ usage: SuccessfulTranscriptionUsage) {
-        let event: OpenAIUsageEvent
         do {
-            event = try pricing.makeEvent(timestamp: now(), for: usage)
-        } catch {
-            storageErrorMessage = Self.userFacingMessage(
-                for: OpenAIUsageStoreError.saveFailed
-            )
-            return
-        }
-
-        do {
+            let event = try transcriptionPricing.makeEvent(timestamp: now(), for: usage)
             _ = try append(event)
         } catch {
-            storageErrorMessage = Self.userFacingMessage(for: error)
+            storageErrorMessage = Self.userFacingMessage(for: OpenAIUsageStoreError.saveFailed)
+        }
+    }
+
+    func recordTextUsage(
+        _ observation: OpenAITextUsageObservation,
+        category: OpenAIUsageCategory
+    ) {
+        switch observation {
+        case .unavailable:
+            estimateNoticeMessage = "Some OpenAI usage could not be measured, so this estimate may be incomplete."
+        case .measured(let usage):
+            do {
+                let event = OpenAIUsageEvent(
+                    timestamp: now(),
+                    category: category,
+                    usage: usage,
+                    pricing: textPricing
+                )
+                _ = try append(event)
+            } catch {
+                storageErrorMessage = Self.userFacingMessage(for: error)
+            }
         }
     }
 
     func load() throws -> [OpenAIUsageEvent] {
         let data: Data?
-
         do {
             data = try persistence.loadData(forKey: storageKey)
         } catch {
             throw OpenAIUsageStoreError.loadFailed
         }
+        guard let data else { return [] }
 
-        guard let data else {
-            return []
+        if let root = try? decoder.decode(OpenAIUsageRootWire.self, from: data) {
+            guard root.schemaVersion == 2 else { throw OpenAIUsageStoreError.unreadableUsage }
+            return try retainedEntries(validatedEvents(from: root.events))
         }
 
         do {
-            let wireEvents = try decoder.decode(
-                [LegacyOpenAIUsageEventWire].self,
-                from: data
-            )
+            let legacyRows = try decoder.decode([LegacyOpenAIUsageEventWire].self, from: data)
             var identifiers: Set<UUID> = []
-            let events = try wireEvents.map { wireEvent in
-                let event = try wireEvent.runtimeEvent()
-                guard identifiers.insert(event.id).inserted else {
+            let migrated = try legacyRows.map { row -> OpenAIUsageEvent in
+                var transcription = try row.runtimeEvent()
+                if let backfilled = try transcriptionPricing.backfilledEventIfEligible(transcription) {
+                    transcription = backfilled
+                }
+                guard identifiers.insert(transcription.id).inserted else {
                     throw OpenAIUsageStoreError.unreadableUsage
                 }
-                return event
+                return OpenAIUsageEvent(transcription: transcription)
             }
-            let migratedEvents = try applyingPricingBackfill(to: events)
-            return retainedEntries(migratedEvents)
+            let retained = retainedEntries(migrated)
+            try save(retained)
+            return retained
+        } catch let error as OpenAIUsageStoreError {
+            throw error
         } catch {
-            if let storeError = error as? OpenAIUsageStoreError {
-                throw storeError
-            }
             throw OpenAIUsageStoreError.unreadableUsage
         }
+    }
+
+    @discardableResult
+    func append(_ transcriptionEvent: TranscriptionUsageEvent) throws -> [OpenAIUsageEvent] {
+        try append(OpenAIUsageEvent(transcription: transcriptionEvent))
     }
 
     @discardableResult
@@ -185,11 +205,11 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
             return existingEntries
         }
 
-        let updatedEntries = retainedEntries([event] + existingEntries)
-        try save(updatedEntries)
-        entries = updatedEntries
+        let updated = retainedEntries([event] + existingEntries)
+        try save(updated)
+        entries = updated
         storageErrorMessage = nil
-        return updatedEntries
+        return updated
     }
 
     func clear() throws {
@@ -197,78 +217,117 @@ final class OpenAIUsageStore: ObservableObject, TranscriptionUsageRecording {
             try persistence.removeData(forKey: storageKey)
             entries = []
             storageErrorMessage = nil
+            estimateNoticeMessage = nil
         } catch {
             throw OpenAIUsageStoreError.clearFailed
         }
     }
 
     func clearUsageEstimate() {
-        do {
-            try clear()
-        } catch {
-            storageErrorMessage = Self.userFacingMessage(for: error)
-        }
+        do { try clear() } catch { storageErrorMessage = Self.userFacingMessage(for: error) }
     }
 
-    private func save(_ entries: [OpenAIUsageEvent]) throws {
+    private func save(_ events: [OpenAIUsageEvent]) throws {
         do {
-            let wireEvents = entries.map(LegacyOpenAIUsageEventWire.init(event:))
-            try persistence.saveData(try encoder.encode(wireEvents), forKey: storageKey)
+            let root = OpenAIUsageRootWire(
+                schemaVersion: 2,
+                events: events.map(OpenAIUsageEventWire.init(event:))
+            )
+            try persistence.saveData(try encoder.encode(root), forKey: storageKey)
         } catch {
             throw OpenAIUsageStoreError.saveFailed
         }
     }
 
-    private func applyingPricingBackfill(
-        to events: [OpenAIUsageEvent]
-    ) throws -> [OpenAIUsageEvent] {
-        var didBackfill = false
-        let migratedEvents = try events.map { event in
-            guard let backfilledEvent = try pricing.backfilledEventIfEligible(event) else {
-                return event
+    private func validatedEvents(from rows: [OpenAIUsageEventWire]) throws -> [OpenAIUsageEvent] {
+        var identifiers: Set<UUID> = []
+        return try rows.map { row in
+            let event = try row.runtimeEvent()
+            guard identifiers.insert(event.id).inserted else {
+                throw OpenAIUsageStoreError.unreadableUsage
             }
-            didBackfill = true
-            return backfilledEvent
+            return event
         }
-
-        guard didBackfill else {
-            return events
-        }
-
-        try save(migratedEvents)
-        return migratedEvents
     }
 
-    private func retainedEntries(_ entries: [OpenAIUsageEvent]) -> [OpenAIUsageEvent] {
-        let cutoffDay = calendar.date(
+    private func retainedEntries(_ source: [OpenAIUsageEvent]) -> [OpenAIUsageEvent] {
+        let cutoff = calendar.date(
             byAdding: .day,
             value: -(retentionDays - 1),
             to: calendar.startOfDay(for: now())
         ) ?? now()
-
-        return entries
-            .filter { $0.timestamp >= cutoffDay }
-            .sorted { lhs, rhs in
-                if lhs.timestamp != rhs.timestamp {
-                    return lhs.timestamp > rhs.timestamp
-                }
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
+        return source.filter { $0.timestamp >= cutoff }.sorted {
+            $0.timestamp == $1.timestamp
+                ? $0.id.uuidString < $1.id.uuidString
+                : $0.timestamp > $1.timestamp
+        }
     }
 
     private static func userFacingMessage(for error: Error) -> String {
-        if let localizedError = error as? LocalizedError,
-           let description = localizedError.errorDescription,
+        if let localized = error as? LocalizedError,
+           let description = localized.errorDescription,
            !description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return description
         }
-
         return error.localizedDescription
     }
 }
 
-/// Preserves the existing macOS UserDefaults JSON shape without making the
-/// portable runtime event a persistence contract.
+private struct OpenAIUsageRootWire: Codable {
+    let schemaVersion: Int
+    let events: [OpenAIUsageEventWire]
+}
+
+private struct OpenAIUsageEventWire: Codable {
+    let id: UUID
+    let timestamp: Date
+    let category: OpenAIUsageCategory
+    let model: String
+    let audioDurationSeconds: TimeInterval?
+    let inputTokens: Int?
+    let cachedInputTokens: Int?
+    let outputTokens: Int?
+    let reasoningTokens: Int?
+    let priceUSDPerMinute: Double?
+    let textPricing: OpenAITextPricingSnapshot?
+    let estimatedCostUSD: Double?
+    let pricingSource: String?
+
+    init(event: OpenAIUsageEvent) {
+        id = event.id
+        timestamp = event.timestamp
+        category = event.category
+        model = event.model
+        audioDurationSeconds = event.audioDurationSeconds
+        inputTokens = event.inputTokens
+        cachedInputTokens = event.cachedInputTokens
+        outputTokens = event.outputTokens
+        reasoningTokens = event.reasoningTokens
+        priceUSDPerMinute = event.priceUSDPerMinute
+        textPricing = event.textPricing
+        estimatedCostUSD = event.estimatedCostUSD
+        pricingSource = event.pricingSource
+    }
+
+    func runtimeEvent() throws -> OpenAIUsageEvent {
+        try OpenAIUsageEvent(
+            id: id,
+            timestamp: timestamp,
+            category: category,
+            model: model,
+            audioDurationSeconds: audioDurationSeconds,
+            inputTokens: inputTokens,
+            cachedInputTokens: cachedInputTokens,
+            outputTokens: outputTokens,
+            reasoningTokens: reasoningTokens,
+            priceUSDPerMinute: priceUSDPerMinute,
+            textPricing: textPricing,
+            estimatedCostUSD: estimatedCostUSD,
+            pricingSource: pricingSource
+        )
+    }
+}
+
 private struct LegacyOpenAIUsageEventWire: Codable {
     let id: UUID
     let timestamp: Date
@@ -278,18 +337,8 @@ private struct LegacyOpenAIUsageEventWire: Codable {
     let estimatedCostUSD: Double?
     let pricingSource: String?
 
-    init(event: OpenAIUsageEvent) {
-        id = event.id
-        timestamp = event.timestamp
-        model = event.model
-        durationSeconds = event.durationSeconds
-        priceUSDPerMinute = event.priceUSDPerMinute
-        estimatedCostUSD = event.estimatedCostUSD
-        pricingSource = event.pricingSource
-    }
-
-    func runtimeEvent() throws -> OpenAIUsageEvent {
-        let event = try OpenAIUsageEvent(
+    func runtimeEvent() throws -> TranscriptionUsageEvent {
+        let event = try TranscriptionUsageEvent(
             id: id,
             timestamp: timestamp,
             model: model,
@@ -298,8 +347,7 @@ private struct LegacyOpenAIUsageEventWire: Codable {
             estimatedCostUSD: estimatedCostUSD,
             pricingSource: pricingSource
         )
-        guard event.model == model,
-              event.pricingSource == pricingSource else {
+        guard event.model == model, event.pricingSource == pricingSource else {
             throw OpenAIUsageStoreError.unreadableUsage
         }
         return event

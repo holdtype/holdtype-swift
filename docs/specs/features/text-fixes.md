@@ -31,7 +31,7 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - replacing text in secure fields
 - importing another product's catalog
 - per-action credentials or provider selection
-- adding immediate Fixes to dictation History or Usage
+- adding immediate Fixes to dictation History or transcription-only Usage
 
 ## Catalog
 
@@ -129,7 +129,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Cancellation, timeout, provider failure, invalid output, persistence failure,
   and stale results leave source text unchanged.
 - Successful immediate Fixes do not mutate Latest, Pending, History, Recording
-  Cache, or Usage.
+  Cache, or transcription usage. Their successful provider responses may create
+  separate local macOS text-usage events governed by
+  `openai-usage-estimate.md`.
 
 ## macOS
 

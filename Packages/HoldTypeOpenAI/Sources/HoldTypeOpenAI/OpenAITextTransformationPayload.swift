@@ -51,8 +51,10 @@ struct OpenAITextTransformationTextFormat: Encodable {
 }
 
 struct OpenAITextTransformationResponse: Decodable {
+    let model: String?
     let outputText: String?
     let output: [OpenAITextTransformationOutputItem]?
+    let usage: OpenAITextResponseUsageWire?
 
     var firstOutputText: String? {
         output?
@@ -63,8 +65,10 @@ struct OpenAITextTransformationResponse: Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case model
         case outputText = "output_text"
         case output
+        case usage
     }
 }
 

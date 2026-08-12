@@ -23,6 +23,7 @@ contract slice and locating project-specific ownership evidence.
 | Microphone input | `features/microphone-text-input.md` | Recording flow, microphone permission, audio capture, empty capture behavior |
 | Recording durability | `features/recording-durability-and-interruption.md` | Cross-platform terminal causes, non-destructive interruption, start-time capture ownership, History recovery, quit/relaunch, and the explicit-Discard boundary |
 | OpenAI transcription | `features/openai-transcription.md` | Transcription request/response behavior, model settings, timeout/error policy |
+| macOS OpenAI usage estimate | `features/openai-usage-estimate.md` | Local macOS Billing, audio minutes, provider-reported text tokens, category charts, pricing, migration, or Reset |
 | Text handoff | `features/text-output-workflow.md` | Clipboard, paste, insertion, accepted transcript behavior |
 | Permissions/privacy | `features/privacy-and-permissions.md` | Consent, permission gates, setup blocking, privacy boundaries |
 | Settings/secrets | `features/settings-and-secret-storage.md` | Settings UI, persistence, Keychain, API key setup |

@@ -1,17 +1,12 @@
-//
-//  BillingSettingsSection.swift
-//  HoldType
-//
-//  Created by Codex on 6/22/26.
-//
-
 import Charts
 import HoldTypeDomain
+import HoldTypeOpenAI
 import SwiftUI
 
 struct BillingSettingsSection: View {
     let summary: OpenAIUsageSummary
     let storageErrorMessage: String?
+    let estimateNoticeMessage: String?
     let onResetUsage: () -> Void
 
     @State private var selectedMetric: BillingChartMetric = .cost
@@ -19,18 +14,42 @@ struct BillingSettingsSection: View {
 
     var body: some View {
         Section("OpenAI Usage Estimate") {
-            BillingStorageErrorMessage(message: storageErrorMessage)
+            Text("Successful OpenAI requests made by HoldType on this Mac.")
+                .foregroundStyle(.secondary)
 
-            BillingUsageContent(
-                summary: summary,
-                selectedMetric: $selectedMetric
-            )
+            if let storageErrorMessage {
+                Label(storageErrorMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+            }
+            if let estimateNoticeMessage {
+                Label(estimateNoticeMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
 
-            BillingEstimateFootnote()
+            if summary.isEmpty {
+                Label(
+                    "Usage appears after successful OpenAI requests.",
+                    systemImage: "chart.bar"
+                )
+                .foregroundStyle(.secondary)
+            } else {
+                BillingCostSummary(summary: summary)
+                if summary.hasUnpricedUsage { BillingPartialCostWarning() }
+                BillingUsageChart(summary: summary, selectedMetric: $selectedMetric)
+                BillingCategoryBreakdown(summary: summary)
+                if summary.hasTextUsage {
+                    BillingUsageDetails(summary: summary)
+                }
+            }
 
-            BillingResetUsageButton(isDisabled: summary.isEmpty) {
+            Text("Local estimate only. Actual OpenAI billing may differ.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            Button("Reset Usage Estimate", role: .destructive) {
                 isShowingResetConfirmation = true
             }
+            .disabled(summary.isEmpty && storageErrorMessage == nil && estimateNoticeMessage == nil)
         }
         .confirmationDialog(
             "Reset OpenAI usage estimate?",
@@ -42,65 +61,19 @@ struct BillingSettingsSection: View {
     }
 }
 
-private struct BillingStorageErrorMessage: View {
-    let message: String?
-
-    var body: some View {
-        if let message {
-            Label(message, systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.red)
-        }
-    }
-}
-
-private struct BillingUsageContent: View {
-    let summary: OpenAIUsageSummary
-    @Binding var selectedMetric: BillingChartMetric
-
-    var body: some View {
-        if summary.isEmpty {
-            BillingUsageEmptyState()
-        } else {
-            BillingUsageSummaryRows(summary: summary)
-
-            if summary.hasUnpricedUsage {
-                BillingPartialCostWarning()
-            }
-
-            BillingUsageChart(
-                summary: summary,
-                selectedMetric: $selectedMetric
-            )
-        }
-    }
-}
-
-private struct BillingUsageEmptyState: View {
-    var body: some View {
-        Label("Usage estimate appears after successful transcriptions.", systemImage: "chart.bar")
-            .foregroundStyle(.secondary)
-    }
-}
-
-private struct BillingUsageSummaryRows: View {
+private struct BillingCostSummary: View {
     let summary: OpenAIUsageSummary
 
     var body: some View {
-        LabeledContent("Today", value: BillingUsageFormatter.usageLine(
-            durationSeconds: summary.todayDurationSeconds,
-            costUSD: summary.todayEstimatedCostUSD
-        ))
-
-        LabeledContent("Average per day", value: BillingUsageFormatter.usageLine(
-            durationSeconds: summary.averageDailyDurationSeconds,
-            costUSD: summary.averageDailyCostUSD
-        ))
-
-        LabeledContent("Last 30 days", value: BillingUsageFormatter.usageLine(
-            durationSeconds: summary.totalDurationSeconds,
-            costUSD: summary.totalEstimatedCostUSD
-        ))
-
+        LabeledContent("Today", value: BillingUsageFormatter.cost(summary.todayEstimatedCostUSD))
+        LabeledContent(
+            "Last 30 days",
+            value: BillingUsageFormatter.cost(summary.totalEstimatedCostUSD)
+        )
+        LabeledContent(
+            "Average per day",
+            value: BillingUsageFormatter.cost(summary.averageDailyCostUSD)
+        )
         LabeledContent(
             "Estimated 30-day cost",
             value: BillingUsageFormatter.cost(summary.projected30DayCostUSD)
@@ -111,7 +84,7 @@ private struct BillingUsageSummaryRows: View {
 private struct BillingPartialCostWarning: View {
     var body: some View {
         Label(
-            "Some recorded minutes use models without local pricing, so cost is partial.",
+            "Some requests use models without local pricing, so cost is partial.",
             systemImage: "exclamationmark.triangle"
         )
         .foregroundStyle(.orange)
@@ -130,107 +103,181 @@ private struct BillingUsageChart: View {
         }
         .pickerStyle(.segmented)
 
-        Chart(summary.dailyBuckets) { bucket in
-            BarMark(
-                x: .value("Day", bucket.day, unit: .day),
-                y: .value(selectedMetric.title, selectedMetric.value(for: bucket))
-            )
-            .foregroundStyle(chartColor(for: bucket))
+        if chartPoints.isEmpty {
+            ContentUnavailableView {
+                Label(selectedMetric.emptyTitle, systemImage: selectedMetric.emptySystemImage)
+            } description: {
+                Text(selectedMetric.emptyDescription)
+            }
+            .frame(height: 160)
+        } else {
+            Chart(chartPoints) { point in
+                BarMark(
+                    x: .value("Day", point.day, unit: .day),
+                    y: .value(selectedMetric.title, point.value)
+                )
+                .foregroundStyle(by: .value("Category", point.category.title))
+                .accessibilityLabel("\(point.category.title), \(point.day.formatted(date: .abbreviated, time: .omitted))")
+                .accessibilityValue(selectedMetric.formatted(point.value))
+            }
+            .chartLegend(position: .bottom, alignment: .leading, spacing: 10)
+            .frame(height: 200)
         }
-        .frame(height: 180)
     }
 
-    private func chartColor(for bucket: OpenAIUsageDailyBucket) -> Color {
-        if selectedMetric == .cost && bucket.hasUnpricedUsage {
-            return .orange
+    private var chartPoints: [BillingChartPoint] {
+        summary.dailyBuckets.flatMap { bucket in
+            OpenAIUsageCategory.allCases.compactMap { category in
+                guard let metrics = bucket.categories[category],
+                      let value = selectedMetric.value(for: metrics, category: category),
+                      value > 0 else { return nil }
+                return BillingChartPoint(day: bucket.day, category: category, value: value)
+            }
         }
-
-        return .accentColor
     }
 }
 
-private struct BillingEstimateFootnote: View {
+private struct BillingCategoryBreakdown: View {
+    let summary: OpenAIUsageSummary
+
     var body: some View {
-        Text("Estimate only. Actual OpenAI billing may differ.")
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("By feature").font(.headline)
+            ForEach(OpenAIUsageCategory.allCases) { category in
+                if let metrics = summary.categories[category], metrics.requestCount > 0 {
+                    LabeledContent(category.title) {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(BillingUsageFormatter.costLine(metrics))
+                            Text(BillingUsageFormatter.primaryMeasurement(metrics, category: category))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
 
-private struct BillingResetUsageButton: View {
-    let isDisabled: Bool
-    let action: () -> Void
+private struct BillingUsageDetails: View {
+    let summary: OpenAIUsageSummary
 
     var body: some View {
-        Button("Reset Usage Estimate", role: .destructive, action: action)
-            .disabled(isDisabled)
+        DisclosureGroup("Usage details") {
+            ForEach(OpenAIUsageCategory.allCases) { category in
+                if let metrics = summary.categories[category], metrics.textTokens > 0 {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(category.title).font(.subheadline.weight(.medium))
+                        LabeledContent("Input", value: BillingUsageFormatter.tokens(metrics.inputTokens))
+                        LabeledContent("Cached input", value: BillingUsageFormatter.tokens(metrics.cachedInputTokens))
+                        LabeledContent("Output", value: BillingUsageFormatter.tokens(metrics.outputTokens))
+                        LabeledContent("Reasoning", value: BillingUsageFormatter.tokens(metrics.reasoningTokens))
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
     }
+}
+
+private struct BillingChartPoint: Identifiable {
+    let day: Date
+    let category: OpenAIUsageCategory
+    let value: Double
+    var id: String { "\(day.timeIntervalSinceReferenceDate)-\(category.rawValue)" }
 }
 
 private enum BillingUsageFormatter {
-    static func usageLine(durationSeconds: TimeInterval, costUSD: Double?) -> String {
-        "\(minutes(durationSeconds)) / \(cost(costUSD))"
+    static func cost(_ value: Double?) -> String {
+        guard let value else { return "Unavailable" }
+        if value > 0 && value < 0.01 { return String(format: "$%.4f", value) }
+        return String(format: "$%.2f", value)
     }
 
-    static func minutes(_ durationSeconds: TimeInterval) -> String {
-        let minutes = durationSeconds / 60
-
-        if minutes == 0 {
-            return "0 min"
-        }
-
-        if minutes < 100 {
-            return String(format: "%.1f min", minutes)
-        }
-
-        return String(format: "%.0f min", minutes)
+    static func costLine(_ metrics: OpenAIUsageCategoryMetrics) -> String {
+        guard metrics.pricedRequestCount > 0 else { return "Unavailable" }
+        let formatted = cost(metrics.estimatedCostUSD)
+        return metrics.hasUnpricedUsage ? "\(formatted) partial" : formatted
     }
 
-    static func cost(_ costUSD: Double?) -> String {
-        guard let costUSD else {
-            return "Unavailable"
+    static func primaryMeasurement(
+        _ metrics: OpenAIUsageCategoryMetrics,
+        category: OpenAIUsageCategory
+    ) -> String {
+        let requests = metrics.requestCount == 1 ? "1 request" : "\(metrics.requestCount) requests"
+        if category == .transcription {
+            return "\(minutes(metrics.audioDurationSeconds)) · \(requests)"
         }
-
-        if costUSD > 0 && costUSD < 0.01 {
-            return String(format: "$%.4f", costUSD)
-        }
-
-        return String(format: "$%.2f", costUSD)
+        return "\(tokens(metrics.textTokens)) tokens · \(requests)"
     }
+
+    static func minutes(_ seconds: TimeInterval) -> String {
+        let value = seconds / 60
+        return value < 100 ? String(format: "%.1f min", value) : String(format: "%.0f min", value)
+    }
+
+    static func tokens(_ value: Int) -> String { value.formatted() }
 }
 
 private enum BillingChartMetric: String, CaseIterable, Identifiable {
     case cost
-    case minutes
+    case audio
+    case text
 
-    var id: Self {
-        self
-    }
+    var id: Self { self }
+    var title: String { rawValue.capitalized }
 
-    var title: String {
+    var emptyTitle: String {
         switch self {
-        case .cost:
-            return "Cost"
-        case .minutes:
-            return "Minutes"
+        case .cost: return "No priced usage"
+        case .audio: return "No audio usage"
+        case .text: return "No text usage"
         }
     }
 
-    func value(for bucket: OpenAIUsageDailyBucket) -> Double {
+    var emptyDescription: String {
         switch self {
-        case .cost:
-            return bucket.estimatedCostUSD
-        case .minutes:
-            return bucket.minutes
+        case .cost: return "Cost appears when a recorded model has local pricing."
+        case .audio: return "Audio appears after a successful transcription."
+        case .text: return "Text appears after a successful Fix, correction, or translation."
+        }
+    }
+
+    var emptySystemImage: String {
+        switch self {
+        case .cost: return "dollarsign"
+        case .audio: return "waveform"
+        case .text: return "text.word.spacing"
+        }
+    }
+
+    func value(
+        for metrics: OpenAIUsageCategoryMetrics,
+        category: OpenAIUsageCategory
+    ) -> Double? {
+        switch self {
+        case .cost: return metrics.pricedRequestCount > 0 ? metrics.estimatedCostUSD : nil
+        case .audio: return category == .transcription ? metrics.audioDurationSeconds / 60 : nil
+        case .text: return category == .transcription ? nil : Double(metrics.textTokens)
+        }
+    }
+
+    func formatted(_ value: Double) -> String {
+        switch self {
+        case .cost: return BillingUsageFormatter.cost(value)
+        case .audio: return String(format: "%.1f minutes", value)
+        case .text: return "\(Int(value).formatted()) tokens"
         }
     }
 }
 
-#Preview("Billing Usage") {
+#Preview("Mixed Usage") {
     Form {
         BillingSettingsSection(
             summary: .previewUsage,
             storageErrorMessage: nil,
+            estimateNoticeMessage: nil,
             onResetUsage: {}
         )
     }
@@ -238,11 +285,12 @@ private enum BillingChartMetric: String, CaseIterable, Identifiable {
     .padding()
 }
 
-#Preview("Billing Empty") {
+#Preview("Empty Usage") {
     Form {
         BillingSettingsSection(
             summary: .empty(),
             storageErrorMessage: nil,
+            estimateNoticeMessage: nil,
             onResetUsage: {}
         )
     }
@@ -252,27 +300,23 @@ private enum BillingChartMetric: String, CaseIterable, Identifiable {
 
 private extension OpenAIUsageSummary {
     static var previewUsage: OpenAIUsageSummary {
-        let pricing = OpenAIUsagePricing.current
         let now = Date()
-        let calendar = Calendar.current
-        let events = [
-            try? pricing.makeEvent(
-                timestamp: now,
-                model: "gpt-4o-transcribe",
-                durationSeconds: 420
-            ),
-            try? pricing.makeEvent(
-                timestamp: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
-                model: "gpt-4o-mini-transcribe",
-                durationSeconds: 960
-            ),
-            try? pricing.makeEvent(
-                timestamp: calendar.date(byAdding: .day, value: -2, to: now) ?? now,
-                model: "custom-model",
-                durationSeconds: 180
-            ),
-        ].compactMap { $0 }
-
-        return OpenAIUsageSummary.make(events: events, now: now, calendar: calendar)
+        let transcription = try? OpenAIUsagePricing.current.makeEvent(
+            timestamp: now,
+            model: "gpt-transcribe",
+            durationSeconds: 420
+        )
+        let textUsage = try? OpenAITextResponseUsage(
+            model: "gpt-5.4-mini",
+            inputTokens: 1_200,
+            cachedInputTokens: 200,
+            outputTokens: 500,
+            reasoningTokens: 100
+        )
+        var events = transcription.map { [OpenAIUsageEvent(transcription: $0)] } ?? []
+        if let textUsage {
+            events.append(OpenAIUsageEvent(timestamp: now, category: .fixes, usage: textUsage))
+        }
+        return .make(events: events, now: now)
     }
 }
