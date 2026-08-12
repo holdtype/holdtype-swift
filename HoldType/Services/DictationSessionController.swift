@@ -8,18 +8,6 @@
 import Foundation
 import HoldTypeDomain
 import HoldTypeOpenAI
-private struct PendingFailedTranscriptionRetry {
-    let id: FailedTranscriptionAttempt.ID
-    let credential: OpenAICredential?
-    let outputMode: FailedTranscriptionRetryOutputMode
-    let authorization: FailedTranscriptionRetryAuthorization
-}
-private enum DeferredRecordingTerminalOutcome {
-    case automatic(
-        Result<AudioRecorderAutomaticCompletion, AudioRecorderServiceError>
-    )
-    case maximumDurationAwaitingArtifact
-}
 @MainActor
 final class DictationSessionController {
     static let savedRecordingActionsUnavailableMessage =
@@ -313,6 +301,10 @@ final class DictationSessionController {
         var sessionID: Int?
         do {
             let credential = try resolvedCredential(providedCredential: retry.credential)
+            guard VoiceWorkReservation.shared.acquire(.dictation) else {
+                outputStatusText = "Finish the current Voice Prompt before retrying transcription."
+                return
+            }
             sessionID = beginSession(intent: .standard)
             activeCredential = credential
             status = .transcribing
@@ -565,6 +557,7 @@ final class DictationSessionController {
         deferredRecordingTerminalOutcome = nil
         activeRecordingDurationLimit = nil
         activeProviderDispatchCheckpointID = nil
+        VoiceWorkReservation.shared.release(.dictation)
     }
 
     private func cancelActiveSession() {
@@ -574,6 +567,7 @@ final class DictationSessionController {
         deferredRecordingTerminalOutcome = nil
         activeRecordingDurationLimit = nil
         activeProviderDispatchCheckpointID = nil
+        VoiceWorkReservation.shared.release(.dictation)
     }
 
     private func startRecording(intent: DictationOutputIntent, credential: OpenAICredential?) async {
@@ -597,6 +591,12 @@ final class DictationSessionController {
         } catch {
             let message = Self.userFacingMessage(for: error)
             failurePresentation = failurePresentation(message: message, error: error, failedAttempt: nil)
+            status = .failure(message: message)
+            return
+        }
+
+        guard VoiceWorkReservation.shared.acquire(.dictation) else {
+            let message = "Finish the current Voice Prompt before starting dictation."
             status = .failure(message: message)
             return
         }

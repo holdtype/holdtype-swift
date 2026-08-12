@@ -1,7 +1,7 @@
 # Text Fixes
 
 Status: active product contract.
-Contract revision: 2.
+Contract revision: 3.
 
 ## Goal
 
@@ -21,6 +21,7 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - selection and complete-field target rules
 - iOS Voice and keyboard presentation
 - remote processing, privacy, failure, and stale-target behavior
+- macOS transient Voice Prompt Fix recording and application
 
 ## Non-goals
 
@@ -32,6 +33,7 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - importing another product's catalog
 - per-action credentials or provider selection
 - adding immediate Fixes to dictation History or transcription-only Usage
+- Voice Prompt Fixes on iOS Voice or HoldType Keyboard
 
 ## Catalog
 
@@ -77,6 +79,8 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - macOS keeps a local recent-use record containing only an action identifier
   and the time of its most recent successful immediate Fix. It contains no
   source text, result, prompt, target, or provider data.
+- `Voice Prompt…` is a macOS-only transient palette command, not a catalog
+  action. It is never saved, synced, reordered, edited, or projected to iOS.
 
 ## Target Selection
 
@@ -133,6 +137,45 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   separate local macOS text-usage events governed by
   `openai-usage-estimate.md`.
 
+## Voice Prompt Fix
+
+- Choosing `Voice Prompt…` freezes the existing macOS Fix target and starts one
+  explicit microphone capture for a transient instruction. It never starts
+  while ordinary dictation or another Fix owns voice work.
+- The palette replaces search and Fix rows with a compact recording state.
+  Return or the visible Stop control finishes the instruction; Escape or the
+  visible Cancel control is explicit discard. Click-outside dismissal is
+  disabled while capture is active so recording never continues invisibly.
+- Voice Prompt capture has a 60-second maximum, does not use the configurable
+  recording tail, and keeps the normal visible recording cues and permission,
+  credential, durability, exact-once, timeout, and cancellation boundaries.
+- The audio transcription request uses the saved transcription model,
+  language, prompt, emoji-command, and dictionary configuration. It explicitly
+  omits Nearby Text so source-field content does not enter the audio request.
+- The accepted transcription after the normal optional correction and local
+  post-processing pipeline becomes the transient Fix instruction. It is
+  limited to the custom-prompt 8 KiB UTF-8 boundary before transformation.
+- The instruction is not accepted as ordinary dictated output. A successful
+  Voice Prompt Fix does not update Last Transcript, Last Result, accepted
+  History, automatic insertion, Pending, or Recording Cache.
+- After transcription, HoldType revalidates the frozen target before sending
+  its text with the transient instruction to the text-transformation route.
+  It revalidates again immediately before replacement.
+- The transformation uses the current Writing & Correction model route with
+  low reasoning, `store: false`, the normal 20-second Fix timeout, and exact
+  custom-Fix output semantics.
+- Successful audio transcription and text transformation record the local
+  usage events required by `openai-usage-estimate.md`; usage records contain no
+  instruction, source, result, audio, target, or document identity.
+- A recoverable failed or interrupted Voice Prompt recording is visibly owned
+  as a Voice Prompt Saved Recording. It offers Play and Delete, never ordinary
+  dictation Retry, automatic insertion, or delayed Fix application. While the
+  original in-memory target still validates, the active palette may retry a
+  failed transcription or transformation under the same exact-once rules.
+- Relaunch, History, or another Fix invocation never reconstructs or reapplies
+  a Voice Prompt target. Successful completion removes its recovery checkpoint
+  under the normal accepted-provider cleanup transaction.
+
 ## macOS
 
 - `Option+J` is the default global Fixes shortcut. Product UI renders it as
@@ -168,6 +211,11 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   and prefix matches rank before other title matches; recency then breaks
   ties. The palette is not a scrollable catalog; users refine the query instead
   of paging through all actions.
+- `Voice Prompt…` remains available as one transient command independently of
+  catalog filtering, ordering, migration, and the five-row catalog limit.
+- While Voice Prompt work is active, the palette presents `Listening…`,
+  `Transcribing instruction…`, or `Applying instruction…` with compact
+  Stop/Cancel affordances appropriate to the current state.
 - A successful replacement updates that Fix's local recent-use record. Failed,
   cancelled, stale, or blocked actions never change the order.
 - Arrow keys move selection only among visible matches; Return runs the
@@ -318,6 +366,10 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - API keys never enter the catalog, App Group, keyboard extension, logs, or
   diagnostics.
 - Full custom prompts remain in app-private or macOS-local catalog storage.
+- Voice Prompt audio and its transcription are current-attempt-only except for
+  the bounded failed/interrupted recording owner described above. The audio is
+  sent to OpenAI for transcription; the captured source is excluded from that
+  audio request and enters only the later text-transformation request.
 - Source text and results are current-request-only. They are removed on
   acknowledgement, cancellation, terminal failure, or expiry.
 - Default product logs contain action identifiers and closed outcome
@@ -332,7 +384,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - Immediate Fixes never overwrite text outside the captured target.
 - A stale or uncertain target is never replaced.
 - A keyboard Fix never runs without a non-empty host selection.
-- A Fix request never starts recording or changes an active dictation request.
+- A catalog Fix request never starts recording or changes an active dictation
+  request. Only the explicit macOS `Voice Prompt…` command may start its own
+  mutually exclusive Fix-owned recording.
 - The keyboard extension never reads Keychain or contacts OpenAI.
 - External operations have explicit bounded timeouts and real cancellation.
 - Normal automated tests use fakes and never contact live OpenAI.
@@ -357,6 +411,9 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
   status. Catalog schema v2 stores the processing profile. Schema v1 loads as
   `Use Writing & Correction Settings` without rewriting the source file until
   the user next saves a valid catalog.
+- Voice Prompt command, instruction, target, and successful result remain
+  transient. Recovery metadata may persist only the closed Voice Prompt
+  completion kind required to keep ordinary dictation Retry unavailable.
 - iOS persists one versioned app-private Fixes catalog.
 - iOS publishes one replaceable metadata snapshot plus one replaceable
   immediate-request/result record family to the existing App Group boundary.
@@ -377,6 +434,11 @@ HoldType Keyboard while each platform keeps an honest compatibility boundary.
 - macOS tests and runtime QA cover shortcut registration, AX selection and
   complete-field capture, stale targets, palette interaction, replacement,
   Undo, multiple monitors, secure fields, and representative host apps.
+- Voice Prompt tests cover mutual exclusion, permission and credential
+  preflight, one capture, Stop/Cancel, click-outside suppression, 60-second
+  completion, no Nearby Text, accepted-instruction routing, prompt bounds, two
+  provider stages, no ordinary output sinks, recovery kind, stale target,
+  retry, cancellation, late responses, usage redaction, and no live calls.
 - iOS Voice tests cover Unicode selections, complete Draft, stale edits,
   single-action ownership, exact range splice, and Undo.
 - Keyboard tests cover metadata projection, selected text, complete-field
@@ -393,3 +455,20 @@ target continuity and app-mediated processing. The first release does not run
 a keyboard Fix without a selection. A later complete-field path requires a new
 spec change backed by public-API proof of complete traversal and exact
 replacement; it does not block macOS or iOS Voice.
+
+## Contract Delta — Revision 3
+
+- Change ID: `TF-DELTA-R3-VOICE-PROMPT`.
+- Change mode: Evolve.
+- Authorized by: explicit user request and approved implementation plan on
+  2026-08-12.
+- Previous behavior: every macOS Fix used a catalog-stored instruction and no
+  Fix could start microphone capture.
+- New behavior: macOS exposes one transient `Voice Prompt…` command that
+  captures and transcribes an instruction, then applies it to the frozen Fix
+  target without accepting the instruction as ordinary dictated output.
+- Compatibility: additive macOS behavior; catalog schema, existing Fixes,
+  ordinary dictation, iOS Voice, and HoldType Keyboard remain protected.
+- Evidence basis: current Fixes runtime, dictation controller, transcription,
+  transformation, recovery, usage, and palette ownership at repository
+  revision `8fc14168`.

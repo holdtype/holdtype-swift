@@ -74,6 +74,17 @@ struct DebugFixesQATests {
             DebugFixesQAConfiguration.showPaletteEnvironmentKey
         ] = "true"
         #expect(DebugFixesQAConfiguration.resolve(environment: looseLaunch) == nil)
+
+        var syntheticTarget = makeEnvironment(usesSyntheticTarget: true)
+        #expect(
+            DebugFixesQAConfiguration.resolve(
+                environment: syntheticTarget
+            )?.usesSyntheticTarget == true
+        )
+        syntheticTarget[
+            DebugFixesQAConfiguration.syntheticTargetEnvironmentKey
+        ] = "true"
+        #expect(DebugFixesQAConfiguration.resolve(environment: syntheticTarget) == nil)
     }
 
     @Test func ordinaryDebugUsesTheProductionFactory() {
@@ -239,7 +250,8 @@ struct DebugFixesQATests {
     private func makeEnvironment(
         mode: DebugFixesQAConfiguration.Mode = .success,
         output: String? = "Controlled output",
-        showsPaletteOnLaunch: Bool = false
+        showsPaletteOnLaunch: Bool = false,
+        usesSyntheticTarget: Bool = false
     ) -> [String: String] {
         var environment = [
             KeychainInteractionPolicy.automationEnvironmentKey: "1",
@@ -256,6 +268,11 @@ struct DebugFixesQATests {
         if showsPaletteOnLaunch {
             environment[
                 DebugFixesQAConfiguration.showPaletteEnvironmentKey
+            ] = "1"
+        }
+        if usesSyntheticTarget {
+            environment[
+                DebugFixesQAConfiguration.syntheticTargetEnvironmentKey
             ] = "1"
         }
         return environment

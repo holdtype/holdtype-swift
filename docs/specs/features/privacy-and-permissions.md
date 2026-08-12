@@ -1,5 +1,7 @@
 # Privacy And Permissions
 
+Contract revision: 2.
+
 ## Goal
 
 Define the first privacy and permission contract for a microphone-based text
@@ -79,6 +81,11 @@ This spec covers:
   is selected, plus the chosen instruction to OpenAI. This disclosure must not
   appear in Permissions and must not create a separate consent or availability
   gate.
+- The macOS `Voice Prompt…` Fix additionally sends the explicitly recorded
+  instruction audio to OpenAI for transcription before it sends the frozen Fix
+  source with the resulting instruction in a separate text request. Nearby Text
+  is excluded from the audio request. This remains Fixes disclosure, not a new
+  Permissions control or consent gate.
 - HoldType Keyboard sends only the user-invoked Fix source through bounded
   transient App Group coordination to the containing app. Ordinary keystrokes
   and unrelated surrounding host text remain excluded.
@@ -128,6 +135,10 @@ This spec covers:
   Transcript, Last Result, History, Usage, diagnostics, or default logs. The
   durable Fix catalog stores the canonical custom prompt but never source or
   result text.
+- Voice Prompt audio and transcription are current-attempt-only except for one
+  bounded failed/interrupted playable recovery owner. Successful instructions
+  are not written to Last Transcript, Last Result, accepted History, Fixes
+  catalog storage, diagnostics, or default logs.
 - Debug logging must not include raw dictated text, raw audio payloads, tokens,
   credentials, or full provider responses in the default product log stream.
 - Fixes logging may include only opaque action identity and closed lifecycle or

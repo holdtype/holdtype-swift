@@ -12,8 +12,12 @@ struct TranscriptionRecoveryHistoryRowPresentation: Equatable {
     init(attempt: FailedTranscriptionAttempt) {
         switch attempt.state {
         case .processing:
-            title = "Transcribing…"
-            message = "HoldType is transcribing the saved recording."
+            title = attempt.completionKind == .voicePrompt
+                ? "Processing Voice Prompt…"
+                : "Transcribing…"
+            message = attempt.completionKind == .voicePrompt
+                ? "HoldType is processing the saved Voice Prompt recording."
+                : "HoldType is transcribing the saved recording."
             systemImage = "waveform"
             showsProgress = true
             showsSettings = false
@@ -22,7 +26,10 @@ struct TranscriptionRecoveryHistoryRowPresentation: Equatable {
             showsSaveRetry = false
             saveRetryTitle = "Retry Save"
         case .failed:
-            if attempt.reason == .savedStatePersistenceFailed {
+            if attempt.completionKind == .voicePrompt {
+                title = "Voice Prompt Saved Recording"
+                message = attempt.reason.message
+            } else if attempt.reason == .savedStatePersistenceFailed {
                 title = "Transcribed — save incomplete"
                 message = attempt.acceptedTranscriptText ?? attempt.reason.message
             } else if attempt.reason == .postProcessingFailedAfterProviderAcceptance {

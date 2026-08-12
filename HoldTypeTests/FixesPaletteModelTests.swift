@@ -13,12 +13,17 @@ struct FixesPaletteModelTests {
         )
         let model = makeModel(catalog: catalog)
 
-        #expect(model.actions.map(\.id) == catalog.enabledActions.map(\.id))
+        #expect(
+            model.actions.map(\.id)
+                == [FixesPaletteActionPresentation.voicePromptIdentifier]
+                    + catalog.enabledActions.map(\.id)
+        )
         #expect(model.actions.contains(where: { $0.id == disabledID }) == false)
         #expect(model.selectedActionID == catalog.enabledActions.first?.id)
         #expect(
             model.visibleActions.map(\.id)
-                == Array(catalog.enabledActions.prefix(5)).map(\.id)
+                == [FixesPaletteActionPresentation.voicePromptIdentifier]
+                    + Array(catalog.enabledActions.prefix(5)).map(\.id)
         )
     }
 
@@ -36,7 +41,10 @@ struct FixesPaletteModelTests {
 
         model.setSearchText("RESUME")
 
-        #expect(model.visibleActions.map(\.id) == [resume.id])
+        #expect(
+            model.visibleActions.map(\.id)
+                == [FixesPaletteActionPresentation.voicePromptIdentifier, resume.id]
+        )
         #expect(model.selectedActionID == resume.id)
     }
 
@@ -47,7 +55,10 @@ struct FixesPaletteModelTests {
 
         model.setSearchText("")
 
-        #expect(model.visibleActions.count == FixesPaletteModel.maximumVisibleActionCount)
+        #expect(
+            model.visibleActions.count
+                == FixesPaletteModel.maximumVisibleActionCount + 1
+        )
         #expect(model.selectedActionID == nil)
     }
 
@@ -56,7 +67,10 @@ struct FixesPaletteModelTests {
 
         model.setSearchText("   \n")
 
-        #expect(model.visibleActions.count == FixesPaletteModel.maximumVisibleActionCount)
+        #expect(
+            model.visibleActions.count
+                == FixesPaletteModel.maximumVisibleActionCount + 1
+        )
         #expect(model.selectedActionID == nil)
     }
 
@@ -68,6 +82,7 @@ struct FixesPaletteModelTests {
         #expect(
             model.visibleActions.map(\.id)
                 == [
+                    FixesPaletteActionPresentation.voicePromptIdentifier,
                     "default.summarize",
                     "default.make-shorter",
                     TextFixAction.translateIdentifier,
@@ -94,7 +109,14 @@ struct FixesPaletteModelTests {
 
         model.setSearchText("writ")
 
-        #expect(model.visibleActions.map(\.id) == [rewrite.id, "default.improve-writing"])
+        #expect(
+            model.visibleActions.map(\.id)
+                == [
+                    FixesPaletteActionPresentation.voicePromptIdentifier,
+                    rewrite.id,
+                    "default.improve-writing",
+                ]
+        )
     }
 
     @Test func unmatchedSearchClearsSelection() {
@@ -102,9 +124,15 @@ struct FixesPaletteModelTests {
 
         model.setSearchText("No result with this title")
 
-        #expect(model.visibleActions.isEmpty)
-        #expect(model.selectedActionID == nil)
-        #expect(model.canActivateSelection == false)
+        #expect(
+            model.visibleActions.map(\.id)
+                == [FixesPaletteActionPresentation.voicePromptIdentifier]
+        )
+        #expect(
+            model.selectedActionID
+                == FixesPaletteActionPresentation.voicePromptIdentifier
+        )
+        #expect(model.canActivateSelection)
     }
 
     @Test func arrowMovementClampsAtListEdges() {
@@ -186,6 +214,24 @@ struct FixesPaletteModelTests {
         #expect(dismissCount == 1)
         #expect(activationCount == 0)
         #expect(model.searchText.isEmpty)
+    }
+
+    @Test func activeVoicePromptBlocksOutsideDismissalAndReturnStopsRecording() {
+        var stopCount = 0
+        let model = FixesPaletteModel(
+            catalog: .defaults,
+            onActivate: { _ in },
+            onVoicePromptStop: { stopCount += 1 },
+            onDismiss: {}
+        )
+
+        model.updateStatus(.recordingVoicePrompt)
+        #expect(model.allowsOutsideDismissal == false)
+
+        model.activateSelection()
+
+        #expect(stopCount == 1)
+        #expect(model.status == .recordingVoicePrompt)
     }
 
     private func makeModel(

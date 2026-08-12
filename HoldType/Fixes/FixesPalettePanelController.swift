@@ -134,7 +134,7 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
             self?.handleKeyboardCommand(command) == true
         }
         outsideClickMonitor.start(panel: panel) { [weak self] in
-            self?.requestDismissal()
+            self?.requestOutsideDismissal()
         }
 
         panel.makeKeyAndOrderFront(nil)
@@ -188,6 +188,13 @@ final class FixesPalettePanelController: FixesPalettePanelPresenting {
 
         hide()
         model.requestDismissal()
+    }
+
+    private func requestOutsideDismissal() {
+        guard model?.allowsOutsideDismissal == true else {
+            return
+        }
+        requestDismissal()
     }
 
     private func makePanel() -> FixesPalettePanel {

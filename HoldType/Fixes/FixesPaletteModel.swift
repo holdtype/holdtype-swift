@@ -20,6 +20,7 @@ final class FixesPaletteModel: ObservableObject {
 
     private let onActivate: ActionHandler
     private let onDismiss: DismissHandler
+    private let onVoicePromptStop: DismissHandler
     private let recentActionIDs: [String]
     private let translationTargetLanguageCode: String?
     private var didRequestDismissal = false
@@ -30,9 +31,10 @@ final class FixesPaletteModel: ObservableObject {
         translationTargetLanguageCode: String? = nil,
         status: FixesPaletteStatus = .ready,
         onActivate: @escaping ActionHandler,
+        onVoicePromptStop: @escaping DismissHandler = {},
         onDismiss: @escaping DismissHandler
     ) {
-        let actions = catalog.enabledActions.map {
+        let actions = [FixesPaletteActionPresentation.voicePrompt] + catalog.enabledActions.map {
             FixesPaletteActionPresentation(
                 action: $0,
                 translationTargetLanguageCode: translationTargetLanguageCode
@@ -41,23 +43,32 @@ final class FixesPaletteModel: ObservableObject {
         self.actions = actions
         self.status = status
         self.onActivate = onActivate
+        self.onVoicePromptStop = onVoicePromptStop
         self.onDismiss = onDismiss
         self.recentActionIDs = recentActionIDs
         self.translationTargetLanguageCode = translationTargetLanguageCode
-        selectedActionID = actionsRankedByRecency(actions).first?.id
+        selectedActionID = actionsRankedByRecency(
+            actions.filter {
+                $0.id != FixesPaletteActionPresentation.voicePromptIdentifier
+            }
+        ).first?.id
     }
 
     var visibleActions: [FixesPaletteActionPresentation] {
+        let catalogActions = actions.filter {
+            $0.id != FixesPaletteActionPresentation.voicePromptIdentifier
+        }
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
-            return Array(
-                actionsRankedByRecency(actions)
-                    .prefix(Self.maximumVisibleActionCount)
-            )
+            return [FixesPaletteActionPresentation.voicePrompt]
+                + Array(
+                    actionsRankedByRecency(catalogActions)
+                        .prefix(Self.maximumVisibleActionCount)
+                )
         }
 
-        return Array(
-            actions
+        return [FixesPaletteActionPresentation.voicePrompt] + Array(
+            catalogActions
                 .filter { titleMatchRank(for: $0, query: query) != nil }
                 .sorted { lhs, rhs in
                     let lhsMatchRank = titleMatchRank(for: lhs, query: query) ?? .max
@@ -103,6 +114,10 @@ final class FixesPaletteModel: ObservableObject {
             && selectedAction != nil
     }
 
+    var allowsOutsideDismissal: Bool {
+        !status.isVoicePromptActive
+    }
+
     func setSearchText(_ searchText: String) {
         guard !didRequestDismissal else {
             return
@@ -113,7 +128,7 @@ final class FixesPaletteModel: ObservableObject {
     }
 
     func updateActions(from catalog: TextFixCatalog) {
-        actions = catalog.enabledActions.map {
+        actions = [FixesPaletteActionPresentation.voicePrompt] + catalog.enabledActions.map {
             FixesPaletteActionPresentation(
                 action: $0,
                 translationTargetLanguageCode: translationTargetLanguageCode
@@ -161,6 +176,10 @@ final class FixesPaletteModel: ObservableObject {
     }
 
     func activateSelection() {
+        if status == .recordingVoicePrompt {
+            onVoicePromptStop()
+            return
+        }
         guard canActivateSelection,
               let selectedAction
         else {
@@ -194,7 +213,9 @@ final class FixesPaletteModel: ObservableObject {
         guard let selectedActionID,
               visibleActions.contains(where: { $0.id == selectedActionID })
         else {
-            self.selectedActionID = visibleActions.first?.id
+            self.selectedActionID = visibleActions.first {
+                $0.id != FixesPaletteActionPresentation.voicePromptIdentifier
+            }?.id ?? visibleActions.first?.id
             return
         }
     }

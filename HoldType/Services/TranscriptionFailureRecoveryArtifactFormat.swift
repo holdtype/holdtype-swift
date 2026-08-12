@@ -38,9 +38,15 @@ enum TranscriptionFailureRecoveryArtifactFormat {
         createdAt: Date,
         completionKind: TranscriptionRecoveryCompletionKind
     ) -> URL {
-        let recordingPrefix = completionKind == .maximumDuration
-            ? "Recording-Max-"
-            : "Recording-"
+        let recordingPrefix: String
+        switch completionKind {
+        case .standard:
+            recordingPrefix = "Recording-"
+        case .maximumDuration:
+            recordingPrefix = "Recording-Max-"
+        case .voicePrompt:
+            recordingPrefix = "Recording-Voice-Prompt-"
+        }
         return directoryURL
             .appendingPathComponent(
                 "\(recordingPrefix)\(fileTimestamp(from: createdAt))-\(id.uuidString.lowercased())"
@@ -80,7 +86,10 @@ enum TranscriptionFailureRecoveryArtifactFormat {
         let stem = fileURL.deletingPathExtension().lastPathComponent
         let prefix: String
         let completionKind: TranscriptionRecoveryCompletionKind
-        if stem.hasPrefix("Recording-Max-") {
+        if stem.hasPrefix("Recording-Voice-Prompt-") {
+            prefix = "Recording-Voice-Prompt-"
+            completionKind = .voicePrompt
+        } else if stem.hasPrefix("Recording-Max-") {
             prefix = "Recording-Max-"
             completionKind = .maximumDuration
         } else {

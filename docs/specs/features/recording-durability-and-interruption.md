@@ -1,5 +1,7 @@
 # Recording Durability And Interruption
 
+Contract revision: 2.
+
 ## Goal
 
 Make every retained microphone attempt recoverable when recording, local
@@ -136,6 +138,21 @@ other cause preserves positive bytes under one durable owner.
   user to review recordings, but only explicit Delete removes unresolved
   positive-byte audio.
 
+## Voice Prompt Fix Recordings
+
+- A macOS Voice Prompt Fix follows the same capture ownership and exact-once
+  terminal-cause rules as ordinary dictation, but persists the closed
+  completion kind `voicePrompt` instead of inventing ordinary dictation intent.
+- Successful transcription and Fix completion remove the recovery checkpoint
+  without publishing the instruction as accepted History or ordinary output.
+- A failed or interrupted Voice Prompt attempt preserves one playable owner and
+  exposes Play and Delete only. It never exposes ordinary Retry, Transcribe
+  Again, automatic insertion, or delayed Fix application because the external
+  Accessibility target is transient and cannot be restored safely.
+- While the originating palette and target remain alive, an in-memory retry may
+  reuse the retained recording under the existing provider-dispatch seal. That
+  capability is never reconstructed after palette dismissal or relaunch.
+
 ## User feedback
 
 - An involuntary stop immediately reports `Recording interrupted — saved to
@@ -164,6 +181,8 @@ For every platform terminal cause, tests assert:
   or the configured limit already owned that authority;
 - late callbacks cannot accept text, delete audio, or create a second owner;
 - relaunch repair is bounded and never automatically uploads recovered audio.
+- Voice Prompt recovery rows never expose ordinary dictation Retry or recreate
+  an external text target.
 
 Fault injection covers state-publication failure, feedback/arming races,
 generic task cancellation, handoff supersession, warm-input failure, cache

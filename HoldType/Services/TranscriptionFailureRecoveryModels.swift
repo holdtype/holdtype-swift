@@ -33,6 +33,7 @@ enum FailedTranscriptionReason: Codable, Equatable {
     case providerDispatchPersistenceFailed
     case providerOutcomeUncertain
     case postProcessingFailedAfterProviderAcceptance
+    case voicePromptFailed
     case savedStatePersistenceFailed
     case other
 
@@ -144,6 +145,8 @@ enum FailedTranscriptionReason: Codable, Equatable {
             return "Transcription outcome uncertain"
         case .postProcessingFailedAfterProviderAcceptance:
             return "Raw transcription recovered"
+        case .voicePromptFailed:
+            return "Voice Prompt failed"
         case .savedStatePersistenceFailed:
             return "Saved result incomplete"
         case .other:
@@ -199,6 +202,8 @@ enum FailedTranscriptionReason: Codable, Equatable {
             return "The previous request may have completed. Sending it again could create a duplicate transcription."
         case .postProcessingFailedAfterProviderAcceptance:
             return "Transcription succeeded, but downstream processing failed. The raw transcription is preserved locally."
+        case .voicePromptFailed:
+            return "The Voice Prompt could not finish. Its recording is available to play or delete."
         case .savedStatePersistenceFailed:
             return "Transcription succeeded, but the saved result could not be written. Retry saving it locally."
         case .other:
@@ -229,6 +234,7 @@ enum FailedTranscriptionReason: Codable, Equatable {
              .providerDispatchPersistenceFailed,
              .providerOutcomeUncertain,
              .postProcessingFailedAfterProviderAcceptance,
+             .voicePromptFailed,
              .savedStatePersistenceFailed,
              .other:
             return nil
@@ -244,6 +250,7 @@ enum FailedTranscriptionReason: Codable, Equatable {
              .providerDispatchPersistenceFailed,
              .providerOutcomeUncertain,
              .postProcessingFailedAfterProviderAcceptance,
+             .voicePromptFailed,
              .savedStatePersistenceFailed:
             return false
         default:
@@ -274,6 +281,7 @@ enum TranscriptionRecoveryState: String, Codable, Equatable {
 enum TranscriptionRecoveryCompletionKind: String, Codable, Equatable {
     case standard
     case maximumDuration
+    case voicePrompt
 }
 
 struct FailedTranscriptionAttempt: Equatable, Identifiable {
@@ -326,7 +334,7 @@ struct FailedTranscriptionAttempt: Equatable, Identifiable {
     }
 
     var canRetry: Bool {
-        state == .failed && reason.canRetry
+        completionKind != .voicePrompt && state == .failed && reason.canRetry
     }
 
     var requiresDuplicateRetryConfirmation: Bool {

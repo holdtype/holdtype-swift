@@ -19,11 +19,14 @@ struct DebugFixesQAConfiguration:
     static let outputEnvironmentKey = "HOLDTYPE_DEBUG_FIXES_QA_OUTPUT"
     static let showPaletteEnvironmentKey =
         "HOLDTYPE_DEBUG_FIXES_QA_SHOW_PALETTE_ON_LAUNCH"
+    static let syntheticTargetEnvironmentKey =
+        "HOLDTYPE_DEBUG_FIXES_QA_SYNTHETIC_TARGET"
     static let maximumOutputByteCount = 32 * 1_024
 
     let mode: Mode
     let output: String?
     let showsPaletteOnLaunch: Bool
+    let usesSyntheticTarget: Bool
 
     static func resolve(
         environment: [String: String]
@@ -68,17 +71,29 @@ struct DebugFixesQAConfiguration:
             return nil
         }
 
+        let usesSyntheticTarget: Bool
+        switch environment[syntheticTargetEnvironmentKey] {
+        case nil:
+            usesSyntheticTarget = false
+        case "1":
+            usesSyntheticTarget = true
+        default:
+            return nil
+        }
+
         return DebugFixesQAConfiguration(
             mode: mode,
             output: output,
-            showsPaletteOnLaunch: showsPaletteOnLaunch
+            showsPaletteOnLaunch: showsPaletteOnLaunch,
+            usesSyntheticTarget: usesSyntheticTarget
         )
     }
 
     var description: String {
         """
         DebugFixesQAConfiguration(mode: \(mode.rawValue), \
-        output: <redacted>, showsPaletteOnLaunch: \(showsPaletteOnLaunch))
+        output: <redacted>, showsPaletteOnLaunch: \(showsPaletteOnLaunch), \
+        usesSyntheticTarget: \(usesSyntheticTarget))
         """
     }
 
@@ -93,6 +108,7 @@ struct DebugFixesQAConfiguration:
                 "mode": mode.rawValue,
                 "output": "<redacted>",
                 "showsPaletteOnLaunch": showsPaletteOnLaunch,
+                "usesSyntheticTarget": usesSyntheticTarget,
             ]
         )
     }
@@ -110,11 +126,18 @@ enum DebugFixesQARuntimeFactory {
         }
 
         let settings = AppSettings.defaults
+        let targetService = configuration.usesSyntheticTarget
+            ? DebugFixesQATargetFixture.makeTargetService()
+            : FocusedTextTargetService()
+        let replacementService: any FocusedTextReplacing = configuration
+            .usesSyntheticTarget
+            ? DebugFixesQASyntheticReplacementService()
+            : FocusedTextReplacementService()
 
         return FixesRuntime(
             catalogStore: MacOSTextFixCatalogStore(),
-            targetService: FocusedTextTargetService(),
-            replacementService: FocusedTextReplacementService(),
+            targetService: targetService,
+            replacementService: replacementService,
             executionService: DebugFixesQAExecutionService(
                 configuration: configuration
             ),
@@ -123,7 +146,8 @@ enum DebugFixesQARuntimeFactory {
                 settings
             },
             panelPresenter: FixesPalettePanelController(),
-            hotkeyCoordinator: FixesHotkeyCoordinator()
+            hotkeyCoordinator: FixesHotkeyCoordinator(),
+            voicePromptSession: DebugVoicePromptFixSession()
         )
     }
 }
@@ -157,6 +181,35 @@ struct DebugFixesQAExecutionService:
         settings: AppSettings,
         credential: OpenAICredential
     ) async throws -> String {
+        try Task.checkCancellation()
+
+        switch configuration.mode {
+        case .success:
+            guard let output = configuration.output else {
+                throw DebugFixesQAExecutionError.invalidConfiguration
+            }
+            return output
+        case .failure:
+            throw DebugFixesQAExecutionError.controlledFailure
+        case .timeout:
+            try await Task.sleep(for: timeoutDelay)
+            throw OpenAITextTransformationServiceError.timedOut
+        case .cancel:
+            try await Task.sleep(for: cancellationWindow)
+            throw DebugFixesQAExecutionError.cancellationNotObserved
+        }
+    }
+
+    func executeVoicePrompt(
+        _ prompt: String,
+        sourceText: String,
+        settings: AppSettings,
+        credential: OpenAICredential
+    ) async throws -> String {
+        try await executeControlledRequest()
+    }
+
+    private func executeControlledRequest() async throws -> String {
         try Task.checkCancellation()
 
         switch configuration.mode {

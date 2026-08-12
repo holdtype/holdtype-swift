@@ -2,6 +2,13 @@ import Foundation
 import HoldTypeDomain
 
 struct FixesPaletteActionPresentation: Equatable, Identifiable {
+    static let voicePromptIdentifier = "builtin.voice-prompt"
+    static let voicePrompt = FixesPaletteActionPresentation(
+        id: voicePromptIdentifier,
+        title: "Voice Prompt…",
+        systemImageName: "mic"
+    )
+
     let id: String
     let title: String
     let systemImageName: String
@@ -19,11 +26,21 @@ struct FixesPaletteActionPresentation: Equatable, Identifiable {
         }
         systemImageName = action.icon.fixesPaletteSystemImageName
     }
+
+    private init(id: String, title: String, systemImageName: String) {
+        self.id = id
+        self.title = title
+        self.systemImageName = systemImageName
+    }
 }
 
 enum FixesPaletteStatus: Equatable {
     case ready
     case processing(actionID: String)
+    case preparingVoicePrompt
+    case recordingVoicePrompt
+    case transcribingVoicePrompt
+    case applyingVoicePrompt
     case unavailable(message: String)
     case failure(message: String, allowsRetry: Bool)
     case staleTarget(message: String)
@@ -34,7 +51,25 @@ enum FixesPaletteStatus: Equatable {
             return true
         case .failure(_, let allowsRetry):
             return allowsRetry
-        case .processing, .unavailable, .staleTarget:
+        case .processing,
+             .preparingVoicePrompt,
+             .recordingVoicePrompt,
+             .transcribingVoicePrompt,
+             .applyingVoicePrompt,
+             .unavailable,
+             .staleTarget:
+            return false
+        }
+    }
+
+    var isVoicePromptActive: Bool {
+        switch self {
+        case .preparingVoicePrompt,
+             .recordingVoicePrompt,
+             .transcribingVoicePrompt,
+             .applyingVoicePrompt:
+            return true
+        case .ready, .processing, .unavailable, .failure, .staleTarget:
             return false
         }
     }
@@ -62,6 +97,38 @@ extension FixesPaletteStatus {
         case .processing:
             return FixesPaletteStatusPresentation(
                 title: actionTitle.map { "Applying \($0)…" } ?? "Applying Fix…",
+                message: nil,
+                systemImageName: nil,
+                tone: .neutral,
+                showsProgress: true
+            )
+        case .preparingVoicePrompt:
+            return FixesPaletteStatusPresentation(
+                title: "Preparing Voice Prompt…",
+                message: nil,
+                systemImageName: nil,
+                tone: .neutral,
+                showsProgress: true
+            )
+        case .recordingVoicePrompt:
+            return FixesPaletteStatusPresentation(
+                title: "Listening…",
+                message: "Speak your instruction, then press Return to stop.",
+                systemImageName: "mic.fill",
+                tone: .neutral,
+                showsProgress: false
+            )
+        case .transcribingVoicePrompt:
+            return FixesPaletteStatusPresentation(
+                title: "Transcribing instruction…",
+                message: nil,
+                systemImageName: nil,
+                tone: .neutral,
+                showsProgress: true
+            )
+        case .applyingVoicePrompt:
+            return FixesPaletteStatusPresentation(
+                title: "Applying instruction…",
                 message: nil,
                 systemImageName: nil,
                 tone: .neutral,

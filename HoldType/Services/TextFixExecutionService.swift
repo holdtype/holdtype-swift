@@ -10,7 +10,24 @@ protocol TextFixExecuting {
         settings: AppSettings,
         credential: OpenAICredential
     ) async throws -> String
+    func executeVoicePrompt(
+        _ prompt: String,
+        sourceText: String,
+        settings: AppSettings,
+        credential: OpenAICredential
+    ) async throws -> String
     func cancelActiveExecution()
+}
+
+extension TextFixExecuting {
+    func executeVoicePrompt(
+        _ prompt: String,
+        sourceText: String,
+        settings: AppSettings,
+        credential: OpenAICredential
+    ) async throws -> String {
+        throw TextFixExecutionError.voicePromptUnavailable
+    }
 }
 
 @MainActor
@@ -73,6 +90,25 @@ struct TextFixExecutionService: TextFixExecuting {
         translationService.cancelActiveTranslation()
         correctionService.cancelActiveCorrection()
         transformationService.cancelActiveTransformation()
+    }
+
+    func executeVoicePrompt(
+        _ prompt: String,
+        sourceText: String,
+        settings: AppSettings,
+        credential: OpenAICredential
+    ) async throws -> String {
+        let request = try TextTransformationRequest(
+            sourceText: sourceText,
+            prompt: prompt,
+            model: settings.resolvedTextCorrectionModel,
+            reasoningEffort: .low,
+            requestTimeoutSeconds: 20
+        )
+        return try await transformationService.transform(
+            request,
+            credential: credential
+        )
     }
 
     private func translate(
@@ -154,6 +190,7 @@ struct TextFixExecutionService: TextFixExecuting {
 enum TextFixExecutionError: Error, Equatable, LocalizedError {
     case missingCustomPrompt
     case unsupportedBuiltInWritingSkillModel
+    case voicePromptUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -161,6 +198,8 @@ enum TextFixExecutionError: Error, Equatable, LocalizedError {
             "This Fix is missing its instruction."
         case .unsupportedBuiltInWritingSkillModel:
             "The selected model does not support HoldType’s built-in writing skill."
+        case .voicePromptUnavailable:
+            "Voice Prompt is unavailable."
         }
     }
 }

@@ -20,6 +20,15 @@ final class FixesRuntime: ObservableObject {
     private let hotkeyCoordinator: FixesHotkeyCoordinator
     private let eventLogger: any FixesEventLogging
     private let recentUseStore: any FixesRecentUseStoring
+    private let voicePromptSession: any VoicePromptFixCapturing
+
+    private lazy var voicePromptCoordinator = FixesVoicePromptCoordinator(
+        captureSession: voicePromptSession,
+        targetService: targetService,
+        replacementService: replacementService,
+        executionService: executionService,
+        panelPresenter: panelPresenter
+    )
 
     private var preparationTask: Task<Void, Never>?
     private var activeTask: Task<Void, Never>?
@@ -72,6 +81,7 @@ final class FixesRuntime: ObservableObject {
         invocationFeedbackPresenter: (any FixesInvocationFeedbackPresenting)? = nil,
         hotkeyCoordinator: FixesHotkeyCoordinator,
         recentUseStore: (any FixesRecentUseStoring)? = nil,
+        voicePromptSession: (any VoicePromptFixCapturing)? = nil,
         eventLogger: any FixesEventLogging = OSLogFixesEventLogger()
     ) {
         self.catalogStore = catalogStore
@@ -85,6 +95,7 @@ final class FixesRuntime: ObservableObject {
             ?? FixesInvocationFeedbackController()
         self.hotkeyCoordinator = hotkeyCoordinator
         self.recentUseStore = recentUseStore ?? FixesRecentUseStore()
+        self.voicePromptSession = voicePromptSession ?? VoicePromptFixSession()
         self.eventLogger = eventLogger
     }
 
@@ -130,7 +141,7 @@ final class FixesRuntime: ObservableObject {
     }
 
     func showPalette() {
-        guard activeTask == nil else {
+        guard activeTask == nil, !voicePromptCoordinator.isActive else {
             eventLogger.record(.availability(outcome: .blockedBusy))
             return
         }
@@ -191,6 +202,7 @@ final class FixesRuntime: ObservableObject {
         preparationTask = nil
         activeTask?.cancel()
         executionService.cancelActiveExecution()
+        voicePromptCoordinator.cancel()
         panelPresenter.hide()
         clearPresentation()
     }
@@ -212,6 +224,9 @@ final class FixesRuntime: ObservableObject {
             status: status,
             onActivate: { [weak self] actionID in
                 self?.activate(actionID: actionID)
+            },
+            onVoicePromptStop: { [weak self] in
+                self?.voicePromptCoordinator.stop()
             },
             onDismiss: { [weak self] in
                 self?.dismissPalette()
@@ -238,6 +253,10 @@ final class FixesRuntime: ObservableObject {
     }
 
     private func activate(actionID: String) {
+        if actionID == FixesPaletteActionPresentation.voicePromptIdentifier {
+            activateVoicePrompt()
+            return
+        }
         guard let action = presentedCatalog?.action(id: actionID) else {
             eventLogger.record(
                 .availability(outcome: .blockedActionUnavailable)
@@ -353,6 +372,50 @@ final class FixesRuntime: ObservableObject {
             }
             self.activeTask = nil
         }
+    }
+
+    private func activateVoicePrompt() {
+        guard activeTask == nil,
+              !voicePromptCoordinator.isActive,
+              let snapshot = presentedSnapshot,
+              let model = paletteModel else {
+            return
+        }
+        do {
+            try targetService.validate(snapshot)
+        } catch {
+            model.updateStatus(
+                .staleTarget(message: Self.userFacingMessage(for: error))
+            )
+            return
+        }
+
+        let credential: OpenAICredential
+        do {
+            credential = try credentialResolver.resolveOpenAICredential()
+        } catch {
+            model.updateStatus(
+                .failure(
+                    message: Self.userFacingMessage(for: error),
+                    allowsRetry: true
+                )
+            )
+            return
+        }
+
+        voicePromptCoordinator.start(
+            snapshot: snapshot,
+            settings: settingsProvider(),
+            credential: credential,
+            model: model,
+            onSuccess: { [weak self] in
+                guard let self else {
+                    return
+                }
+                self.panelPresenter.hide()
+                self.clearPresentation()
+            }
+        )
     }
 
     private func recordCapture(_ error: Error) {

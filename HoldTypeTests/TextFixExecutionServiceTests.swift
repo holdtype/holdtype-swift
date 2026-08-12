@@ -180,6 +180,30 @@ struct TextFixExecutionServiceTests {
         #expect(request.requestTimeoutSeconds == 60)
     }
 
+    @Test func voicePromptUsesWritingModelWithLowReasoning() async throws {
+        let transformation = FakeFixTransformationService(output: "Rewritten")
+        let service = makeService(transformation: transformation)
+        var settings = AppSettings.defaults
+        settings.textCorrectionModelPreset = .custom
+        settings.customTextCorrectionModel = "voice-prompt-model"
+
+        let output = try await service.executeVoicePrompt(
+            "Make this friendlier.",
+            sourceText: "Original",
+            settings: settings,
+            credential: credential
+        )
+
+        #expect(output == "Rewritten")
+        let request = try #require(transformation.requests.first)
+        #expect(request.sourceText == "Original")
+        #expect(request.prompt == "Make this friendlier.")
+        #expect(request.model == "voice-prompt-model")
+        #expect(request.reasoningEffort == .low)
+        #expect(request.requestTimeoutSeconds == 20)
+        #expect(request.usesBuiltInWritingSkill == false)
+    }
+
     @Test func cancellationFansOutToEveryProvider() {
         let translation = FakeFixTranslationService(output: "translation")
         let correction = FakeFixCorrectionService(output: "correction")

@@ -1,7 +1,7 @@
 # macOS OpenAI Usage Estimate
 
 Status: active product contract.
-Contract revision: 1.
+Contract revision: 2.
 
 ## Goal
 
@@ -53,6 +53,11 @@ account balance, or complete provider-usage dashboard.
 - A text response may be billable even when later local result validation or
   stale-target replacement rejects the result. The provider event is recorded
   after response decoding and before downstream product validation.
+- A successful Voice Prompt Fix normally creates two independent events: its
+  successful audio recognition is `Transcription`, and its successful text
+  transformation is `Fixes`. Failure of the later stage does not remove a
+  valid earlier event. Neither event contains the instruction, source, result,
+  target, or recording identity.
 - Every event freezes the local rate and calculated cost used at recording
   time. Later pricing-table changes do not rewrite historical estimates.
 - Unknown models retain measurements and request counts while cost remains

@@ -8,18 +8,26 @@ struct FixesPaletteView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            searchField
+            if !model.status.isVoicePromptActive {
+                searchField
 
-            if !model.visibleActions.isEmpty || !model.searchText.isEmpty {
                 Divider()
+
+                actionList
             }
 
-            actionList
-
             if let status = model.statusPresentation {
-                Divider()
+                if !model.status.isVoicePromptActive {
+                    Divider()
+                }
 
                 FixesPaletteStatusBanner(presentation: status)
+            }
+
+            if model.status.isVoicePromptActive {
+                Divider()
+
+                voicePromptControls
             }
         }
         .padding(5)
@@ -36,6 +44,28 @@ struct FixesPaletteView: View {
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("HoldType Fixes")
+    }
+
+    private var voicePromptControls: some View {
+        HStack(spacing: 8) {
+            if model.status == .recordingVoicePrompt {
+                Button("Stop") {
+                    model.activateSelection()
+                }
+                .keyboardShortcut(.return, modifiers: [])
+                .buttonStyle(.borderedProminent)
+            }
+
+            Button("Cancel") {
+                model.requestDismissal()
+            }
+            .keyboardShortcut(.escape, modifiers: [])
+            .buttonStyle(.bordered)
+        }
+        .controlSize(.small)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
     }
 
     private var searchField: some View {
