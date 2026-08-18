@@ -45,16 +45,23 @@ final class DictationRuntime: ObservableObject {
         settingsPresenter: (any SetupSettingsPresenting)? = nil,
         hotkeyService: (any GlobalHotkeyService)? = nil,
         pasteLastResultService: SpecialClipboardPasteService? = nil,
-        transcriptClipboardStore: (any TranscriptClipboardStoring)? = nil
+        transcriptClipboardStore: (any TranscriptClipboardStoring)? = nil,
+        environment: [String: String] = ProcessInfo.processInfo.environment
     ) {
-        let resolvedController = controller ?? DictationSessionController()
+        let resolvedController = controller
+            ?? DevVlogsFinalQAAutomation.makeControllerIfEnabled(environment: environment)
+            ?? DictationSessionController()
         let resolvedHotkeyService = hotkeyService ?? CGEventGlobalHotkeyService()
         let resolvedAppSettingsStore = appSettingsStore ?? AppSettingsStore()
         let resolvedTranscriptClipboardStore = transcriptClipboardStore ?? AppTranscriptClipboardStore.shared
 
         self.controller = resolvedController
         self.appSettingsStore = resolvedAppSettingsStore
-        self.recordingSetupPreflight = recordingSetupPreflight ?? RecordingSetupPreflight()
+        self.recordingSetupPreflight = recordingSetupPreflight
+            ?? DevVlogsFinalQAAutomation.makeRecordingSetupPreflightIfEnabled(
+                environment: environment
+            )
+            ?? RecordingSetupPreflight()
         self.credentialResolver = credentialResolver ?? OpenAICredentialResolver()
         self.settingsPresenter = settingsPresenter ?? SettingsPresentationCoordinator.shared
         self.hotkeyService = resolvedHotkeyService

@@ -97,7 +97,7 @@
 		D4A174092FEF174000000009 /* Exceptions for "HoldType" folder in "HoldType" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Info-Debug.plist,
+				"Info-Debug.plist",
 				Info.plist,
 			);
 			target = 9DB749682FE6D7300053C3F3 /* HoldType */;

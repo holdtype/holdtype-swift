@@ -136,6 +136,15 @@ private struct HoldTypeMenuBarLabel: View {
                 AppWindowActivation.activateForWindowPresentation()
                 openWindow(id: TranscriptionFailurePromptScene.identifier)
             }
+            DevVlogsFinalQAAutomation.requestWindowIfEnabled(
+                environment: ProcessInfo.processInfo.environment,
+                activateApplication: {
+                    AppWindowActivation.activateForWindowPresentation()
+                },
+                openWindow: {
+                    openWindow(id: DevVlogsScene.identifier)
+                }
+            )
         }
     }
 }
