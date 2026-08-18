@@ -146,6 +146,7 @@ struct DictationSessionControllerRecordingActionTests {
             transcriptionFailureRecovery: FakeTranscriptionFailureRecovery(),
             recordingStopTailSleeper: RecordingActionStopTailSleeper(),
             credentialResolverForUngatedActions: RecordingActionCredentialResolver(),
+            voiceWorkReservation: VoiceWorkReservation(),
             initialStatus: initialStatus
         )
     }

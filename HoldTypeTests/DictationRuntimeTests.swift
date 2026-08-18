@@ -110,7 +110,7 @@ struct DictationRuntimeTests {
     @Test func releasedHotkeyAfterMicrophoneGrantDoesNotStartRecording() async throws {
         let microphoneClient = FakeRuntimeMicrophonePermissionClient(status: .notDetermined, requestResults: [true])
         let recorder = FakeAudioRecorderService()
-        let controller = DictationSessionController(recorder: recorder)
+        let controller = DictationSessionController(recorder: recorder, voiceWorkReservation: VoiceWorkReservation())
         let preflight = RecordingSetupPreflight(
             setupStatusProvider: makeSetupStatusProvider(
                 microphoneClient: microphoneClient,
@@ -296,6 +296,7 @@ struct DictationRuntimeTests {
             credentialResolverForUngatedActions: FakeRuntimeCredentialResolver(
                 result: .failure(.missingAPIKey)
             ),
+            voiceWorkReservation: VoiceWorkReservation(),
             initialStatus: .recording
         )
         let runtime = DictationRuntime(

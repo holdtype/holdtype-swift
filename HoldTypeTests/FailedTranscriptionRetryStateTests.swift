@@ -21,7 +21,8 @@ struct FailedTranscriptionRetryStateTests {
         let controller = DictationSessionController(
             transcriptionService: service,
             settingsProvider: { .defaults },
-            transcriptionFailureRecovery: recovery
+            transcriptionFailureRecovery: recovery,
+            voiceWorkReservation: VoiceWorkReservation()
         )
 
         await controller.retryFailedTranscription(
@@ -56,7 +57,8 @@ struct FailedTranscriptionRetryStateTests {
         let controller = DictationSessionController(
             transcriptionService: service,
             settingsProvider: { .defaults },
-            transcriptionFailureRecovery: recovery
+            transcriptionFailureRecovery: recovery,
+            voiceWorkReservation: VoiceWorkReservation()
         )
 
         await controller.retryFailedTranscription(

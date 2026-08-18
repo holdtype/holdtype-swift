@@ -16,12 +16,12 @@ committed at `3753db1` and activated as the persistent-goal objective on
 
 Pinned contract:
 [`docs/specs/features/dev-vlogs.md`](specs/features/dev-vlogs.md), revision
-`DV-ACTIVE-4`. It preserves the accepted no-additional-video-processing
-capture boundary and resolves the local Build policy authorized by the
-approved autonomous plan: compatible Apple-native video passthrough succeeds,
-while incompatible selections fail without an output or hidden transcode.
-Independent review accepted the Release capture implementation and the real
-Library/Delete/Publish implementation with bounded final-runtime residuals.
+`DV-ACTIVE-5`. It preserves the accepted no-additional-video-processing
+capture boundary and governs the Finder-owned day/application Publish
+workflow: compatible Apple-native video passthrough succeeds, while
+incompatible selections fail without an output or hidden transcode.
+Independent review accepted the Release implementation with final integrated
+runtime acceptance still required.
 
 Historical packet and receipt bodies are preserved verbatim in the
 [registry archive](dev-vlogs-execution-registry-archive.md). They are evidence,
@@ -63,8 +63,8 @@ resolution/FPS downgrade or an additional source-video encode. Native 1080p or
 another negotiated format is not a HoldType preset, quality selector, sensor
 RAW promise, or permission to claim preservation without proof.
 
-`DV-BUILD-6` is resolved by the user-approved autonomous plan and
-`DV-ACTIVE-4`: selected clips that cannot be composed through compatible
+`DV-BUILD-6` is resolved by the user-approved autonomous plan and preserved by
+`DV-ACTIVE-5`: selected clips that cannot be composed through compatible
 passthrough fail the Build without an output. V1 never silently transcodes.
 
 On 2026-08-10 the user adopted outcome-first execution. Release-path product
@@ -83,7 +83,8 @@ reconciliation recorded below.
 | `DV-ACTIVE-1` | User-authorized Dev Vlogs contract and narrow adjacent clauses | superseded by `DV-ACTIVE-2` | Historical Phase 1 authority; accepted setup/UI behavior remains protected. |
 | `DV-ACTIVE-2` | Approved Publish information architecture and local-artifact presentation | superseded by `DV-ACTIVE-3` | Historical Publish UI authority; its accepted behavior remains protected. |
 | `DV-ACTIVE-3` | User-clarified no-additional-video-processing capture contract | superseded by `DV-ACTIVE-4` | Historical capture authority; accepted capture behavior remains protected. |
-| `DV-ACTIVE-4` | Real Library/Delete/local-Publish contract and incompatible no-output policy | current / implementation accepted_with_residual | Active, Evolving implementation authority. Library/Delete/Publish source, focused QA, builds, and independent review are accepted; integrated runtime remains. |
+| `DV-ACTIVE-4` | Historical Library/Delete/local-Publish contract and incompatible no-output policy | superseded by `DV-ACTIVE-5` | Accepted archive and build owners remain protected; the user-facing review workflow was simplified in the next epoch. |
+| `DV-ACTIVE-5` | Finder-owned day/application Publish workflow and incompatible no-output policy | current / implementation accepted_with_residual | Active, Evolving implementation authority. Source, focused QA, builds, and independent review are accepted; integrated runtime remains blocked until macOS exposes a camera. |
 
 Any open packet based on affected `DV-DRAFT-4` clauses is retired or must be
 revalidated before its result can be accepted. Historical Phase 0B evidence
@@ -110,7 +111,7 @@ remains evidence under the dispositions below.
   behavior remains protected.
 - Required evidence: capability-specific scenarios in the acceptance map;
   independent `DV-P0C-REVIEW` accepted the contract before Phase 1 dispatch.
-- Allowed specification delta: `DV-ACTIVE-4`, active acceptance mapping, the
+- Allowed specification delta: `DV-ACTIVE-5`, active acceptance mapping, the
   approved final Publish IA/local-artifact meaning, compatible passthrough,
   and truthful no-output failure for incompatible selections.
 - Forbidden delta: weakened capture/storage acceptance, invented thresholds,
@@ -118,7 +119,7 @@ remains evidence under the dispositions below.
   ownership, iOS change, publication, or CLI.
 - Material decision requiring the user: none inside the accepted local V1
   workflow.
-- Pinned epoch: `DV-ACTIVE-4`.
+- Pinned epoch: `DV-ACTIVE-5`.
 
 ## Accepted Phase 0B Evidence
 
@@ -175,9 +176,16 @@ remains evidence under the dispositions below.
 | `DV-P2-CAPTURE-RUNTIME-R1` | `DV-ACTIVE-3` | accepted `DV-P2-CAPTURE` | blocked before hardware attempt at `b99ff54` | Automation disables live Keychain access, while the Release dictation route requires an OpenAI credential before the shipping Dev Vlogs coordinator starts. No enumeration or capture attempt was consumed. New deterministic credential/provider injection or explicit live-provider authority is required. |
 | `DV-P3-LIBRARY` | `DV-ACTIVE-4` | accepted Phase 2 implementation | accepted_with_residual at `2af2c44` | Real Library, playback, Reveal, exclusion, identity-safe exact Delete, reconstruction, duplicate/timezone safety; integrated runtime remains. |
 | `DV-P4-BUILD` | `DV-ACTIVE-4` | accepted Phase 3 and resolved `DV-BUILD-6` | accepted_with_residual at `2af2c44` | Recipe-first compatible passthrough Build, immutable validated export, retry/cancel, Play/Reveal/Share; integrated runtime remains. |
-| `DV-FINAL-QA` | final Active epoch | accepted Phase 4 | queued | Proportional build/test/runtime/visual/protected-domain verification. |
+| `DV-FINAL-QA` | `DV-ACTIVE-5` | accepted Phase 4 | blocked on 2026-08-18 | Computer Use reached the real Camera setup, but macOS exposed no camera. Resume the camera-to-Publish scenario after one built-in, USB, or Continuity Camera becomes visible. |
 
 ## Current Coordination State
+
+- Final acceptance attempt on 2026-08-18: the sanitized real Debug product
+  opened `HoldType: Dev Vlogs` through Computer Use under a scoped idle guard.
+  Overview truthfully reported Setup required; Camera reported access allowed
+  and `No cameras are currently available.` `system_profiler` returned an
+  empty camera inventory. No capture or media attempt was consumed. Evidence:
+  `docs/qa/runs/dev-vlogs-final-acceptance-2026-08-18.md`.
 
 - Shipping capability delivered: commit `ceeee8b` provides the Release
   `Dev Vlogs…` action, separate singleton SwiftUI window, Overview-only first

@@ -42,6 +42,7 @@ final class DictationSessionController {
     private let eventLogger: any DictationEventLogging
     private let credentialResolverForUngatedActions: (any OpenAICredentialResolving)?
     private let devVlogsCapture: any DevVlogsCaptureCoordinating
+    private let voiceWorkReservation: VoiceWorkReservation
     private var isPerformingAction = false
     private var nextSessionID = 0
     private var activeSessionID: Int?
@@ -115,6 +116,7 @@ final class DictationSessionController {
         eventLogger: any DictationEventLogging = OSLogDictationEventLogger(),
         credentialResolverForUngatedActions: (any OpenAICredentialResolving)? = nil,
         devVlogsCapture: (any DevVlogsCaptureCoordinating)? = nil,
+        voiceWorkReservation: VoiceWorkReservation = .shared,
         initialStatus: DictationStatus = .idle,
         lastTranscriptText: String? = nil,
         outputStatusText: String? = nil
@@ -145,6 +147,7 @@ final class DictationSessionController {
         self.eventLogger = eventLogger
         self.credentialResolverForUngatedActions = credentialResolverForUngatedActions
         self.devVlogsCapture = devVlogsCapture ?? DevVlogsCaptureCoordinator.shared
+        self.voiceWorkReservation = voiceWorkReservation
         self.status = initialStatus
         self.lastTranscriptText = lastTranscriptText.flatMap {
             AcceptedTranscript.nonEmptyNormalizedText(from: $0)
@@ -177,14 +180,12 @@ final class DictationSessionController {
             return
         }
     }
-
     func cancelRecording() {
         switch status.voiceWorkPhase {
         case .listening:
             guard !isPerformingAction || activeRecordingStopTailTask != nil else {
                 return
             }
-
             activeRecordingStopTailTask?.cancel()
             activeRecordingStopTailTask = nil
             let captureLease = activeRecordingCaptureLease
@@ -213,7 +214,6 @@ final class DictationSessionController {
             activeCredential = nil
             outputStatusText = nil
             failurePresentation = nil
-
             switch recorder.currentStatus {
             case .failed(let message):
                 status = .failure(message: message)
@@ -301,7 +301,7 @@ final class DictationSessionController {
         var sessionID: Int?
         do {
             let credential = try resolvedCredential(providedCredential: retry.credential)
-            guard VoiceWorkReservation.shared.acquire(.dictation) else {
+            guard voiceWorkReservation.acquire(.dictation) else {
                 outputStatusText = "Finish the current Voice Prompt before retrying transcription."
                 return
             }
@@ -557,7 +557,7 @@ final class DictationSessionController {
         deferredRecordingTerminalOutcome = nil
         activeRecordingDurationLimit = nil
         activeProviderDispatchCheckpointID = nil
-        VoiceWorkReservation.shared.release(.dictation)
+        voiceWorkReservation.release(.dictation)
     }
 
     private func cancelActiveSession() {
@@ -567,7 +567,7 @@ final class DictationSessionController {
         deferredRecordingTerminalOutcome = nil
         activeRecordingDurationLimit = nil
         activeProviderDispatchCheckpointID = nil
-        VoiceWorkReservation.shared.release(.dictation)
+        voiceWorkReservation.release(.dictation)
     }
 
     private func startRecording(intent: DictationOutputIntent, credential: OpenAICredential?) async {
@@ -595,7 +595,7 @@ final class DictationSessionController {
             return
         }
 
-        guard VoiceWorkReservation.shared.acquire(.dictation) else {
+        guard voiceWorkReservation.acquire(.dictation) else {
             let message = "Finish the current Voice Prompt before starting dictation."
             status = .failure(message: message)
             return

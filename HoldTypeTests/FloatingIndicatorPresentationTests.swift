@@ -161,7 +161,10 @@ struct FloatingIndicatorPresentationTests {
     @MainActor
     @Test func coordinatorDeliversRealRuntimeStatusChangeExactlyOnce() async {
         let presenter = FakeFloatingIndicatorPresenter()
-        let controller = DictationSessionController(initialStatus: .recording)
+        let controller = DictationSessionController(
+            voiceWorkReservation: VoiceWorkReservation(),
+            initialStatus: .recording
+        )
         let runtime = makeRuntime(controller: controller)
         let coordinator = FloatingIndicatorCoordinator(
             dictationRuntime: runtime,
@@ -301,7 +304,10 @@ struct FloatingIndicatorPresentationTests {
 
     @MainActor
     private func makeRuntime(initialStatus: DictationStatus) -> DictationRuntime {
-        let controller = DictationSessionController(initialStatus: initialStatus)
+        let controller = DictationSessionController(
+            voiceWorkReservation: VoiceWorkReservation(),
+            initialStatus: initialStatus
+        )
         return makeRuntime(controller: controller)
     }
 

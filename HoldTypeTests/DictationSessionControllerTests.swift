@@ -4532,12 +4532,12 @@ struct DictationSessionControllerTests {
             recordingStopTailSleeper: recordingStopTailSleeper ?? FakeRecordingStopTailSleeper(),
             eventLogger: eventLogger ?? FakeDictationEventLogger(),
             credentialResolverForUngatedActions: credentialResolverForUngatedActions,
+            voiceWorkReservation: VoiceWorkReservation(),
             initialStatus: initialStatus,
             lastTranscriptText: lastTranscriptText,
             outputStatusText: outputStatusText
         )
     }
-
     private func makeSettings(saveTranscriptsToAppClipboard: Bool = true) -> AppSettings {
         var settings = AppSettings.defaults
         settings.saveTranscriptsToAppClipboard = saveTranscriptsToAppClipboard

@@ -154,10 +154,17 @@ open_app() {
 }
 
 open_app_for_automation() {
-    printf 'HoldType run: launching with non-interactive Keychain policy for automation.\n' >&2
-    launch_app \
-        --env HOLDTYPE_AUTOMATION=1 \
+    local launch_args=(
+        --env HOLDTYPE_AUTOMATION=1
         --env HOLDTYPE_KEYCHAIN_AUTHENTICATION_UI=skip
+    )
+
+    if [[ "${HOLDTYPE_DEV_VLOGS_FINAL_QA:-}" == "camera-to-publish" ]]; then
+        launch_args+=(--env HOLDTYPE_DEV_VLOGS_FINAL_QA=camera-to-publish)
+    fi
+
+    printf 'HoldType run: launching with non-interactive Keychain policy for automation.\n' >&2
+    launch_app "${launch_args[@]}"
 }
 
 open_app_for_transcription_failure_prompt_verification() {

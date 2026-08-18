@@ -19,7 +19,8 @@ struct DictationSessionControllerDevVlogsTests {
             transcriptionFailureRecovery: FakeTranscriptionFailureRecovery(),
             recordingStopTailSleeper: DevVlogsControllerStopTailSleeper(),
             credentialResolverForUngatedActions: DevVlogsControllerCredentialResolver(),
-            devVlogsCapture: vlog
+            devVlogsCapture: vlog,
+            voiceWorkReservation: VoiceWorkReservation()
         )
 
         await controller.performRecordingAction()
@@ -48,7 +49,8 @@ struct DictationSessionControllerDevVlogsTests {
             transcriptionFailureRecovery: FakeTranscriptionFailureRecovery(),
             recordingStopTailSleeper: DevVlogsControllerStopTailSleeper(),
             credentialResolverForUngatedActions: DevVlogsControllerCredentialResolver(),
-            devVlogsCapture: vlog
+            devVlogsCapture: vlog,
+            voiceWorkReservation: VoiceWorkReservation()
         )
 
         await controller.performRecordingAction()

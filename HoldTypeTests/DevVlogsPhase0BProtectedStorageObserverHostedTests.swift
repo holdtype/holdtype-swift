@@ -7,6 +7,9 @@ import Testing
 struct DevVlogsPhase0BProtectedStorageObserverHostedTests {
     @Test func hostedPrivateRecoveryOwnerEmitsOnlyPrivateScopeBeforeSyntheticMutation() throws {
         let environment = ProcessInfo.processInfo.environment
+        guard environment["HOLDTYPE_DEV_VLOGS_PHASE_0B_STORAGE_TEST_HOST"] == "1" else {
+            return
+        }
         let rawHome = try #require(environment["HOME"])
         let rawTemporary = try #require(environment["TMPDIR"])
         let taskHome = URL(fileURLWithPath: rawHome).standardizedFileURL

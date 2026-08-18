@@ -18,7 +18,8 @@ struct RecordingFinalizationFailureTests {
         let controller = DictationSessionController(
             recorder: recorder,
             settingsProvider: { .defaults },
-            credentialResolverForUngatedActions: nil
+            credentialResolverForUngatedActions: nil,
+            voiceWorkReservation: VoiceWorkReservation()
         )
         let credential = try OpenAICredential(apiKey: "sk-finalization-failure-test")
 
@@ -45,7 +46,8 @@ struct RecordingFinalizationFailureTests {
         let controller = DictationSessionController(
             recorder: recorder,
             settingsProvider: { .defaults },
-            credentialResolverForUngatedActions: nil
+            credentialResolverForUngatedActions: nil,
+            voiceWorkReservation: VoiceWorkReservation()
         )
         let credential = try OpenAICredential(apiKey: "sk-short-recording-test")
 
@@ -75,7 +77,8 @@ struct RecordingFinalizationFailureTests {
                 directoryURL: rootURL.appendingPathComponent("Active", isDirectory: true),
                 releasedDirectoryURL: rootURL.appendingPathComponent("Released", isDirectory: true)
             ),
-            credentialResolverForUngatedActions: nil
+            credentialResolverForUngatedActions: nil,
+            voiceWorkReservation: VoiceWorkReservation()
         )
         let credential = try OpenAICredential(apiKey: "sk-short-capture-cleanup-test")
 
