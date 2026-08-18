@@ -7,16 +7,44 @@ protocol MacOSTextFixCatalogStoring: Sendable {
     func save(_ catalog: TextFixCatalog) async throws -> TextFixCatalog
 }
 
+enum MacOSTextFixCatalogBuildChannel: Equatable, Sendable {
+    case production
+    case development
+
+    static var current: Self {
+        #if DEBUG
+        .development
+        #else
+        .production
+        #endif
+    }
+
+    func applicationSupportRootURL(in rootURL: URL) -> URL {
+        switch self {
+        case .production:
+            rootURL
+        case .development:
+            rootURL.appendingPathComponent(
+                "app.holdtype.HoldType.debug",
+                isDirectory: true
+            )
+        }
+    }
+}
+
 struct MacOSTextFixCatalogStore: MacOSTextFixCatalogStoring, Sendable {
     private let repository: TextFixCatalogRepository
 
     init(
         applicationSupportDirectoryURL: URL =
-            Self.defaultApplicationSupportDirectoryURL()
+            Self.defaultApplicationSupportDirectoryURL(),
+        buildChannel: MacOSTextFixCatalogBuildChannel = .current
     ) {
         repository = TextFixCatalogRepository(
             macOSApplicationSupportDirectoryURL:
-                applicationSupportDirectoryURL
+                buildChannel.applicationSupportRootURL(
+                    in: applicationSupportDirectoryURL
+                )
         )
     }
 

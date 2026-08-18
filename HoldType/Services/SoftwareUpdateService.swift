@@ -26,6 +26,19 @@ struct SoftwareUpdateConfiguration: Equatable {
     }
 }
 
+enum SoftwareUpdateBuildChannel: Equatable, Sendable {
+    case production
+    case development
+
+    static var current: Self {
+        #if DEBUG
+        .development
+        #else
+        .production
+        #endif
+    }
+}
+
 @MainActor
 enum SoftwareUpdateRelaunchState {
     private(set) static var isUpdaterRelaunchInProgress = false
@@ -64,7 +77,10 @@ final class SoftwareUpdateService: NSObject, ObservableObject, SPUUpdaterDelegat
 
         super.init()
 
-        guard configuration.isConfigured else {
+        guard Self.shouldStartUpdater(
+            configuration: configuration,
+            buildChannel: .current
+        ) else {
             return
         }
 
@@ -124,6 +140,13 @@ final class SoftwareUpdateService: NSObject, ObservableObject, SPUUpdaterDelegat
 
     func updaterWillRelaunchApplication(_ updater: SPUUpdater) {
         SoftwareUpdateRelaunchState.prepareForUpdaterRelaunch()
+    }
+
+    static func shouldStartUpdater(
+        configuration: SoftwareUpdateConfiguration,
+        buildChannel: SoftwareUpdateBuildChannel
+    ) -> Bool {
+        configuration.isConfigured && buildChannel == .production
     }
 
     private static func loadConfiguration(from bundle: Bundle) -> SoftwareUpdateConfiguration {

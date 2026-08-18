@@ -63,6 +63,72 @@ struct MacOSTextFixCatalogRepositoryTests {
         #expect(fileSystem.replacementCallCount == 0)
     }
 
+    @Test func macOSV1AndV2CatalogsMigrateOnlyOnTheFirstExplicitSave()
+        async throws {
+        let versionOneAction = try makeCustomTextFixAction(
+            id: "custom.version-one",
+            title: "Version One",
+            icon: .rewrite,
+            prompt: "Keep the v1 prompt.",
+            processingProfile: .inherit,
+            isEnabled: false
+        )
+        let versionTwoAction = try makeCustomTextFixAction(
+            id: "custom.version-two",
+            title: "Version Two",
+            icon: .formal,
+            prompt: "Keep the v2 prompt.",
+            processingProfile: .gpt56SolMax
+        )
+        let versionTwoBuiltIns = TextFixCatalog.defaults.actions.prefix(2).map(
+            textFixV2ActionObject
+        )
+        let fixtures = [
+            (
+                data: try textFixRootData(
+                    actions: textFixBuiltInActionObjects()
+                        + [textFixActionObject(versionOneAction)],
+                    schemaVersion: 1
+                ),
+                expectedAction: versionOneAction
+            ),
+            (
+                data: try textFixRootData(
+                    actions: versionTwoBuiltIns
+                        + [textFixV2ActionObject(versionTwoAction)],
+                    schemaVersion: 2
+                ),
+                expectedAction: versionTwoAction
+            ),
+        ]
+
+        for fixture in fixtures {
+            let fileSystem = TextFixCatalogFileSystemFake(data: fixture.data)
+            let repository = makeMacOSRepository(fileSystem: fileSystem)
+
+            let loaded = try await repository.load()
+
+            #expect(loaded.actions[2] == fixture.expectedAction)
+            #expect(!loaded.actions[2].usesBuiltInWritingSkill)
+            #expect(fileSystem.data == fixture.data)
+            #expect(fileSystem.replacementCallCount == 0)
+
+            #expect(try await repository.save(loaded) == loaded)
+            #expect(fileSystem.replacementCallCount == 1)
+
+            let migratedData = try #require(fileSystem.data)
+            let root = try #require(
+                JSONSerialization.jsonObject(with: migratedData)
+                    as? [String: Any]
+            )
+            #expect(root["schemaVersion"] as? Int == 3)
+            let actions = try #require(root["actions"] as? [[String: Any]])
+            #expect(actions[2]["id"] as? String == fixture.expectedAction.id)
+            #expect(actions[2]["usesBuiltInWritingSkill"] as? Bool == false)
+            #expect(try await repository.load() == loaded)
+        }
+    }
+
     @Test func macOSAndIOSFacadesUseTheSameStrictCanonicalV3Codec()
         async throws {
         let action = try makeCustomTextFixAction(
