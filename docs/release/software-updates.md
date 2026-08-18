@@ -180,11 +180,14 @@ dispatched `master` SHA when it does not exist, or verifies an existing tag
 before publishing. Use the tag-push trigger only if the environment protection
 rules have first been changed and verified to allow that tag ref.
 
-Before dispatch, run the full test suite locally as the developer gate, then
-add `docs/release/notes/<version>.md`, validate it, commit it with the product
-changes, and push `master`. The GitHub Release workflow does not rerun the test
-suite; it packages, notarizes, and publishes the already locally-validated
-commit. The standard dispatch surface is an authenticated GitHub CLI (`gh`),
+Development checks are completed while product changes are built and reviewed.
+Once the user explicitly says to publish, dispatch does not start, rerun, or
+wait for tests, and test status is not a publication gate. Add
+`docs/release/notes/<version>.md`, validate it, commit it with the intended
+product state, and push `master`. The GitHub Release workflow packages,
+notarizes, and publishes that commit while retaining artifact-integrity checks
+for signing, entitlements, checksums, DMG installation, appcast metadata, and
+published channels. The standard dispatch surface is an authenticated GitHub CLI (`gh`),
 not Safari or Computer Use. Set up `gh` once with repository write access and
 verify it with `gh auth status`; the release agent then dispatches and monitors
 the workflow through `gh` wrapped by `scripts/release/with_timeout.py`. Do not

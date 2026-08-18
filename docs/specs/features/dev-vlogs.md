@@ -3,7 +3,16 @@
 Status: Active / Evolving implementation authority. Capability acceptance is
 gated by the acceptance map and explicit residuals below.
 
-Contract revision: `DV-ACTIVE-5`.
+Contract revision: `DV-ACTIVE-6`.
+
+Revision note: `DV-ACTIVE-6` records the user's direct 2026-08-18 release
+decision. Dev Vlogs remains an in-development macOS feature and is explicitly
+excluded from HoldType `1.0.11`: its menu entry is available in Debug builds
+for continued development but absent from public Release builds. The blocked
+camera-to-Publish runtime scenario remains truthful development evidence and is
+not a publication gate for `1.0.11`. No Dev Vlogs implementation, test, local
+archive, or future shipping authority is removed by this temporary release
+boundary.
 
 Revision note: `DV-ACTIVE-5` records the user's direct 2026-08-11 correction
 to the source-review and Publish workflow. Publish selects one day, then All
@@ -88,7 +97,7 @@ reviewable source material than continuous background capture.
 ## Contract boundary
 
 The user has authorized implementation of the accepted V1 domain under
-`DV-ACTIVE-5`. An Active/Evolving label is not proof that a capability is
+`DV-ACTIVE-6`. An Active/Evolving label is not proof that a capability is
 implemented, accepted, or released; each capability remains governed by its
 acceptance scenarios and current residuals.
 
@@ -114,6 +123,35 @@ The active privacy contract now includes one narrowly named local Dev Vlogs
 archive exception for eligible camera video plus same-dictation audio. It does
 not weaken normal dictation retention, Recording Cache defaults, History
 ownership, or cleanup behavior.
+
+### Contract Delta — `DV-ACTIVE-6`
+
+- Change ID: `DV-DELTA-ACTIVE-6-RELEASE-EXCLUSION`.
+- Change mode: scoped `evolve` of release visibility and acceptance routing.
+- Authorized by: the user's direct 2026-08-18 instruction that Dev Vlogs is
+  still in development, must not appear in this release, and its tests or
+  runtime acceptance must not block publication.
+- Domain and clause IDs: `DV-UI-1`, `DV-MENU-1`, Dev Vlogs acceptance mapping,
+  and HoldType `1.0.11` release disposition only.
+- Previous behavior: the Release menu exposed `Dev Vlogs…`, and
+  `DV-FINAL-QA` remained a blocker for a release containing the feature.
+- New behavior: Debug retains `Dev Vlogs…`; public Release builds omit the
+  entry. `1.0.11` makes no Dev Vlogs capability claim and may publish without
+  completing `DV-FINAL-QA`.
+- Evidence basis: direct user authority, current unconditional utility-action
+  composition, and the blocked 2026-08-18 camera inventory observation.
+- Compatibility classification: temporary exclusion of an unreleased,
+  in-development feature; released HoldType behavior and Dev Vlogs local data
+  ownership remain unchanged.
+- Adjacent domains checked: all other menu commands, dictation, Fixes,
+  Settings, History, updates, Keychain, iOS, and release artifact integrity.
+- QA and design impact: one Release build and bounded menu observation prove
+  the item is absent. Dev Vlogs development tests and hardware QA remain
+  development evidence, not publication prerequisites.
+- Specification paths changed: this contract, Menu Bar App Shell,
+  Verification Strategy, release runbooks, execution registry, and final QA
+  disposition.
+- New contract revision or epoch: `DV-ACTIVE-6`.
 
 ### Contract Delta — `DV-ACTIVE-1`
 
@@ -646,7 +684,9 @@ authority to begin publication work.
 
 ### Dev Vlogs window and menu entry
 
-- `DV-UI-1`: The menu bar utility group gains one item: `Dev Vlogs…`.
+- `DV-UI-1`: While Dev Vlogs remains in development, Debug builds include one
+  menu bar utility item, `Dev Vlogs…`. Public Release builds omit the item.
+  HoldType `1.0.11` does not ship a user-reachable Dev Vlogs workflow.
 - `DV-UI-2`: The item opens a separate SwiftUI window titled
   `HoldType: Dev Vlogs`; the feature is not inserted as another dense Settings
   sidebar section.
@@ -712,14 +752,15 @@ authority to begin publication work.
 
 ## Adjacent contract reconciliation
 
-Phase 0C is complete and preserved through `DV-ACTIVE-5`:
+Phase 0C is complete and preserved through `DV-ACTIVE-6`:
 
 - `privacy-and-permissions.md` makes Camera optional to core HoldType and adds
   the explicit local Dev Vlogs camera/same-dictation-audio archive exception.
 - `settings-and-secret-storage.md` keeps Dev Vlogs out of Settings and
   Keychain, while allowing small local non-secret feature preferences.
-- `menu-bar-app-shell.md` adds `Dev Vlogs…`; compact status may follow only
-  with its later truthful state owner.
+- `menu-bar-app-shell.md` keeps `Dev Vlogs…` available in Debug while the
+  feature is in development; `1.0.11` Release omits it. Compact status may
+  follow only with its later truthful state owner.
 - `microphone-text-input.md` defines a bounded read lease on the already
   finalized authoritative dictation artifact without changing provider or
   output ownership.
@@ -963,14 +1004,14 @@ prototype rather than copying an established end-to-end pattern.
 ### Phase 0: contract and feasibility — complete with preserved residuals
 
 - `DV-D01` through `DV-D13` are reconciled by the direct user correction and
-  `DV-ACTIVE-5` is active.
+  `DV-ACTIVE-6` is active.
 - Phase 0B established bounded supporting evidence but did not accept capture,
   protected-scope storage, live preview, or quantitative thresholds.
 - No Phase 0B expansion is admitted without separate explicit user approval.
 
-### Phase 1: foundation and setup — accepted
+### Phase 1: foundation and setup — accepted for development, excluded from `1.0.11`
 
-- Release-path `Dev Vlogs…` menu entry;
+- Debug-only `Dev Vlogs…` menu entry while the feature remains in development;
 - separate normal SwiftUI window titled `HoldType: Dev Vlogs`;
 - Overview is the default section;
 - truthful off-by-default Off/Setup state;
@@ -1043,7 +1084,7 @@ accepted, or released.
 
 | Capability / acceptance IDs | Implementation readiness | Acceptance evidence still required | Current residual |
 | --- | --- | --- | --- |
-| Setup: `DV-ACC-ENABLE-1`, `DV-ACC-UI-1` | Ready for Phase 1: Release `Dev Vlogs…`, separate normal SwiftUI window, Overview default, truthful Off/Setup. | Product tests and Computer Use QA for menu/window opening, default selection, Off/Setup truth, reopen behavior, and proof that passive opening neither captures nor requests Camera. | None from Phase 0B. Preview and numeric thresholds are not dependencies. |
+| Setup: `DV-ACC-ENABLE-1`, `DV-ACC-UI-1` | Available for continued Debug development: `Dev Vlogs…`, separate normal SwiftUI window, Overview default, truthful Off/Setup. Excluded from `1.0.11` Release. | Product tests and Computer Use QA remain development acceptance evidence before a future shipping activation. They do not gate publication of a release that excludes Dev Vlogs. | `DV-FINAL-QA` remains incomplete and is nonblocking for `1.0.11`. |
 | Capture: `DV-ACC-APP-1`, `DV-ACC-CAMERA-1`, `DV-ACC-CAPTURE-1`, `DV-ACC-MEDIA-1` | Ready for the Phase 2 shipping slice under `DV-ACTIVE-3`. | Real product proof of bundle-ID eligibility, preferred-camera lifecycle, one shipping microphone owner/read lease, exact-once publication, configured AVFoundation video passthrough with no HoldType video re-encode/downsample, playable camera `1V/0A` and final `1V/1A` assets, truthful realized-format metadata, independent dictation behavior, and truthful failure. | Corrected hardware evidence established one eligible Continuity Camera, both playable assets, completed passthrough, and one microphone owner. The debug-only `camera_source / sample_size_timing_metadata` read failure is not a product gate. UI preview and quantitative storage evidence remain separate residuals and do not block this slice. |
 | Storage: `DV-ACC-STORAGE-1` | Mechanics may be implemented incrementally; protected-scope and numeric-policy acceptance remain gated. | Bookmark/destination/no-fallback/interruption/recovery product QA with protected adjacent owners unchanged; measured safe inputs before numeric warnings or hard stops. | Controlled mechanics succeeded, but R05 changed protected metadata and the cause is unknown. No protected-scope pass; byte-rate and overhead dataset incomplete. |
 | Daily Publish UI: `DV-ACC-PUBLISH-UI-1` | Ready for the final navigation row and truthful archive-backed day state. | Tests and Computer Use for newest-first days, day summary, exact Finder mapping, observation/Refresh, absence of Library/editor controls, and result actions. | Runtime targeting remains capability evidence, not permission to add tooling. |
@@ -1091,6 +1132,6 @@ remaining unknowns are:
 passthrough cannot compose the selected clips. No final encode fallback is
 authorized.
 
-Phase 0B records these results without inventing thresholds. `DV-ACTIVE-5`
+Phase 0B records these results without inventing thresholds. `DV-ACTIVE-6`
 classifies them as capability-scoped residuals; none blocks the independent
 Phase 1 Off/Setup slice.

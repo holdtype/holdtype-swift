@@ -56,7 +56,11 @@ struct MenuBarPresentation: Equatable {
     static let settingsTitle = "Settings\u{2026}"
     static let checkForUpdatesTitle = "Check for Updates..."
     static let quitTitle = "Quit HoldType"
+    #if DEBUG
     static let utilityActions = UtilityAction.allCases
+    #else
+    static let utilityActions = UtilityAction.allCases.filter { $0 != .devVlogs }
+    #endif
 
     let appTitle: String
     let statusText: String

@@ -2,7 +2,7 @@
 
 Status: approved for execution by the user on 2026-08-11.
 
-Pinned product contract: [`DV-ACTIVE-5`](specs/features/dev-vlogs.md).
+Pinned product contract: [`DV-ACTIVE-6`](specs/features/dev-vlogs.md).
 
 Coordination state: [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
 
@@ -102,7 +102,7 @@ All visible content and interaction remain SwiftUI.
 
 - Task: complete the Release-path Dev Vlogs workflow from accepted setup
   through local Publish artifact creation.
-- Change mode: scoped `evolve` under `DV-ACTIVE-5`; `reconcile` only for the
+- Change mode: scoped `evolve` under `DV-ACTIVE-6`; `reconcile` only for the
   accepted `Builds` to `Publish` information-architecture change and the
   selected no-transcode incompatible-source policy.
 - User-authorized outcome: autonomous completion with a connected camera and
@@ -135,8 +135,13 @@ All visible content and interaction remain SwiftUI.
 - Material decisions still requiring the user: none inside the approved V1
   plan unless new evidence proves an unavoidable product fork outside this
   envelope.
-- Contract epoch: `DV-ACTIVE-5` for the Finder-owned day/application Publish
+- Contract epoch: `DV-ACTIVE-6` for the Finder-owned day/application Publish
   workflow.
+
+Release disposition: HoldType `1.0.11` explicitly excludes Dev Vlogs. The
+feature remains available in Debug for continued execution of this plan, while
+its final acceptance scenario is deferred and cannot block publication of a
+release that does not expose or claim the feature.
 
 ## 4. Operator-Minimization Contract
 

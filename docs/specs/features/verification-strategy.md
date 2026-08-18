@@ -30,6 +30,21 @@ This spec covers:
   normal automation
 - replacing the per-task evidence rules in `platform-testing-strategy.md`
 
+## Development And Publication Boundary
+
+- Tests, fakes, focused runtime smoke, and full-suite runs are development and
+  release-preparation evidence. They are run while a change is being built and
+  reviewed.
+- An explicit user instruction to publish does not start, rerun, or wait for
+  tests and does not make current test status a publication gate.
+- The publication workflow still verifies the distributable itself: release
+  inputs, signing, entitlements, notarization, checksums, DMG installation,
+  appcast metadata, and published download channels. These are artifact
+  integrity checks, not product test execution.
+- A feature explicitly excluded from a release may retain incomplete
+  development tests or runtime QA without blocking that release. Release notes
+  must not claim the excluded capability.
+
 ## User-visible behavior
 
 - Core dictation state must be testable without launching the full app.

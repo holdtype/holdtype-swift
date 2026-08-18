@@ -6,7 +6,7 @@ the approved Publish presentation slice is current.
 Date: 2026-08-11
 
 Pinned product basis: `docs/specs/features/dev-vlogs.md`, revision
-`DV-ACTIVE-5`.
+`DV-ACTIVE-6`.
 
 Active persistent-goal registry:
 [`docs/dev-vlogs-execution-registry.md`](dev-vlogs-execution-registry.md).
@@ -32,7 +32,7 @@ ambient recorder, or a second failure dependency for dictation.
 
 - Task: deliver Dev Vlogs through Phase 4, beginning with the smallest
   Release-path setup slice.
-- Change mode: scoped `evolve` under `DV-ACTIVE-5`; reconcile only when evidence
+- Change mode: scoped `evolve` under `DV-ACTIVE-6`; reconcile only when evidence
   proves a contract omission or discrepancy.
 - User-authorized outcome: Active Dev Vlogs implementation authority and
   outcome-first delivery, explicitly authorized on 2026-08-11.
@@ -63,7 +63,7 @@ ambient recorder, or a second failure dependency for dictation.
 - Material user decisions: none inside the approved Finder-owned daily Publish
   slice. `DV-BUILD-6` fails incompatible passthrough builds with no
   output.
-- Current contract revision: `DV-ACTIVE-5`.
+- Current contract revision: `DV-ACTIVE-6`.
 - Required review and QA: proportional `DV-P0C-REVIEW` before Phase 1
   implementation acceptance; focused evidence per delivered capability; real
   macOS UI/device/storage QA before the corresponding acceptance or release
@@ -443,7 +443,7 @@ Exit:
 Goal: turn every remaining valid clip in one selected day/application scope
 into one reproducible local video.
 
-Entry dependency: `DV-ACTIVE-5` preserves `DV-BUILD-6`: selected-scope clips
+Entry dependency: `DV-ACTIVE-6` preserves `DV-BUILD-6`: selected-scope clips
 that cannot be composed through direct-compatible video passthrough fail with
 no output.
 
@@ -598,6 +598,11 @@ Stage only task-owned paths and keep unrelated worktree changes untouched.
 
 ## 10. Release and Rollout Gates
 
+Dev Vlogs is excluded from HoldType `1.0.11`. Its menu entry remains available
+for Debug development but is absent from public Release builds. The gates below
+govern a later release that explicitly activates Dev Vlogs; they do not block
+publication of `1.0.11` and must not be cited in that release's notes.
+
 - Feature remains off by default for new and existing users.
 - Existing dictation build/test/runtime evidence remains green with Dev Vlogs
   disabled.
@@ -636,7 +641,7 @@ Source capture is resolved. One separate Build decision remains:
 
 | ID | Decision | Unranked alternatives | Status |
 | --- | --- | --- | --- |
-| `DV-BUILD-6` | Result when the selected scope's clips cannot be composed by direct-compatible video passthrough | Fail the Build truthfully with no output; preserve recipe, sources, and prior outputs; never silently transcode | Preserved by the direct correction and recorded in `DV-ACTIVE-5` |
+| `DV-BUILD-6` | Result when the selected scope's clips cannot be composed by direct-compatible video passthrough | Fail the Build truthfully with no output; preserve recipe, sources, and prior outputs; never silently transcode | Preserved by the direct correction and recorded in `DV-ACTIVE-6` |
 
 ## 12. Recommended First Release Cut
 

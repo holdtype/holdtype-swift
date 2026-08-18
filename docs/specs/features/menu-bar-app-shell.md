@@ -21,7 +21,7 @@ This spec covers:
 - floating indicator as an optional MVP polish surface
 - quit confirmation for accidental app termination
 - software update command placement
-- Dev Vlogs utility entry and later compact status integration
+- development-only Dev Vlogs utility entry and later shipping activation
 
 ## Non-goals
 
@@ -71,15 +71,18 @@ This spec covers:
 - After the three primary dictation and paste commands, the menu should include
   `Manage Fixes…`. It opens the normal Fixes editor and never treats a
   HoldType-owned editor field as an external transformation target.
-- `DV-MENU-1`: The utility group includes one short item, `Dev Vlogs…`. It
-  dismisses the menu surface, activates HoldType as needed, and opens the
-  separate normal SwiftUI Dev Vlogs window. Opening it never requests Camera,
-  starts preview, or starts capture.
+- `DV-MENU-1`: While Dev Vlogs is in development, Debug builds include one
+  short utility item, `Dev Vlogs…`. It dismisses the menu surface, activates
+  HoldType as needed, and opens the separate normal SwiftUI Dev Vlogs window.
+  Opening it never requests Camera, starts preview, or starts capture.
+- `DV-MENU-1A`: Public Release builds omit `Dev Vlogs…` until a later explicit
+  shipping activation. In particular, HoldType `1.0.11` does not expose the
+  feature and its publication is independent from Dev Vlogs acceptance.
 - `DV-MENU-2`: The Dev Vlogs item must preserve menu compactness and every
   existing command, shortcut hint, disabled state, ordering responsibility,
   and recovery behavior. Camera, destination, app-policy, library, and build
   controls remain in the dedicated window.
-- `DV-MENU-2A`: Within the utility group, `Dev Vlogs…` follows
+- `DV-MENU-2A`: When present in a development build, `Dev Vlogs…` follows
   `Manage Fixes…`, `Transcript History`, and `Settings…`. It is the final
   utility item immediately before the divider that separates `Quit HoldType`.
 - `DV-MENU-3`: A compact camera-capturing or degraded-state indication may be

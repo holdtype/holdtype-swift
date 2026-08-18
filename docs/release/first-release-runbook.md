@@ -389,7 +389,10 @@ version.
 
 Prepare and validate the release on `master`:
 
-1. Run the full test suite locally as the developer gate.
+1. Confirm that the intended product changes have already completed their
+   development checks. Publication does not run, rerun, or wait for tests, and
+   current test status is not a publication gate after the user says to
+   publish.
 2. Add `docs/release/notes/<version>.md` with a matching
    `# HoldType <version>` heading and an accurate summary of changes since the
    last published release.
@@ -397,6 +400,12 @@ Prepare and validate the release on `master`:
 4. Commit the release notes with the intended product state and push `master`.
 5. Dispatch the `Release` workflow from the pushed `master` SHA through the
    authenticated GitHub CLI with the explicit version and build values.
+
+The Release workflow performs packaging and artifact-integrity verification:
+version inputs, signing, entitlements, notarization, checksums, DMG install,
+appcast, and published channels. Those checks protect the distributable and
+must not be replaced with or expanded into product test execution during
+publication.
 
 The current `github-pages` environment protection admits `master` but rejects
 tag refs. Therefore the normal recurring path is `workflow_dispatch` from

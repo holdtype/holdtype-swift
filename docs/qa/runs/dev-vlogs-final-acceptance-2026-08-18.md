@@ -1,8 +1,8 @@
 # Dev Vlogs Final Acceptance — 2026-08-18
 
-Status: `BLOCKED`
+Status: `DEFERRED_NONBLOCKING_FOR_1.0.11`
 
-Contract: `DV-ACTIVE-5`
+Contract: `DV-ACTIVE-6`
 
 ## Runtime QA
 
@@ -40,5 +40,7 @@ Contract: `DV-ACTIVE-5`
 
 Do not mark `DV-FINAL-QA` accepted and do not publish a release that claims the
 camera-to-Publish workflow passed. Resume this exact gate after macOS exposes
-one connected camera. The full developer test/build gate remains independent
-and green.
+one connected camera and before a future release explicitly activates Dev
+Vlogs. HoldType `1.0.11` excludes the feature from its public Release menu and
+release notes, so this development acceptance scenario is nonblocking for that
+publication.
