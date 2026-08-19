@@ -36,6 +36,8 @@ records finer-grained revisions.
   window routing, local defaults, Keychain credential, and feature controls.
 - [OpenAI usage estimate](../openai-usage-estimate.md) — local successful
   audio/text measurements, frozen pricing, Billing, persistence, and Reset.
+- [Dev Vlogs](../dev-vlogs.md) — Debug-only evolving camera archive, Finder
+  review, local Publish/Build/Share, acceptance gates, and release exclusion.
 
 ## Pending macOS domains
 
