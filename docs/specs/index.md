@@ -1,5 +1,11 @@
 # Spec Index
 
+- Node type: branch
+- Status: Active
+- Read when: authority, stability, precedence, or legacy source ownership matters.
+- Do not read when: a selected migrated contract path already supplies the complete authority closure.
+- Maximum size: 100 physical lines.
+
 This is the HoldType registry for choosing the smallest applicable product
 contract slice and locating project-specific ownership evidence.
 

@@ -1,5 +1,11 @@
 # Feature Specs
 
+- Node type: root
+- Status: Active
+- Read when: any task may affect HoldType product behavior, state, compatibility, or product QA.
+- Do not read when: work is proven behavior-neutral or limited to marketing artifacts.
+- Maximum size: 100 physical lines.
+
 This directory is the HoldType product-contract layer. It records expected
 user-visible behavior and keeps that behavior separate from implementation and
 verification evidence.
@@ -30,28 +36,29 @@ orientation and targeted search for exact ownership evidence.
 - Source hints in the index are ownership-discovery aids, not product
   contracts.
 
-## Contents
+## Choose the next node
 
-This directory contains:
+- [Product contracts](features/README.md) — select the smallest migrated
+  platform or capability branch.
+- [Legacy authority index](index.md) — select contracts and preserve status,
+  precedence, and source-ownership hints while migration is in progress.
+- [Migration status](migration/README.md) — resume the current bounded
+  migration batch without loading completed batches or the corpus.
+- [Brownfield discovery](brownfield-discovery.md) — repository orientation
+  when ownership is unclear; this is evidence, not product authority.
+- [Backlog](backlog.md) — product-area discovery only when backlog work is
+  explicitly in scope.
+- [Feature-spec template](templates/feature-spec.md) — authoring resource, not
+  product authority.
 
-- active product contracts;
-- historical or deferred contracts retained as evidence;
-- the product-area registry and precedence map;
-- product-level invariants, edge cases, failure policies, and compatibility
-  boundaries;
-- links to representative plans or verification evidence when they are part of
-  a domain's routing.
+## Layer boundary
 
-It does not contain:
-
-- agent workflow or orchestration policy;
-- queue mechanics;
-- Swift engineering rules;
-- step-by-step QA procedures;
-- implementation-only design notes.
-
-Those live in `AGENTS.md`, `BACKLOG_DEVELOPMENT.md`, `SWIFT.md`, source files,
-or QA artifacts as appropriate.
+This tree contains active contracts, retained historical or deferred evidence,
+authority and precedence, product invariants, failure and compatibility rules,
+and directly routed product evidence. It excludes agent workflow, queue
+mechanics, Swift rules, step-by-step QA, and implementation-only design notes;
+those remain in `AGENTS.md`, `BACKLOG_DEVELOPMENT.md`, `SWIFT.md`, source, or
+QA artifacts as appropriate.
 
 ## Structure
 
@@ -59,10 +66,18 @@ or QA artifacts as appropriate.
 docs/specs/
   README.md
   index.md
+  migration/
+    README.md
   brownfield-discovery.md
   backlog.md
   templates/
     feature-spec.md
   features/
-    <feature-name>.md
+    README.md
+    <platform-or-capability>/README.md
+    <legacy-feature>.md
+    <legacy-feature>/<responsibility>.md
 ```
+
+Legacy feature paths remain stable. An oversized legacy contract becomes a
+small hybrid at the same path and links responsibility-specific child nodes.

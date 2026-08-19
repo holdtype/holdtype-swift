@@ -1,233 +1,70 @@
 # Menu Bar App Shell
 
-## Goal
+- Node type: hybrid
+- Contract ID: `holdtype.macos.menu-bar-shell`
+- Domain ID: `holdtype.macos.menu-bar-shell`
+- Status: Active
+- Stability: Released
+- Release baseline: legacy-released macOS behavior; explicit historical baseline absent
+- Contract revision: `holdtype.macos.menu-bar-shell@1`
+- Read when: menu bar lifecycle, commands, compact app state, status, recovery, or quit behavior is in scope.
+- Do not read when: only recording, transcription, output, or a linked utility surface is in scope.
+- Maximum size: 100 physical lines.
 
-Define the first app-shell contract for HoldType as a small native macOS menu
-bar dictation utility.
+## Goal and scope
 
-The app should be available from the menu bar, expose core dictation actions,
-and show recording/transcribing status without requiring a full document-style
-window.
+HoldType is a small native macOS menu bar dictation utility. The menu bar item
+is its primary persistent presence, exposes core dictation actions, and shows
+recording or transcription status without requiring a document-style window.
 
-## Scope
-
-This spec covers:
-
-- menu bar presence
-- core menu items
-- settings window entry point
-- compact output status
-- basic ready/recording/transcribing/error status
-- floating indicator as an optional MVP polish surface
-- quit confirmation for accidental app termination
-- software update command placement
-- development-only Dev Vlogs utility entry and later shipping activation
+This contract covers menu bar presence, core menu items, Settings entry,
+compact output status, ready/recording/transcribing/error presentation,
+app-shell prompts, optional floating-indicator routing, software-update command
+placement, and the development-only Dev Vlogs utility entry.
 
 ## Non-goals
 
-- final visual design
-- App Store packaging or notarization
-- account, billing, cloud sync, or telemetry surfaces
+- Final visual design.
+- App Store packaging or notarization.
+- Accounts, billing, cloud sync, analytics, telemetry, or server-side app state.
+- Electron, React, Node.js, WebView UI, Tauri, or Rust for the first MVP.
+- OpenWhispr's Electron tray asset lookup, icon fallback generation, or
+  cross-platform tray behavior.
 
-## User-visible behavior
+## Children
 
-- The app should run as a macOS menu bar app.
-- `DOCK-1`: HoldType should run without a Dock icon by default. Its menu bar
-  item remains the primary persistent app presence while the process is
-  running.
-- `DOCK-2`: The user may opt into keeping HoldType visible in the Dock through
-  the macOS Behavior setting `Show HoldType in Dock`. The change applies
-  immediately and persists across app launches.
-- `DOCK-3`: When Dock presence is disabled, Settings, Transcript History,
-  Manage Fixes, Dev Vlogs, recovery prompts, and quit confirmation must still
-  open or present in front when explicitly requested. Opening or closing one
-  of these surfaces must not silently change the saved Dock preference.
-- The menu bar status item should remain available while the app is running.
-- The menu bar item uses the branded template asset `HoldTypeMenuBarIcon`
-  without a visible text title. Its accessibility label is `HoldType` and its
-  help text is `HoldType Dictation`.
-- The compact surface is a native SwiftUI `MenuBarExtra` using window style.
-  Escape, a click outside the surface or in another app, and a second click on
-  the menu bar item dismiss it through the standard macOS interaction.
-- Opening the menu bar surface does not capture or retain an external text
-  target for Fixes.
-- The top menu block should include the app title and current compact status.
-- The app should not copy OpenWhispr's Electron tray asset lookup, icon
-  fallback generation, or cross-platform tray behavior.
-- The menu should include `Transcribe` when recording can be started from the
-  menu. If a recording is already active, the same primary position may become
-  `Stop Recording` so menu-started recordings have an explicit stop action.
-- The three primary command rows must visibly include their global shortcut
-  hints: normal transcription, translation transcription, and Paste Last
-  Result. The command label should stay left-aligned and the shortcut hint
-  should appear as a separate right-aligned column, matching normal macOS menu
-  scanning. Settings and Quit do not need shortcut hints in this popover.
-- The menu should include `Transcribe & Translate` as a separate action for the
-  translation-mode recording shortcut. It should be disabled when translation
-  is disabled or not fully configured in Settings.
-- The menu should include `Paste Last Result` for inserting the last saved
-  accepted transcript into the active app. It should be disabled when the
-  setting that keeps the last result is off or no last result is available.
-- After the three primary dictation and paste commands, the menu should include
-  `Manage Fixes…`. It opens the normal Fixes editor and never treats a
-  HoldType-owned editor field as an external transformation target.
-- `DV-MENU-1`: While Dev Vlogs is in development, Debug builds include one
-  short utility item, `Dev Vlogs…`. It dismisses the menu surface, activates
-  HoldType as needed, and opens the separate normal SwiftUI Dev Vlogs window.
-  Opening it never requests Camera, starts preview, or starts capture.
-- `DV-MENU-1A`: Public Release builds omit `Dev Vlogs…` until a later explicit
-  shipping activation. In particular, HoldType `1.0.11` does not expose the
-  feature and its publication is independent from Dev Vlogs acceptance.
-- `DV-MENU-2`: The Dev Vlogs item must preserve menu compactness and every
-  existing command, shortcut hint, disabled state, ordering responsibility,
-  and recovery behavior. Camera, destination, app-policy, library, and build
-  controls remain in the dedicated window.
-- `DV-MENU-2A`: When present in a development build, `Dev Vlogs…` follows
-  `Manage Fixes…`, `Transcript History`, and `Settings…`. It is the final
-  utility item immediately before the divider that separates `Quit HoldType`.
-- `DV-MENU-3`: A compact camera-capturing or degraded-state indication may be
-  added only when its later shipping state owner exists and can report it
-  truthfully. Phase 1 Off/Setup delivery does not require that indication and
-  must not synthesize one from incomplete setup or Phase 0B evidence.
-- The menu does not include an actionable `Fixes…` command or another fallback
-  for launching the Fixes palette. The palette is invoked only through its
-  global shortcut.
-- The menu should not show a separate permission checklist or permission
-  recovery block. Required permission recovery belongs in full Settings.
-- If the user chooses Transcribe while required setup is incomplete,
-  recording must remain inactive and the app should open Settings focused on the
-  relevant setup section.
-- Accessibility permission must not block transcription or Last Result saves
-  unless the enabled output or context behavior requires active-app
-  control. Detailed Accessibility recovery belongs in the permission setup and
-  Settings surfaces.
-- Missing Input Monitoring must not block menu-driven recording. Detailed Input
-  Monitoring status belongs in full Settings and any shortcut-specific recovery
-  flow that needs it.
-- Before recording exists, Transcribe may be a visible placeholder,
-  but it must clearly state that recording is not available yet.
-- Before recording exists, a placeholder Transcribe/Stop transition may exercise
-  the menu binding, but it must clearly state that microphone input is not
-  captured in that build.
-- The menu should include Transcript History, Settings, and Quit.
-- Manual software update checks belong in Settings rather than the compact menu
-  bar popover.
-- The menu should not include a standalone Last Transcript text row or a Save
-  Last Transcript action.
-- After a completed recording fails during transcription, the app should show a
-  frontmost recovery prompt that explains the failure and offers only the
-  applicable actions: Try Again, Open OpenAI Settings, Open Transcription
-  Settings, or Dismiss.
-- Transient recovery and quit prompts retain the compact native macOS dialog
-  hierarchy used before the 2026-08-05 settings, Fixes, and History work: one
-  affirmative default action is visually prominent in the accent color, while
-  Dismiss or Cancel remains the subdued secondary action. They must not be
-  replaced by a separately styled content window with generic, equally weighted
-  buttons or exposed window chrome. This requirement applies to app-shell
-  prompts only; Settings, Fixes, and Transcript History retain their own
-  feature-specific surfaces.
-- The menu should also show one compact status line such as
-  `Error: Timed out`, plus the same compact recovery actions when the user
-  opens the menu after the prompt.
-- The menu recovery block must not auto-open Settings or Transcript History.
-  Navigation happens only after the user chooses an action.
-- The menu recovery block should not include a Transcript History shortcut.
-  Transcript History remains available from the normal menu item.
-- Dynamic menu text must stay compact. The menu must not place long diagnostic
-  text, dictated transcript text, or successful output status messages into menu
-  items.
-- Accepted transcript text belongs in Transcript History and Paste Last Result
-  recovery flows, not in the menu bar dropdown.
-- Quit, application-menu Quit, Dock Quit, and `Command+Q` should ask the user
-  to confirm before HoldType terminates.
-- When quit is requested from the menu bar popover, the popover should dismiss
-  before termination is requested, and the confirmation dialog should appear as
-  the frontmost key prompt instead of opening behind other app windows.
-- Quit confirmation contains only the direct question and its actions. It must
-  not add explanatory text about shortcuts, menu-bar actions, launch at login,
-  or Right Command availability.
-- Updater-initiated relaunches should not show the quit confirmation. Detailed
-  update behavior is defined in `features/software-updates.md`.
-- Canceling the quit confirmation should keep HoldType running, including its
-  menu bar item, shortcuts, and future dictation availability.
-- Confirming the quit dialog should terminate the app cleanly.
-- The app should show status changes during recording and transcription.
-- After successful transcription and output handling, the compact menu status
-  should return to `Ready` instead of showing a completion command such as
-  `Done`. The menu should not show success details such as transcript-ready or
-  inserted-transcript rows.
-- Settings should be available from the menu bar.
-- A floating indicator may be shown during recording and transcription when the
-  setting is enabled.
-- The floating indicator must not steal focus or interfere with the active app.
-- Detailed floating indicator behavior is defined in
-  `features/floating-indicator.md`.
+- [Lifecycle and presentation](menu-bar-app-shell/lifecycle.md) — process and
+  Dock presence, menu-surface behavior, window presentation, and quitting.
+- [Primary controls](menu-bar-app-shell/primary-controls.md) — command rows,
+  ordering, shortcut hints, disabled states, and setup routing.
+- [State, status, and recovery](menu-bar-app-shell/state-and-status.md) — app
+  states, compact status, error recovery, and independent surface state.
 
-## Invariants
+## Shared invariants
 
-- The app must not require Electron, React, Node.js, WebView UI, Tauri, or Rust
-  for the first MVP.
-- Menu state must reflect recording and transcribing state accurately.
-- Errors must not be silent; they should be visible in menu status, settings, or
-  an optional notification.
-- No accounts, subscriptions, server-side app state, analytics, or telemetry are
-  part of the MVP.
+- Menu state accurately reflects recording and transcribing state.
+- Errors are visible in menu status, Settings, or an optional notification.
+- Linked feature surfaces keep their own contracts and state ownership.
+- Migration does not broaden Dev Vlogs shipping scope or change any linked
+  permission, recording, output, update, Fixes, History, or indicator behavior.
 
-## Edge cases and failure policy
+## Dependencies
 
-- If recording is already active, another Transcribe action must not
-  create a parallel recording.
-- If transcription is active, recording actions should be disabled or ignored in
-  a way the user can understand.
-- If settings cannot open, the app should show a clear recoverable error.
-- If the floating indicator cannot be shown, core menu bar controls should
-  still work.
-- Closing Settings or Transcript History windows should not show the quit
-  confirmation and should not terminate the app.
-- Closing any ordinary HoldType window must preserve the configured Dock
-  presence instead of unconditionally switching the app to accessory or
-  regular activation policy.
-- Dismissing the menu bar surface with Escape, an outside click, a click in
-  another app, or a second click on the menu bar item must not leave an
-  invisible HoldType surface holding focus.
-- Restarting macOS does not make global shortcuts available by itself. HoldType
-  must be running, either because the user opened it or because launch at login
-  is enabled and approved in macOS Login Items.
-
-## Route / state / data implications
-
-Core visible states are:
-
-- idle
-- recording
-- transcribing
-- completed and ready for another dictation
-- error
-
-Settings window state is separate from recording state. Opening or closing
-settings must not start, stop, or cancel recording by itself.
-
-Transcript History window state is separate from recording state. Opening,
-closing, or clearing history must not start, stop, or cancel recording by
-itself.
-
-Dev Vlogs window state is separate from recording state. Opening, closing, or
-navigating the window must not start, stop, cancel, or otherwise affect
-ordinary dictation. Only a later eligible explicit dictation action may start
-the independently owned vlog branch.
-
-Dismissed transcription recovery prompts are separate from Transcript History.
-Dismissing a prompt hides only the menu explanation; it must not delete a
-recoverable failed attempt or its session-only retry audio.
+- [Microphone input](microphone-text-input.md) — recording availability and capture behavior.
+- [Privacy and permissions](privacy-and-permissions.md) — permission gates and recovery ownership.
+- [Text output](text-output-workflow.md) — accepted transcript and Last Result behavior.
+- [Floating indicator](floating-indicator.md) — detailed indicator lifecycle.
+- [Software updates](software-updates.md) — updater relaunch and manual checks.
+- [Dev Vlogs](dev-vlogs.md) — development-only utility and shipping activation.
+- [Text Fixes](text-fixes.md) — editor and palette ownership.
+- [Transcript History](transcript-history.md) — history ownership and recovery.
 
 ## Verification mapping
 
-- Add UI or manual app-run checks for menu presence, Transcribe/Stop label changes,
-  translation and Paste Last Result disabled states, Settings opening,
-  Transcript History opening, Quit, compact state display, and absence of
-  transcript or successful output text in the menu when implementation exists.
+Verify menu presence, Transcribe/Stop transitions, disabled states, window
+opening, quit, compact status, and absence of transcript or successful-output
+text when the applicable implementation checkpoint is tested.
 
-## Unknowns requiring confirmation
+## Unknowns
 
-- Whether future product naming changes should replace `HoldType` before
-  packaging.
+- A future product-naming decision may replace `HoldType` before packaging.
