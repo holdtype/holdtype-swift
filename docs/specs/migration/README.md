@@ -33,8 +33,8 @@
 
 ## Current checkpoint
 
-- [Batch 25 — legacy iOS history](batches/25-legacy-ios-history.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/25-legacy-ios-history.md) — accepted source hash, disposition, nodes, and validation.
+- [Batch 26 — deferred iOS History foundation](batches/26-deferred-ios-history-foundation.md) — completed and ready for checkpoint integration.
+- [Latest receipt](receipts/26-deferred-ios-history-foundation.md) — accepted source hash, disposition, nodes, and validation.
 
 ## Completed checkpoints
 
@@ -55,13 +55,14 @@
 - [22](batches/22-legacy-ios-foundations.md)/[receipt](receipts/22-legacy-ios-foundations.md) `c3b3d1c6`.
 - [23](batches/23-legacy-ios-privacy.md)/[receipt](receipts/23-legacy-ios-privacy.md) `9b4b09dc`.
 - [24](batches/24-legacy-ios-output.md)/[receipt](receipts/24-legacy-ios-output.md) `b64a118d`.
+- [25](batches/25-legacy-ios-history.md)/[receipt](receipts/25-legacy-ios-history.md) `8fa77866`.
 
 ## Pending queue
 
-`26` deferred iOS history base; `27` deferred iOS
-failure history; `28` deferred keyboard settings; `29` legacy feature template.
+`27` deferred iOS failure history; `28` deferred keyboard settings; `29`
+legacy feature template.
 
-Only the current linked batch is loaded. Activate batch `26` after this
+Only the current linked batch is loaded. Activate batch `27` after this
 checkpoint is pushed; completed batch bodies are not reloaded.
 
 ## Completion
