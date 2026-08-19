@@ -20,6 +20,10 @@ historical/deferred contracts remain selectable through the
   stage checkpoints, replay safety, cleanup, and process-loss recovery.
 - [Voice Draft](../ios-voice-draft.md) — app-private composed text, editing,
   actions, Voice activity, recovery, accessibility, and presentation.
+- [Keyboard handoff](../ios-keyboard-handoff-and-delivery.md) — canonical cold
+  launch, app-owned capture, reconnection, destination proof, and delivery.
+- [Keyboard experience](../ios-keyboard-experience.md) — subordinate Brand Stage
+  composition, local utilities, Fixes, Voice states, and qualification.
 
 ## Dependencies
 

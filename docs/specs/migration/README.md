@@ -33,8 +33,8 @@
 
 ## Current checkpoint
 
-- [Batch 17 — iOS Voice](batches/17-ios-voice.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/17-ios-voice.md) — accepted source hashes, dispositions, nodes, and validation.
+- [Batch 18 — iOS keyboard](batches/18-ios-keyboard.md) — completed and ready for checkpoint integration.
+- [Latest receipt](receipts/18-ios-keyboard.md) — accepted source hashes, dispositions, nodes, and validation.
 
 ## Completed checkpoints
 
@@ -47,16 +47,17 @@
 - [12](batches/12-website.md)/[receipt](receipts/12-website.md) `2d843db2`; [13](batches/13-coverage-discovery.md)/[receipt](receipts/13-coverage-discovery.md) `c637161e`.
 - [14](batches/14-backlog-automation.md)/[receipt](receipts/14-backlog-automation.md) `0e7ee66b`; [15](batches/15-automation-recovery.md)/[receipt](receipts/15-automation-recovery.md) `be9ba1a4`.
 - [16](batches/16-ios-release.md)/[receipt](receipts/16-ios-release.md) `e5f1b596`.
+- [17](batches/17-ios-voice.md)/[receipt](receipts/17-ios-voice.md) `e73cdd6f`.
 
 ## Pending queue
 
-`18` iOS keyboard; `19` iOS settings; `20` iOS
+`19` iOS settings; `20` iOS
 voice/audio; `21` iOS diagnostics; `22` legacy iOS foundations; `23` legacy
 iOS privacy; `24` legacy iOS output; `25` legacy iOS history; `26` deferred
 iOS history base; `27` deferred iOS failure history; `28` deferred keyboard
 settings.
 
-Only the current linked batch is loaded. Activate batch `18` after this
+Only the current linked batch is loaded. Activate batch `19` after this
 checkpoint is pushed; completed batch bodies are not reloaded.
 
 ## Completion
