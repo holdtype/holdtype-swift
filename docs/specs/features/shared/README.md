@@ -16,6 +16,8 @@ may specialize only without weakening their invariants.
   provider authority, and recovery boundaries.
 - [OpenAI transcription](../openai-transcription.md) — file-based request,
   prompt composition, secure bounded transport, response, retry, and privacy.
+- [Text correction](../text-correction.md) — optional fail-open OpenAI
+  correction, local typography, emoji commands, and replacement rules.
 
 ## Pending shared domains
 

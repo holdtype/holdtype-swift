@@ -22,6 +22,10 @@ records finer-grained revisions.
   recording, countdown, and transcription feedback.
 - [Transcript History](../transcript-history.md) — accepted transcript
   persistence, recording recovery, retry, playback, copy, and deletion.
+- [Text output](../text-output-workflow.md) — Last Transcript, Last Result, and
+  Accessibility-gated active-app insertion.
+- [Post-transcription actions](../post-transcription-actions.md) — strict
+  translation-mode intent, request, and accepted output.
 
 ## Pending macOS domains
 
