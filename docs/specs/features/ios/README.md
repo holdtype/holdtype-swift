@@ -41,6 +41,7 @@ historical/deferred contracts remain selectable through the
 - [History and storage](../ios-history-and-storage.md) — superseded P4/P5H/P4D History, Pending, capture, and cache evidence.
 - [Accepted History foundation](../ios-accepted-history-foundation.md) — deferred transactional policy/row/outbox evidence; do not continue for V1.1.
 - [Failed History and retry audio](../ios-failed-history-and-retry-audio.md) — deferred failed-row, retry-audio, and accepted-output interlock evidence outside V1.1.
+- [Keyboard settings snapshot](../ios-keyboard-settings-snapshot.md) — deferred static-preference research; current Brand Stage uses bundled defaults.
 
 ## Dependencies
 
