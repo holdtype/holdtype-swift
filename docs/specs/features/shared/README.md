@@ -14,6 +14,8 @@ may specialize only without weakening their invariants.
 - [Recording durability and interruption](../recording-durability-and-interruption.md) —
   cross-platform terminal causes, audio ownership, teardown, interruption,
   provider authority, and recovery boundaries.
+- [OpenAI transcription](../openai-transcription.md) — file-based request,
+  prompt composition, secure bounded transport, response, retry, and privacy.
 
 ## Pending shared domains
 
