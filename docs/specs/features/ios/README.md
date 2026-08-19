@@ -16,6 +16,10 @@ historical/deferred contracts remain selectable through the
   audio events, Usage presentation, strict repository, pricing, and Reset.
 - [V1.1 release](../ios-v1-release.md) — canonical current scope, navigation,
   cross-feature precedence, privacy, complexity, and release gates.
+- [Voice state](../ios-v1-voice-state-persistence.md) — one Pending/Latest,
+  stage checkpoints, replay safety, cleanup, and process-loss recovery.
+- [Voice Draft](../ios-voice-draft.md) — app-private composed text, editing,
+  actions, Voice activity, recovery, accessibility, and presentation.
 
 ## Dependencies
 

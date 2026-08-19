@@ -33,53 +33,30 @@
 
 ## Current checkpoint
 
-- [Batch 16 — iOS release](batches/16-ios-release.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/16-ios-release.md) — accepted source hash, disposition, nodes, and validation.
+- [Batch 17 — iOS Voice](batches/17-ios-voice.md) — completed and ready for checkpoint integration.
+- [Latest receipt](receipts/17-ios-voice.md) — accepted source hashes, dispositions, nodes, and validation.
 
 ## Completed checkpoints
 
-- [Batch 00 — root and menu-bar shell](batches/00-root-menu-bar-shell.md) —
-  accepted in [receipt 00](receipts/00-root-menu-bar-shell.md), commit `47ae2215`.
-- [Batch 01 — capture controls](batches/01-capture-controls.md) — accepted in
-  [receipt 01](receipts/01-capture-controls.md), commit `738c9e32`.
-- [Batch 02 — recording and History](batches/02-recording-history.md) — accepted
-  in [receipt 02](receipts/02-recording-history.md), commit `8dddb28f`.
-- [Batch 03 — OpenAI transcription](batches/03-transcription.md) — accepted in
-  [receipt 03](receipts/03-transcription.md), commit `c8fdb549`.
-- [Batch 04 — output core](batches/04-output-core.md) — accepted in
-  [receipt 04](receipts/04-output-core.md), commit `f9f4cfe3`.
-- [Batch 05 — text enhancement](batches/05-text-enhancement.md) — accepted in
-  [receipt 05](receipts/05-text-enhancement.md), commit `59564e03`.
-- [Batch 06 — privacy](batches/06-privacy.md) — accepted in
-  [receipt 06](receipts/06-privacy.md), commit `6c53171b`.
-- [Batch 07 — settings](batches/07-settings.md) — accepted in
-  [receipt 07](receipts/07-settings.md), commit `bb46a2f3`.
-- [Batch 08 — usage estimates](batches/08-usage-estimates.md) — accepted in
-  [receipt 08](receipts/08-usage-estimates.md), commit `fd3e613e`.
-- [Batch 09 — Dev Vlogs](batches/09-dev-vlogs.md) — accepted in
-  [receipt 09](receipts/09-dev-vlogs.md), commit `99ea53a8`.
-- [Batch 10 — diagnostics and QA](batches/10-diagnostics-qa.md) — accepted in
-  [receipt 10](receipts/10-diagnostics-qa.md), commit `70a02fc2`.
-- [Batch 11 — distribution](batches/11-distribution.md) — accepted in
-  [receipt 11](receipts/11-distribution.md), commit `32046f3a`.
-- [Batch 12 — website](batches/12-website.md) — accepted in
-  [receipt 12](receipts/12-website.md), commit `2d843db2`.
-- [Batch 13 — coverage and discovery](batches/13-coverage-discovery.md) —
-  accepted in [receipt 13](receipts/13-coverage-discovery.md), commit `c637161e`.
-- [Batch 14 — backlog automation](batches/14-backlog-automation.md) — accepted
-  in [receipt 14](receipts/14-backlog-automation.md), commit `0e7ee66b`.
-- [Batch 15 — automation recovery](batches/15-automation-recovery.md) — accepted
-  in [receipt 15](receipts/15-automation-recovery.md), commit `be9ba1a4`.
+- [00](batches/00-root-menu-bar-shell.md)/[receipt](receipts/00-root-menu-bar-shell.md) `47ae2215`; [01](batches/01-capture-controls.md)/[receipt](receipts/01-capture-controls.md) `738c9e32`.
+- [02](batches/02-recording-history.md)/[receipt](receipts/02-recording-history.md) `8dddb28f`; [03](batches/03-transcription.md)/[receipt](receipts/03-transcription.md) `c8fdb549`.
+- [04](batches/04-output-core.md)/[receipt](receipts/04-output-core.md) `f9f4cfe3`; [05](batches/05-text-enhancement.md)/[receipt](receipts/05-text-enhancement.md) `59564e03`.
+- [06](batches/06-privacy.md)/[receipt](receipts/06-privacy.md) `6c53171b`; [07](batches/07-settings.md)/[receipt](receipts/07-settings.md) `bb46a2f3`.
+- [08](batches/08-usage-estimates.md)/[receipt](receipts/08-usage-estimates.md) `fd3e613e`; [09](batches/09-dev-vlogs.md)/[receipt](receipts/09-dev-vlogs.md) `99ea53a8`.
+- [10](batches/10-diagnostics-qa.md)/[receipt](receipts/10-diagnostics-qa.md) `70a02fc2`; [11](batches/11-distribution.md)/[receipt](receipts/11-distribution.md) `32046f3a`.
+- [12](batches/12-website.md)/[receipt](receipts/12-website.md) `2d843db2`; [13](batches/13-coverage-discovery.md)/[receipt](receipts/13-coverage-discovery.md) `c637161e`.
+- [14](batches/14-backlog-automation.md)/[receipt](receipts/14-backlog-automation.md) `0e7ee66b`; [15](batches/15-automation-recovery.md)/[receipt](receipts/15-automation-recovery.md) `be9ba1a4`.
+- [16](batches/16-ios-release.md)/[receipt](receipts/16-ios-release.md) `e5f1b596`.
 
 ## Pending queue
 
-`17` iOS Voice; `18` iOS keyboard; `19` iOS settings; `20` iOS
+`18` iOS keyboard; `19` iOS settings; `20` iOS
 voice/audio; `21` iOS diagnostics; `22` legacy iOS foundations; `23` legacy
 iOS privacy; `24` legacy iOS output; `25` legacy iOS history; `26` deferred
 iOS history base; `27` deferred iOS failure history; `28` deferred keyboard
 settings.
 
-Only the current linked batch is loaded. Activate batch `17` after this
+Only the current linked batch is loaded. Activate batch `18` after this
 checkpoint is pushed; completed batch bodies are not reloaded.
 
 ## Completion
