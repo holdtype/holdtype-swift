@@ -32,6 +32,8 @@ records finer-grained revisions.
   Humanize text route for custom macOS Fixes.
 - [Privacy and permissions](../privacy-and-permissions.md) — TCC state,
   setup/credential gating, disclosure, retention, and diagnostics boundaries.
+- [Settings and secret storage](../settings-and-secret-storage.md) — macOS
+  window routing, local defaults, Keychain credential, and feature controls.
 
 ## Pending macOS domains
 
