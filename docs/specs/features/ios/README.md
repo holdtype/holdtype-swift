@@ -28,6 +28,8 @@ historical/deferred contracts remain selectable through the
   configuration, Library, Keychain, protected records, editors, and setup truth.
 - [Settings guided recovery](../ios-settings-guided-recovery.md) — exact owning
   field routing for setup-dependent actions.
+- [Voice session and audio](../ios-voice-session-and-audio.md) — current
+  foreground capture/audio/provider reference with Quick Session kept Historical.
 
 ## Dependencies
 
