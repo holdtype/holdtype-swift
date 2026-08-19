@@ -1,190 +1,48 @@
-# Recording Durability And Interruption
+# Recording Durability and Interruption
 
-Contract revision: 2.
+- Node type: hybrid
+- Contract ID: `holdtype.shared.recording-durability`
+- Domain ID: `holdtype.shared.recording-durability`
+- Status: Active
+- Stability: Accepted
+- Release baseline: macOS legacy-released; iOS scope remains governed by current iOS contracts
+- Contract revision: `holdtype.shared.recording-durability@2`
+- Read when: recording ownership, interruption, teardown, recovery audio, or destructive authority is in scope.
+- Do not read when: only platform presentation or provider response parsing is in scope.
+- Maximum size: 100 physical lines.
 
-## Goal
+## Goal and scope
 
-Make every retained microphone attempt recoverable when recording, local
-finalization, app lifecycle, or provider work ends unexpectedly. A user must
-not lose non-empty audio because an internal state write, task cancellation,
-route change, process exit, or other non-user event was interpreted as
-Discard.
+Every retained microphone attempt remains recoverable when recording, local
+finalization, lifecycle, or provider work ends unexpectedly. Internal state
+writes, cancellation, route change, process exit, and other non-user events do
+not become Discard.
 
 This cross-platform contract governs macOS capture and iOS Voice/keyboard
-capture. More specific feature specs may define presentation and platform
-mechanics, but they must preserve these ownership rules.
+capture. Platform contracts may define presentation and mechanics only while
+preserving these ownership rules.
 
-## Terminal causes
+## Children
 
-Every terminal recording event has exactly one product cause:
+- [Terminal causes and capture ownership](recording-durability-and-interruption/terminal-causes-and-capture.md) —
+  cause classification, durable identity, exact-once terminal races, and relaunch repair.
+- [iOS handoff and Dev Vlogs boundaries](recording-durability-and-interruption/ios-handoff-and-dev-vlogs.md) —
+  cancellation, supersession, warm input, and separately owned vlog media.
+- [Saved recordings, Voice Prompt, and feedback](recording-durability-and-interruption/saved-recordings-and-feedback.md) —
+  playable validation, provider authority, recovery actions, user messaging, and verification.
 
-- `userFinished`: the user requests transcription;
-- `configuredLimit`: the frozen user-selected limit finishes capture and
-  requests transcription;
-- `platformInterrupted`: the operating system, audio route, recorder, or
-  lifecycle prevents capture from continuing;
-- `internalFailure`: HoldType cannot publish state, finalize metadata, or
-  complete another local operation;
-- `ownerTeardown`: an app/controller task is cancelled, replaced, or the
-  process is terminating;
-- `explicitUserDiscard`: the user explicitly requests that the current audio
-  be deleted.
+## Shared invariants
 
-Only `explicitUserDiscard` may intentionally delete a non-empty retained
-recording. A descriptor- or file-handle-proven zero-byte source may enter
-cleanup-only Discard state without a user action. A feature spec may also define
-a minimum capture duration before durable ownership begins; its sub-threshold
-app-created artifact is cleanup-only rather than a retained recording. Every
-other cause preserves positive bytes under one durable owner.
+- Only explicit user destruction may intentionally delete retained positive-byte audio.
+- Every non-destructive terminal cause leaves exactly one durable owner.
+- Provider dispatch occurs at most once and only after durable ownership.
+- Late callbacks cannot accept text, delete audio, or create another owner.
+- Recovery is bounded and never automatically uploads audio after relaunch.
+- Default logs contain cause, attempt ID, durability result, and provider
+  authorization only—never audio, text, secrets, or local paths.
 
-## Capture ownership
+## Consumers
 
-- HoldType creates durable attempt identity and capture ownership before the
-  recorder is allowed to retain audio.
-- Before a recovery checkpoint exists, the active macOS capture and its
-  journal live in non-purgeable Application Support storage. A purgeable
-  recording cache is never the sole owner of retained audio; the finalized
-  original may move there only after a separate durable History owner commits.
-- Active and finalizing recordings are protected from cache Clear, individual
-  cache Delete, and retention pruning.
-- Stop, recorder completion, the configured deadline, lifecycle termination,
-  and delegate callbacks race through one exact-once terminal boundary.
-- A finalization error must keep a recoverable source handle or path. Duration,
-  media probing, metadata reads, and state publication are never authority to
-  delete or hide positive bytes.
-- A normal quit or updater relaunch requests bounded finalization. If the
-  process exits before that finishes, launch repair promotes the journaled
-  positive-byte source to a provider-free Saved Recording.
-- A crash, force quit, or operating-system process eviction may prevent an
-  immediate user notice, but the next launch must recover the same source
-  without automatically uploading it.
-
-## iOS cancellation and handoff
-
-- App Group state-publication failure affects coordination UI only. It must not
-  cancel or discard the retained recorder.
-- Generic Swift task cancellation, controller deinitialization, scene
-  replacement, or handoff supersession maps to `ownerTeardown`, not
-  `explicitUserDiscard`.
-- Once the recorder may have retained a byte, arming races preserve the
-  original Done, configured-limit, interruption, or teardown cause. They must
-  not collapse those causes into Cancelled.
-- A new keyboard handoff checks real live/durable capture ownership, not only a
-  presentation phase. It may supersede only a proven pre-capture or empty
-  attempt.
-- `Stop Keyboard Session` while Listening finalizes a non-empty partial to
-  provider-free Saved Recording. During Finalizing or Processing it disarms
-  the warm session without cancelling the owned finalization or provider task.
-- Closing a handoff surface is not destructive authority after capture starts.
-  Only a separate explicit destructive action may delete retained audio.
-- Loss of an auxiliary warm-input keeper disables warm reuse but does not stop
-  a recorder that is otherwise still active.
-- Scene inactivity by itself is not proof that capture failed. HoldType stops
-  only when the platform/audio boundary cannot continue or the product has an
-  explicit user Finish, configured limit, or explicit Discard. If continued
-  capture becomes impossible, it preserves the partial as
-  `platformInterrupted`.
-
-## Dev Vlogs media boundary
-
-- `DV-DURABILITY-1`: Dev Vlogs camera video, final source clips, recoverable
-  fragments, manifests, and Build ownership have a separate feature owner and
-  recovery lifecycle. They never become Transcript History, Recording Cache,
-  provider-retry audio, or another dictation durability owner.
-- `DV-DURABILITY-2`: Capture/finalization interruption preserves every
-  recoverable vlog fragment under the Dev Vlogs owner and classifies the vlog
-  result truthfully as Ready, Incomplete, or Failed without changing the
-  dictation result. Relaunch recovery validates only the separate local vlog
-  archive and never uploads recovered media.
-- `DV-DURABILITY-3`: Only an explicit Dev Vlogs Delete action may remove a
-  retained vlog clip or recoverable vlog media. Dev Vlogs has no automatic
-  retention deletion in V1. Transcript History clear/delete, Recording Cache
-  clear/delete/pruning, dictation cleanup, and unrelated lifecycle teardown
-  must not delete vlog media.
-- `DV-DURABILITY-4`: Active, finalizing, recovering, or Build-owned vlog media
-  is not eligible for Dev Vlogs Delete. Deletion has exact clip/media scope and
-  never removes dictation audio owners, History rows, Recording Cache files,
-  completed exports, or unrelated files.
-
-## Saved Recording and History
-
-- Before provider work, every finalized non-empty source that meets the active
-  feature's minimum capture duration is durably owned and locally validated.
-  A source becomes a user-visible Saved Recording only when the supported-audio
-  decoder can open it and prove that it contains playable audio data. Positive
-  byte count, extension, or container metadata alone never establish
-  playability.
-- A malformed, truncated, header-only, renamed non-audio, or otherwise
-  undecodable positive-byte artifact remains non-destructively owned but is
-  excluded from History and from Play, Transcribe, Retry, and Transcribe Again.
-  Exclusion is not cleanup: HoldType does not remove its file or metadata
-  without a separately approved destructive product action.
-- Involuntary or internal termination is provider-free unless the user had
-  already requested Finish or the configured limit had already elapsed.
-- A provider-free Saved Recording offers Play, Transcribe, and Delete. Delete
-  is explicit and affects only that attempt.
-- A provider failure keeps Play and Retry/Transcribe. An ambiguous provider
-  outcome keeps ordinary Retry hidden, but offers an explicit confirmation-gated
-  `Transcribe Again…` action. The confirmation states that the saved recording
-  will be submitted for transcription again. Only the user's confirmation may
-  start that new request.
-- Local finalization or persistence failure must become visible in the current
-  process; recovery must not require an app restart merely to appear.
-- Accepted-History publication and audio cleanup form a recoverable
-  transaction. HoldType does not remove the final playable owner until the
-  accepted row or an equivalent durable repair marker commits.
-- Unresolved Saved Recordings are never silently evicted by a count-based
-  retention limit. Storage pressure may block new provider work and ask the
-  user to review recordings, but only explicit Delete removes unresolved
-  positive-byte audio.
-
-## Voice Prompt Fix Recordings
-
-- A macOS Voice Prompt Fix follows the same capture ownership and exact-once
-  terminal-cause rules as ordinary dictation, but persists the closed
-  completion kind `voicePrompt` instead of inventing ordinary dictation intent.
-- Successful transcription and Fix completion remove the recovery checkpoint
-  without publishing the instruction as accepted History or ordinary output.
-- A failed or interrupted Voice Prompt attempt preserves one playable owner and
-  exposes Play and Delete only. It never exposes ordinary Retry, Transcribe
-  Again, automatic insertion, or delayed Fix application because the external
-  Accessibility target is transient and cannot be restored safely.
-- While the originating palette and target remain alive, an in-memory retry may
-  reuse the retained recording under the existing provider-dispatch seal. That
-  capability is never reconstructed after palette dismissal or relaunch.
-
-## User feedback
-
-- An involuntary stop immediately reports `Recording interrupted — saved to
-  History` or an equivalent platform-appropriate message.
-- The active handoff sheet remains the owner of keyboard-originated failure and
-  recovery presentation.
-- Failure UI never claims that audio was saved unless a durable playable owner
-  can be loaded.
-- Local validation failure uses the compact user-facing explanation `This
-  saved recording can’t be opened, so it can’t be played or transcribed.` and
-  never exposes provider internals or an action that cannot succeed.
-- Default logs record the terminal cause, attempt identifier, durability
-  outcome, and whether provider work was authorized. They do not contain raw
-  audio, transcript text, secrets, or local paths.
-
-## Verification
-
-For every platform terminal cause, tests assert:
-
-- positive bytes result in exactly one durable playable owner unless the user
-  explicitly requested Discard or the active feature defines the source as a
-  sub-threshold non-recording;
-- zero-byte cleanup never deletes another attempt;
-- provider dispatch occurs at most once and only after durable ownership;
-- involuntary/internal termination performs no provider dispatch unless Finish
-  or the configured limit already owned that authority;
-- late callbacks cannot accept text, delete audio, or create a second owner;
-- relaunch repair is bounded and never automatically uploads recovered audio.
-- Voice Prompt recovery rows never expose ordinary dictation Retry or recreate
-  an external text target.
-
-Fault injection covers state-publication failure, feedback/arming races,
-generic task cancellation, handoff supersession, warm-input failure, cache
-clear/delete/prune, finalization and metadata failure with positive bytes,
-normal quit, updater relaunch, process loss, and History write failure.
+The platform consumers remain `microphone-text-input.md`, current iOS Voice and
+keyboard contracts, `transcript-history.md`, and the Voice Prompt portion of
+`text-fixes.md`. These paths do not weaken this cross-platform contract.

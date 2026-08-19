@@ -33,18 +33,20 @@
 
 ## Current checkpoint
 
-- [Batch 01 — capture controls](batches/01-capture-controls.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/01-capture-controls.md) — accepted source hashes, dispositions, nodes, and validation.
+- [Batch 02 — recording and History](batches/02-recording-history.md) — completed and ready for checkpoint integration.
+- [Latest receipt](receipts/02-recording-history.md) — accepted source hashes, dispositions, nodes, and validation.
 
 ## Completed checkpoints
 
 - [Batch 00 — root and menu-bar shell](batches/00-root-menu-bar-shell.md) —
   accepted in [receipt 00](receipts/00-root-menu-bar-shell.md), commit `47ae2215`.
+- [Batch 01 — capture controls](batches/01-capture-controls.md) — accepted in
+  [receipt 01](receipts/01-capture-controls.md), commit `738c9e32`.
 
 ## Pending queue
 
-`02` recording/history; `03` transcription; `04` output core; `05` text
-enhancement; `06` privacy; `07` settings; `08` usage estimates;
+`03` transcription; `04` output core; `05` text enhancement; `06` privacy;
+`07` settings; `08` usage estimates;
 `09` Dev Vlogs; `10` diagnostics/QA; `11` distribution; `12` website; `13`
 coverage/discovery; `14` backlog automation; `15` automation recovery; `16`
 iOS release; `17` iOS Voice; `18` iOS keyboard; `19` iOS settings; `20` iOS
@@ -53,7 +55,7 @@ iOS privacy; `24` legacy iOS output; `25` legacy iOS history; `26` deferred
 iOS history base; `27` deferred iOS failure history; `28` deferred keyboard
 settings.
 
-Only the current linked batch is loaded. Activate batch `02` after this
+Only the current linked batch is loaded. Activate batch `03` after this
 checkpoint is pushed; completed batch bodies are not reloaded.
 
 ## Completion

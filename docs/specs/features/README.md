@@ -14,10 +14,12 @@ is migrated, select its legacy source through the
 
 - [macOS contracts](macos/README.md) — shipped macOS application-shell and
   platform-specific behavior.
+- [Shared contracts](shared/README.md) — cross-platform ownership and behavior
+  that platform-specific contracts must preserve.
 
 ## Pending branches
 
-Shared capabilities, iOS, distribution and website, and operations remain in
+Other shared capabilities, iOS, distribution and website, and operations remain in
 the legacy authority index until their approved batches establish those branch
 nodes. Pending text is not product authority and does not change precedence.
 

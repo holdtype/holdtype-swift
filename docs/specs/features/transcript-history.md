@@ -1,417 +1,59 @@
-# Transcript History And Recording Recovery
+# Transcript History and Recording Recovery
 
-## Goal
+- Node type: hybrid
+- Contract ID: `holdtype.macos.transcript-history`
+- Domain ID: `holdtype.macos.transcript-history`
+- Status: Active
+- Stability: Released
+- Release baseline: legacy-released macOS behavior; explicit historical baseline absent
+- Contract revision: `holdtype.macos.transcript-history@1`
+- Read when: accepted transcript persistence, saved-recording recovery, History UI, retry, or local deletion is in scope.
+- Do not read when: only capture ownership, provider HTTP, or normal recording cache is in scope.
+- Maximum size: 100 physical lines.
 
-Keep recent successful dictations recoverable across app relaunches so users do
-not need to re-dictate text when active-app insertion fails, the target input
-changes, or they return to an earlier result. Keep completed recordings
-recoverable when provider or lifecycle work fails.
+## Goal and scope
 
-## Decision
+HoldType keeps recent accepted dictations recoverable across relaunch and
+protects completed recordings when provider or lifecycle work fails. Accepted
+history and unfinished-audio safety checkpoints are distinct local stores.
 
-Accepted transcript history is a bounded, durable, local-only feature. It is
-enabled by default, keeps the 20 most recent accepted entries, and restores
-them after HoldType quits and relaunches.
-
-An unfinished recording is a separate safety checkpoint. HoldType protects its
-audio and compact recovery metadata on local disk before the first provider
-request, so a long dictation or provider failure does not disappear. A
-recording that reaches its configured limit remains in this bounded store even
-after successful transcription, together with its accepted text. This is an
-explicit recording-recovery exception, separate from accepted transcript
-persistence and the normal recording cache.
-
-Users can disable accepted transcript history in Settings. Disabling it clears
-durable accepted entries and stops future accepted-history writes. It does not
-delete an unfinished recovery checkpoint; only successful cleanup or the
-user's explicit Delete/Discard action may do that.
-
-Older local settings that stored the previous off-by-default value are migrated
-once to the current on-by-default behavior. After that migration, a user's
-explicit Settings toggle choice persists normally.
-
-Last Transcript remains current-session state and does not require recovery
-history to be enabled, but the menu bar dropdown does not display transcript
-text.
-
-## Scope
-
-This spec covers:
-
-- bounded durable local storage of accepted transcript text
-- protected local storage of one or more bounded unfinished transcription
-  attempts
-- default history setting
-- retention limit and clear behavior
-- history panel behavior
-- history row system clipboard copy and deletion actions
-- failed row retry and settings actions
-- privacy and logging boundaries
-- relationship to Last Transcript, Last Result, and system clipboard
-  actions
-- cache-gated local playback of completed recordings from history rows
+This domain covers accepted transcript retention, saved attempts, recovery
+actions, History presentation, local playback, system-clipboard copy, exact-row
+deletion and clear, privacy, dispatch seals, repair, and relaunch reconstruction.
 
 ## Non-goals
 
-- unbounded transcript archives
-- durable raw audio retention outside bounded unfinished-attempt recovery, the
-  successful limit-completed recording exception, or the explicit normal
-  recording cache setting
-- cloud sync, accounts, sharing, or telemetry
-- full search, semantic notes, tags, folders, or review workflows
-- SQLite or another database requirement for the MVP
-- storing explicitly discarded or pre-capture setup failures; involuntarily
-  stopped non-empty partials are durable Saved Recordings
+- Unbounded archives, cloud sync, accounts, sharing, telemetry, full search,
+  semantic notes, tags, folders, review workflows, or a required database.
+- Durable raw audio outside unfinished recovery, successful maximum-duration
+  recovery, or explicitly enabled normal recording cache.
 
-## User-visible behavior
+## Children
 
-- Transcript history is on by default and survives app relaunch.
-- Existing installs that still carry the legacy off default are switched on
-  once during settings load.
-- Settings exposes a Keep Transcript Recovery History toggle.
-- Turning recovery history off immediately clears durable accepted transcript entries
-  and stops future accepted-history writes. Saved recordings remain visible.
-- Turning recovery history back on affects future successful dictations. It
-  does not restore entries cleared earlier.
-- When recovery history is on, each accepted non-empty transcript is added to
-  recovery history after transcription succeeds and before active-app output
-  handoff can fail.
-- Every non-empty completed recording becomes a saved `Processing` recovery
-  row before provider work begins, regardless of the accepted-history toggle.
-- An automatic Finish at the configured limit uses the same saved row and starts
-  transcription automatically exactly once.
-- After that automatic Finish transcribes successfully, its row becomes
-  `Saved and transcribed`, displays the accepted text, and keeps Play plus an
-  explicit Delete action. It never offers Retry because its provider work has
-  already succeeded.
-- A successful limit-completed row is the sole History row for that result;
-  HoldType does not add a duplicate accepted row with the same text.
-- The successful limit-completed row and protected audio survive relaunch,
-  accepted History being disabled or cleared, normal recording-cache cleanup
-  including `Delete immediately`, and normal app quit. Only explicit Delete or
-  bounded recovery retention removes them.
-- Unresolved Processing, failed, interrupted, internal-failure, or owner-
-  teardown Saved Recordings are never removed by count-based retention. Only
-  their explicit Delete/Discard action may remove positive-byte audio.
-- A lifecycle- or internally-interrupted non-empty partial appears immediately
-  as a provider-free Saved Recording with Play, Transcribe, and Delete. It does
-  not require relaunch and does not automatically call the provider.
-- A completed recording that fails during
-  transcription for a recoverable OpenAI, network, timeout, rate-limit,
-  unreadable-response, or empty-result reason changes that row to a failed
-  attempt without deleting its audio.
-- Before a completed recording is displayed as a Saved Recording or restored
-  into History, HoldType verifies that its protected audio is a locally
-  readable, playable supported audio container. A zero-length, truncated,
-  malformed, or otherwise locally unplayable artifact never appears as a
-  History row and never offers Play, Retry, or Transcribe Again. HoldType
-  reports the compact local recording failure at the time it is detected
-  without exposing the unusable artifact as recoverable user work.
-- The maximum-duration completion identity is part of the durable checkpoint.
-  If its first provider attempt fails, that identity survives relaunch; an
-  explicit Retry success promotes the same row to `Saved and transcribed`
-  instead of deleting its audio or creating a normal accepted-history row.
-- The completion identity is durably associated with the protected recovery
-  audio before provider work. If the main recovery index cannot be written
-  after the audio copy succeeds, relaunch reconstruction must recover that
-  identity from the app-owned audio filename or bounded local checkpoint
-  metadata rather than treating a limit-completed recording as a normal
-  ephemeral attempt.
-- Provider work for any completed non-empty recording may start only after a
-  durable dispatch seal is tied to its app-owned recovery audio. If the audio
-  copy or dispatch seal cannot be written, provider Retry stays hidden and the
-  row offers only Play, Delete, and a local Retry Save/Repair action.
-  Successful local repair makes provider Retry available; repeated local
-  repair failure never uploads the original emergency artifact.
-- An accepted or still-unresolved provider dispatch keeps its compact
-  fail-closed seal for the entire lifetime of that protected audio, including
-  after a result is saved. Cleanup, clearing, startup pruning, and retention may
-  remove that seal only after the exact owned audio file is confirmed gone. If
-  metadata rollback and audio removal both fail, relaunch keeps the playable
-  orphan non-retryable.
-- A definitive pre-dispatch or provider-rejection failure may retire its seal
-  only after the retryable row is durably written. Every later explicit Retry
-  writes a fresh seal before its upload. Timeout, transport loss, or
-  cancellation after dispatch began is not a definitive retryable failure: the
-  seal remains for the lifetime of the audio and the playable row becomes
-  `Transcription outcome uncertain` with ordinary Retry hidden. That row offers
-  `Transcribe Again…`; it must show a confirmation that the saved recording
-  will be submitted for transcription again. Confirmation starts a fresh
-  bounded request using
-  the retained audio and current safe settings. If any retryable transition
-  cannot be persisted, the previous seal likewise remains and relaunch treats
-  the outcome as uncertain with the same confirmation-gated action.
-- After a non-empty provider transcription is accepted, HoldType checkpoints
-  that raw text before downstream correction or translation. A downstream
-  failure leaves a fail-closed row labelled `Raw transcription recovered —
-  post-processing failed`, containing the raw accepted text and a `Save Raw
-  Transcription` action. Saving it preserves that truthful label; it cannot
-  masquerade as a translated success or turn back into provider Retry.
-- The immediate user-facing failure surface for a completed recording is the
-  menu bar recovery prompt. Transcript History is the durable recovery surface
-  the user can open from the normal menu item.
-- A failed attempt row must be visually distinct from accepted transcript rows.
-  It should show `Not transcribed`, a compact reason, the attempt time, and any
-  known duration/model/language metadata.
-- Processing and failed rows offer Play whenever their protected audio is
-  readable and no dictation is currently recording or processing. Play is local
-  only and never starts or cancels provider work.
-- Starting a new recording stops any saved-recording or cached-recording
-  playback before the microphone recorder is activated, so speaker playback
-  cannot continue into the new capture.
-- A failed attempt row may offer Retry. Retry sends the saved temporary audio
-  through the current transcription settings and current API key. An
-  outcome-uncertain row instead offers `Transcribe Again…`, which first asks
-  the user to confirm that it will send the same audio through those current
-  settings and key.
-- A retryable row shows one clearly labelled `Retry Transcription` action. An
-  outcome-uncertain row shows one clearly labelled `Transcribe Again…` action;
-  it is not rendered as an unexplained icon and it never appears beside an
-  ordinary Retry action for the same row.
-- History presents saved attempts through one user-facing state model:
-  - `Saved and transcribed` explains that text is available. It offers Copy and
-    Delete, and offers Play only while the linked recording passes the same
-    local playable-audio validation used for saved recordings. It offers no
-    transcription retry.
-  - `Transcribing…` explains that HoldType is processing the saved recording.
-    It offers no Play, Retry, Transcribe Again, or Delete action. It must always
-    leave this state when the owned attempt finishes.
-  - `Not transcribed` explains the actionable failure in plain language. It
-    offers one `Retry Transcription` action when current settings can make a
-    fresh attempt, plus applicable Settings, Play, and Delete actions. It never
-    offers `Transcribe Again…`.
-  - `Transcription outcome uncertain` explains that the previous request may
-    already have been accepted and that another submission could duplicate the
-    transcription. It offers one `Transcribe Again…` action, plus Play and
-    Delete, but never ordinary Retry. Confirmation repeats the duplicate-risk
-    explanation before any new request starts.
-  - `Recording unavailable` is a terminal local-artifact classification, not a
-    visible History row. Its message is `This saved recording can’t be opened,
-    so it can’t be played or transcribed.` It offers no Play, Retry, or
-    Transcribe Again. Detection excludes the row without deleting its metadata
-    or file; destructive cleanup requires a separate approved product action.
-- Retry and Transcribe Again validate the exact retained file with the local
-  supported-audio decoder before changing the row to `Transcribing…`, creating
-  request scratch data, or contacting the provider. If the file has become
-  unavailable or invalid, the action does not start, the attempt records the
-  terminal `Recording unavailable` classification, the row is excluded, and
-  the compact message is shown.
-- Every started provider attempt terminates as saved, failed, outcome-uncertain,
-  or another explicit terminal classification. A local preparation or
-  validation failure discovered after a row entered `Transcribing…` must still
-  finish the state transition. A retained dispatch seal may continue blocking
-  ordinary replay, but it must not block writing the terminal failure state or
-  leave a spinner active.
-- Dismiss closes only the current recovery message. It does not mutate retry
-  eligibility, erase an error, remove a row, or complete an attempt. Therefore
-  the attempt must already be in its truthful terminal state before a failure
-  message can be dismissed.
-- Saved-recording Play, Retry, and Delete are unavailable while another
-  dictation is recording or processing. The controller independently rejects a
-  Retry that races with active recording, so recovery UI can never move the
-  shared status away from Listening while the recorder remains live.
-- A Processing row cannot be deleted. Its protected artifact remains owned by
-  that provider operation until it succeeds or becomes a failed, explicitly
-  deletable saved recording.
-- A failed attempt row caused by invalid or unavailable API key should offer an
-  Open API Key Settings action and may also allow Retry after the user fixes the
-  key.
-- A failed attempt row caused by invalid transcription settings should offer an
-  Open Transcription Settings action and may also allow Retry after the user
-  fixes the settings.
-- Retry success replaces the failed attempt with a normal accepted transcript
-  history row and updates Last Transcript. If Keep last result is enabled,
-  the recovered transcript is saved there for manual insertion.
-- Retry failure keeps the failed attempt row, updates its reason and retry
-  count, and keeps the previous successful Last Transcript intact.
-- A failed automatic insertion or Paste Last Result must not discard the
-  current Last Transcript or the recovery history row created for the accepted
-  transcript.
-- Recovery history keeps at most the 20 most recent accepted transcripts and a
-  small bounded set shared by recent failed attempts and successful
-  limit-completed recordings. Older protected artifacts may be removed
-  automatically only after no provider operation owns them and that
-  saved-recording limit is exceeded.
-- The menu bar exposes a Transcript History window.
-- Opening Transcript History brings the window to the front, including when it
-  already exists behind another app window.
-- The Transcript History window title should identify the app as
-  `HoldType: History`. The menu bar item and in-window heading may remain
-  `Transcript History`.
-- The Transcript History window lists entries newest-first by each recording's
-  original creation time and may group them by that same time's day.
-- Retry, Transcribe Again, and later processing-state updates keep the same row
-  in its original chronological position and day group. A newer update time
-  must not move an existing recording ahead of recordings created after it.
-- Each history row shows the entry time and transcript text.
-- When Recording Cache is enabled, an accepted transcript row may offer Play for
-  the completed recording that produced that row, but only while the app-owned
-  cached recording file still exists.
-- The Play action is a local debugging aid for comparing audio with the accepted
-  transcript. It must not upload audio, retry transcription, update Last
-  Transcript, write to either clipboard, or trigger active-app insertion.
-- Turning Recording Cache off, clearing the cache, deleting a cached recording,
-  or retention pruning the file must remove Play availability for affected
-  accepted transcript rows.
-- Each history row can copy only that row's text to the macOS system clipboard.
-- History row system clipboard copy does not require the Keep last result
-  setting, does not update the Last Result recovery value, and does not
-  trigger active-app insertion.
-- Each history row can durably delete only that row from transcript history.
-- The history window provides a destructive `Clear History` action. It is
-  enabled whenever the window contains an accepted transcript entry or a
-  deletable Saved Recording, even if there are no accepted transcript entries.
-- Before clearing, HoldType asks for confirmation and states that it will
-  remove accepted transcript entries plus the recovery audio and metadata for
-  deletable Saved Recordings. The confirmation identifies any active
-  Processing recordings that will be kept.
-- Deleting one history row removes only that row. It does not delete Keychain
-  secrets, settings, normal recording cache state, cached recordings linked for
-  local playback, Last Transcript current-session state, or other history rows.
-  Deleting a failed attempt or successful limit-completed recording also
-  removes only that row's protected audio. The UI reports deletion only after
-  both its recovery metadata and exact audio artifact were removed; if either
-  operation fails, the saved row remains or is reconstructed and the failure
-  is shown instead of a false success message.
-- Clearing History durably removes every accepted transcript entry and every deletable
-  Saved Recording shown in History. It does not delete Keychain secrets,
-  settings, normal recording-cache state, or Last Transcript current-session
-  state. A Processing row remains protected because its provider operation owns
-  the audio; clearing reports that it was kept. If a Saved Recording cannot be
-  deleted completely, its row remains or is reconstructed and the result
-  reports that it was kept rather than claiming a full clear.
-- Quitting the app does not clear accepted transcript entries. Accepted entries,
-  unfinished saved recordings, and their compact recovery metadata remain
-  available after relaunch.
-- The main menu does not provide a manual Save Last Transcript action. When
-  Keep last result is enabled, accepted transcripts are saved there
-  automatically under `text-output-workflow.md`.
+- [Accepted-history policy](transcript-history/accepted-history-policy.md) — default, toggle, retention, accepted append, and Last Transcript boundaries.
+- [Saved-recording lifecycle](transcript-history/saved-recording-lifecycle.md) — recovery creation, validation, maximum-duration identity, and retention.
+- [Dispatch seals and retry](transcript-history/dispatch-seals-and-retry.md) — fail-closed provider authority, uncertainty, retry, and raw-text recovery.
+- [Recovery state model](transcript-history/recovery-state-model.md) — visible row states, actions, playback, concurrency, and terminal transitions.
+- [History window and deletion](transcript-history/history-window-and-deletion.md) — ordering, copy, cache playback, row Delete, and Clear History.
+- [Data and privacy](transcript-history/data-and-privacy.md) — allowed fields, local-only storage, and logging limits.
+- [Repair and relaunch](transcript-history/repair-and-relaunch.md) — persistence failures, orphan reconstruction, edge cases, and verification.
 
-## Stored fields
+## Shared invariants
 
-Each accepted transcript history entry should store only:
+- Explicit Discard/Delete is the only authority to remove unresolved positive-byte recovery audio.
+- Provider work starts only after durable audio ownership and a dispatch seal.
+- Accepted and recovery stores remain local, bounded, and independent of Last
+  Transcript, Last Result, normal cache, Keychain, and current app output.
+- A row never claims Play, Retry, saved text, or deletion success unless its
+  exact underlying state makes that action truthful.
 
-- stable local id
-- creation date
-- transcript text
-- transcription model
-- language setting used for the request
-- optional audio duration, if already known from the completed session
-- optional session-only reference to an app-owned normal recording cache file
-  for local playback, only when Recording Cache was enabled for that completed
-  recording
+## Dependencies
 
-History must not store raw audio, provider responses, authorization headers,
-API keys, prompt text, custom dictionary entries, or debug payloads. Any
-recording cache file reference on an accepted row is session-only metadata for
-local playback and must not be persisted with transcript history.
+- [Recording durability](recording-durability-and-interruption.md) — terminal causes and ownership.
+- [OpenAI transcription](openai-transcription.md) — provider attempt classification.
+- [Text output](text-output-workflow.md) — Last Transcript and Last Result.
+- [Settings and secrets](settings-and-secret-storage.md) — history and cache settings.
 
-Each saved recording entry should store only:
-
-- stable local id
-- creation date
-- compact failure reason
-- retry count
-- transcription model
-- language setting used for display
-- optional audio duration, if already known from the completed session
-- temporary app-owned audio file reference needed for retry
-- optional accepted transcript text, present only after a limit-completed recording
-  transcribes successfully
-- completion kind identifying a normal attempt or automatic Finish at the
-  configured limit
-
-Saved recording entries must not store provider responses, authorization
-headers, API keys, prompt text, nearby active-text context, custom dictionary
-entries, rejected transcript candidates, or debug payloads.
-
-## Privacy and storage
-
-- Accepted transcript history is local-only, bounded to the 20 most recent
-  entries, and durable across app relaunches.
-- Recovery metadata and audio are local-only, app-owned, and bounded. Unfinished
-  rows persist until successful processing or explicit deletion. A successful
-  limit-completed row additionally persists only its accepted transcript text
-  until explicit deletion or retention pruning. No row contains provider payload,
-  credential, prompt, nearby context, or raw log content.
-- No history entry may be sent to a server except when the user later uses a
-  separate feature that explicitly sends text and has its own spec.
-- Default logs must not include transcript text or history entry contents.
-- Default logs must not include recording cache paths, failed-attempt audio
-  paths, playback paths, or retry payloads.
-- Unbounded or cloud-synced transcript history requires a future spec update
-  before implementation.
-
-## Edge cases and failure policy
-
-- Empty or whitespace-only successful transcript text must not create accepted
-  transcript entries. Provider empty-result failures may create failed attempt
-  entries when completed audio exists.
-- Cancelled recordings must not create history entries.
-- Pre-capture setup failures such as a missing API key must not create failed
-  attempt entries because no completed audio exists.
-- If a failed attempt's temporary audio cannot be saved, the app should still
-  show the immediate transcription error but must not show a fake Retry action.
-  It must skip destructive recording-cache cleanup for that attempt so the
-  completed artifact remains recoverable where possible.
-- If a history append fails, the app should keep the current Last Transcript
-  visible and continue output delivery where practical.
-- Before transitioning Processing to `Saved and transcribed` after provider
-  success, HoldType atomically writes bounded local repair metadata containing
-  the accepted text and protected-audio identity. If the main recovery index
-  transition then fails, HoldType must not publish a false saved state or
-  repeat the provider request. It shows a visibly incomplete row with Play and
-  only a local Retry Save action. Retry Save repairs metadata; it never uploads
-  the audio again.
-- When the accepted-text repair write succeeds, its fail-closed classification
-  and accepted text survive relaunch. Startup restores that incomplete row,
-  keeps provider Retry hidden, and never converts uncertain post-success
-  metadata back into a retryable transcription attempt. Successful local repair
-  removes the temporary repair metadata.
-- If both the accepted-text repair write and the main recovery-index write fail
-  after provider success, preserving the text across process death is
-  impossible. HoldType keeps the accepted text in memory for the current
-  process; after relaunch the earlier dispatch seal restores a playable
-  `Transcription outcome uncertain` row with provider Retry permanently hidden.
-  It must never claim that the unavailable text was durably saved.
-- If the main Processing checkpoint write fails after its protected audio copy
-  succeeds, bounded checkpoint metadata preserves the maximum-duration identity
-  across relaunch. Before relaunch, the same owned checkpoint is reused for an
-  emergency row; provider success immediately makes that row non-retryable even
-  if its saved-state transition also fails.
-- If compact recovery metadata is missing, unreadable, or corrupt, HoldType
-  reconstructs a bounded set of retryable rows from its own non-empty regular
-  `Recording-<timestamp>-<UUID>` and
-  `Recording-Max-<timestamp>-<UUID>` files and atomically repairs the metadata
-  when possible. The Max filename preserves maximum-duration retention even if both
-  compact checkpoint writes fail. Reconstruction does not follow symbolic
-  links and ignores directories, special files, malformed names, and unmanaged
-  files.
-- If a cached recording is missing or cannot be played, the history row should
-  stop offering Play or report a compact playback failure without logging the
-  file path.
-- A saved-recording row whose audio cannot be opened as supported playable
-  audio is treated as an invalid local artifact rather than a playback failure:
-  the row is excluded from History and cannot be uploaded or retried.
-- If the app terminates normally, accepted transcript history, unfinished saved
-  recordings, and successful limit-completed saved recordings remain
-  recoverable after relaunch.
-
-## Verification mapping
-
-- Settings tests should prove recovery history is enabled by default,
-  disabling it clears durable accepted entries, and the setting persists.
-- History tests should cover accepted append, durable relaunch restoration,
-  max-20 accepted retention, durable row deletion and clear, failed
-  attempt append, failed-attempt retention and audio cleanup, clear,
-  disabled accepted-history behavior, successful limit-completed saved-row
-  round-trip and retention, saved-row survival while disabled, relaunch
-  recovery, row deletion, recovery and cache-gated local playback, retry
-  exclusion after success, retry success, retry failure, checkpoint-index
-  failure before provider work, fail-closed saved-state repair across relaunch,
-  local-only Retry Save, and exclusion of cancelled or pre-capture setup
-  failures.
-- Controller tests should prove output failure does not erase accepted recovery
-  history.
-- Log review should confirm transcript history contents are not emitted in
-  default logs.
+Capture completion and recovery-copy production remain owned by
+`microphone-text-input.md`; History consumes that output without a reverse
+dependency on the capture contract.

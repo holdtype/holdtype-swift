@@ -20,6 +20,8 @@ records finer-grained revisions.
   Paste Last Result assignments and macOS-wide activation.
 - [Floating indicator](../floating-indicator.md) — optional non-activating
   recording, countdown, and transcription feedback.
+- [Transcript History](../transcript-history.md) — accepted transcript
+  persistence, recording recovery, retry, playback, copy, and deletion.
 
 ## Pending macOS domains
 
