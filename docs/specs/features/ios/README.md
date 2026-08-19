@@ -30,6 +30,8 @@ historical/deferred contracts remain selectable through the
   field routing for setup-dependent actions.
 - [Voice session and audio](../ios-voice-session-and-audio.md) — current
   foreground capture/audio/provider reference with Quick Session kept Historical.
+- [Diagnostics](../ios-diagnostics.md) — local redacted runtime/crash evidence,
+  explicit export, bounded retention, and delivery-proof limits.
 
 ## Dependencies
 
