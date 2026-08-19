@@ -20,6 +20,8 @@ is migrated, select its legacy source through the
   bounded domain at a time.
 - [QA contracts](qa/README.md) — platform evidence selection and deterministic
   verification boundaries.
+- [Distribution contracts](distribution/README.md) — macOS direct channel,
+  native updates, artifacts, trust, and release qualification.
 
 ## Pending branches
 

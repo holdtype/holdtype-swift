@@ -1,135 +1,35 @@
-# App Store Distribution
+# App Store Distribution Decision
 
-## Goal
+- Node type: hybrid
+- Contract ID: `holdtype.macos.distribution-channel`
+- Domain ID: `holdtype.macos.distribution`
+- Status: Active
+- Stability: Accepted
+- Release baseline: direct-download macOS product
+- Contract revision: `holdtype.macos.distribution-channel@1`
+- Read when: macOS channel, sandbox viability, official download trust, or Store reconsideration is in scope.
+- Do not read when: iOS/TestFlight distribution is in scope.
+- Maximum size: 100 physical lines.
 
-Define HoldType's macOS distribution decision.
+## Decision
 
-HoldType's current macOS product should ship through direct download, not the
-Mac App Store. The direct path is feasible because it preserves the system-wide
-voice input workflow while still using Apple's Developer ID and notarization
-trust model.
+Current macOS HoldType ships directly, not through Mac App Store: Developer ID
+signed/notarized artifact, Sparkle for downloads, optional Homebrew cask using
+the same artifact, and public download/privacy/support/changelog pages.
 
-## Scope
+The Store sandbox conflicts with Accessibility-gated automatic insertion,
+Paste Last Result, and Nearby Text across arbitrary active apps. Microphone and
+networking are not the main blockers.
 
-- current macOS distribution channel
-- Mac App Store viability for the current product shape
-- direct-download trust requirements
-- competitor evidence used for the channel decision
-- conditions for reopening App Store work
+## Children
 
-## Non-goals
-
-- iPhone, iPad, or keyboard-extension distribution
-- App Store Connect setup
-- TestFlight upload automation
-- in-app purchase design
-- Store-specific reduced product behavior
-- legal privacy-policy wording
-
-## Product Decision
-
-HoldType must not target the Mac App Store for the current macOS product.
-
-The supported macOS release channel is direct distribution:
-
-- Developer ID signed app bundle;
-- Apple notarized DMG or ZIP release artifact;
-- Sparkle updates for downloadable builds;
-- optional Homebrew cask that installs the same notarized artifact;
-- public download, privacy, support, and changelog pages.
-
-## Rationale
-
-Apple requires Mac App Store apps to be sandboxed and updated through the Mac
-App Store. HoldType's current value depends on working with the active app:
-automatic insertion, Paste Last Result, and nearby text context are
-Accessibility-gated system-wide behaviors.
-
-The current permissions spec states that the macOS MVP app target must not use
-App Sandbox while those active-app behaviors depend on Accessibility-gated
-control of other apps. Microphone capture and OpenAI networking are not the
-main blockers; broad interaction with arbitrary active apps is.
-
-Comparable products support the same conclusion:
-
-- Fixkey's Mac product is distributed through direct download, not an official
-  Mac App Store listing found during the 2026-07-09 review.
-- Wispr Flow has an iPhone App Store app, but its Mac product is installed by
-  downloading a DMG from its website and moving the app to Applications.
-
-This makes direct distribution a normal channel for this class of macOS
-utility, not a second-best workaround.
-
-## User-visible Behavior
-
-- Users should be directed to the official HoldType download page for macOS.
-- The download page should explain that the app is signed with an Apple
-  Developer ID and notarized by Apple.
-- The product should not promise Mac App Store availability.
-- Settings should describe Sparkle updates only for downloadable builds.
-- User-facing copy may say that HoldType is distributed directly because its
-  core Mac workflow depends on system-wide input and text insertion features.
-- If users ask for the Mac App Store, support copy should explain that the
-  current Mac App Store sandbox model does not fit the full HoldType workflow.
+- [User trust and channel rules](app-store-distribution/user-trust-and-channel-rules.md) — official source, copy, forbidden Store work, and future fork.
+- [Release qualification](app-store-distribution/release-qualification.md) — signing/notarization/Gatekeeper/DMG/appcast and final audio-input entitlement proof.
 
 ## Invariants
 
-- The direct build must remain signed and notarized before public release.
-- The direct build may use Sparkle for updates.
-- No Store build, Store entitlements, Store CI workflow, TestFlight upload, or
-  App Store metadata should be created while this spec is unchanged.
-- HoldType must not remove or weaken automatic insertion, Paste Last Result,
-  or nearby text context solely to create a Store-compatible edition without a
-  separate product decision.
-- If a future Store edition is created, it must not use Sparkle or any external
-  updater.
-
-## Edge Cases And Failure Policy
-
-- If Gatekeeper blocks a direct install, the install guide should tell the user
-  how to confirm the signed and notarized app through normal macOS UI.
-- If a third-party or clone appears in the Mac App Store under a similar name,
-  HoldType support and website copy should identify the official download
-  source.
-- If Apple changes the Mac App Store sandbox model, App Store work may be
-  reopened through a new spec update.
-- If a business decision intentionally accepts a weaker Store edition, that
-  edition must get its own product behavior spec before implementation.
-
-## Route / State / Data Implications
-
-- The production macOS bundle identity remains the direct-download app
-  identity unless a future spec introduces a separate Store edition.
-- Sparkle configuration belongs only to downloadable builds.
-- App Store Connect identifiers, API keys, metadata, and review assets are not
-  required for current HoldType macOS distribution.
-- Public privacy and support pages must cover microphone audio, transcript
-  text, OpenAI requests, local Keychain storage, Accessibility, Input
-  Monitoring, local history, and diagnostics.
-
-## Verification Mapping
-
-- Release verification should validate Developer ID signing, notarization,
-  stapling, Gatekeeper assessment, DMG layout, Sparkle appcast metadata, and
-  the Hardened Runtime Audio Input entitlement required for microphone access.
-  The Audio Input entitlement check must run against the final exported app
-  inside the release DMG or installed copy. A build setting or archive log is
-  not enough evidence, because a re-sign/export step can still publish an app
-  that has hardened runtime enabled but no microphone entitlement.
-- A public direct-download release must be blocked if the final app's
-  `codesign -dvvv --entitlements :-` output does not contain
-  `com.apple.security.device.audio-input`. The known user-visible failure mode
-  is: Request Microphone Access immediately becomes Not Allowed, the native
-  Allow prompt never appears, and System Settings > Privacy & Security >
-  Microphone does not list HoldType.
-- Website/download QA should verify that install and trust copy matches this
-  spec.
-- Before any future App Store work, run a new sandbox feasibility spike and
-  update this spec with evidence.
-
-## Unknowns Requiring Confirmation
-
-- Final public download URL.
-- Final support and privacy policy URLs.
-- Whether the first public release includes Homebrew in addition to DMG.
-- Whether the product ever wants a deliberately reduced Store edition.
+- Do not create Store build, entitlements, CI, TestFlight, metadata, or assets
+  while this decision stands.
+- Do not weaken active-app features solely for Store compatibility without a
+  separate product decision/spec. Any future Store edition cannot use Sparkle.
+- Production bundle identity remains direct-download identity.

@@ -33,8 +33,8 @@
 
 ## Current checkpoint
 
-- [Batch 10 — diagnostics and QA](batches/10-diagnostics-qa.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/10-diagnostics-qa.md) — accepted source hashes, dispositions, nodes, and validation.
+- [Batch 11 — distribution](batches/11-distribution.md) — completed and ready for checkpoint integration.
+- [Latest receipt](receipts/11-distribution.md) — accepted source hashes, dispositions, nodes, and validation.
 
 ## Completed checkpoints
 
@@ -58,10 +58,12 @@
   [receipt 08](receipts/08-usage-estimates.md), commit `fd3e613e`.
 - [Batch 09 — Dev Vlogs](batches/09-dev-vlogs.md) — accepted in
   [receipt 09](receipts/09-dev-vlogs.md), commit `99ea53a8`.
+- [Batch 10 — diagnostics and QA](batches/10-diagnostics-qa.md) — accepted in
+  [receipt 10](receipts/10-diagnostics-qa.md), commit `70a02fc2`.
 
 ## Pending queue
 
-`11` distribution; `12` website; `13`
+`12` website; `13`
 coverage/discovery; `14` backlog automation; `15` automation recovery; `16`
 iOS release; `17` iOS Voice; `18` iOS keyboard; `19` iOS settings; `20` iOS
 voice/audio; `21` iOS diagnostics; `22` legacy iOS foundations; `23` legacy
@@ -69,7 +71,7 @@ iOS privacy; `24` legacy iOS output; `25` legacy iOS history; `26` deferred
 iOS history base; `27` deferred iOS failure history; `28` deferred keyboard
 settings.
 
-Only the current linked batch is loaded. Activate batch `11` after this
+Only the current linked batch is loaded. Activate batch `12` after this
 checkpoint is pushed; completed batch bodies are not reloaded.
 
 ## Completion
