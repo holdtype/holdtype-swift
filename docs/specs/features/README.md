@@ -16,10 +16,12 @@ is migrated, select its legacy source through the
   platform-specific behavior.
 - [Shared contracts](shared/README.md) — cross-platform ownership and behavior
   that platform-specific contracts must preserve.
+- [iOS contracts](ios/README.md) — current iOS product behavior migrated one
+  bounded domain at a time.
 
 ## Pending branches
 
-Other shared capabilities, iOS, distribution and website, and operations remain in
+Other shared capabilities, pending iOS domains, distribution and website, and operations remain in
 the legacy authority index until their approved batches establish those branch
 nodes. Pending text is not product authority and does not change precedence.
 

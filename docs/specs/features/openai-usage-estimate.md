@@ -1,155 +1,39 @@
 # macOS OpenAI Usage Estimate
 
-Status: active product contract.
-Contract revision: 2.
+- Node type: hybrid
+- Contract ID: `holdtype.macos.openai-usage-estimate`
+- Domain ID: `holdtype.macos.usage-estimate`
+- Status: Active
+- Stability: Accepted
+- Release baseline: macOS legacy-released
+- Contract revision: `holdtype.macos.openai-usage-estimate@2`
+- Read when: macOS local OpenAI request measurement, pricing, Billing UI, persistence, or Reset is in scope.
+- Do not read when: iOS Usage or actual provider billing/account usage is in scope.
+- Maximum size: 100 physical lines.
 
-## Goal
+## Goal and scope
 
-Show a transparent, device-local estimate of the OpenAI resources used by
-successful HoldType requests without presenting the result as an invoice,
-account balance, or complete provider-usage dashboard.
+Show a transparent device-local estimate from successful macOS Transcription,
+Text Correction, Translation, and immediate Fix requests without presenting an
+invoice, balance, or complete provider dashboard.
 
-## Scope
+## Children
 
-- successful audio transcription, text correction, translation, and immediate
-  Fix requests made by the macOS app
-- provider-reported token usage for Responses API text requests
-- audio duration for successful transcription requests
-- frozen local pricing snapshots and estimated cost
-- 30-day summaries, daily charts, category breakdown, versioned persistence,
-  migration, empty/error states, and Reset
+- [Events, categories, and pricing](openai-usage-estimate/events-categories-and-pricing.md) — producer timing, token/audio measurements, category routing, and frozen rates.
+- [Billing, storage, and verification](openai-usage-estimate/billing-storage-and-verification.md) — summaries/charts, V2 persistence, Reset, failures, and evidence.
 
-## Non-goals
+## Invariants
 
-- OpenAI billing, usage, balance, or account API calls
-- telemetry, analytics, cloud sync, cross-device aggregation, or iOS Usage
-- reconstructing text usage that occurred before this contract shipped
-- estimating token counts from source or result text
-- storing prompts, source text, results, transcripts, credentials, provider
-  payloads, audio, host-app identity, or document identity in usage records
+- Never call provider billing/usage/balance APIs or estimate tokens from text.
+- Missing/invalid measurement never changes a successful product result and
+  creates no invented event; failures without a successful response create none.
+- Records exclude content, prompts, credentials, payloads, audio, host/document identity.
+- Every known cost freezes its reviewed rate; unknown models remain measurable
+  but unpriced. Historical records are not silently repriced.
+- Usage remains local and separate from iOS, Keychain, logs, diagnostics,
+  exports, keyboard, cloud sync, telemetry, and analytics.
 
-## Event Contract
+## Consumer boundary
 
-- The macOS app records one local event for each successful provider response
-  that has valid measurement metadata.
-- Audio transcription events use accepted non-empty transcription plus a valid
-  positive finite recording duration and retain their existing exactly-once
-  request behavior.
-- Text correction, translation, and immediate Fix events use the token usage
-  reported by the successful Responses API response. HoldType must not estimate
-  tokens from characters, words, source text, result text, or request limits.
-- A text event contains the semantic feature, actual response model when the
-  provider supplies one, nonnegative input, cached-input, output, and reasoning
-  token counts, and a frozen local pricing snapshot when the model is known.
-- Cached input is a subset of input. Reasoning tokens are a subset of output.
-  Neither subset is charged twice. Estimated text cost is uncached input at the
-  input rate, cached input at the cached-input rate, and all output at the
-  output rate.
-- A successful response with absent or invalid usage remains a successful
-  product result but creates no invented event. Billing shows one process-local,
-  content-free incomplete-estimate notice.
-- Provider, network, timeout, cancellation, invalid-request, and other failures
-  without a successful response create no usage event.
-- A text response may be billable even when later local result validation or
-  stale-target replacement rejects the result. The provider event is recorded
-  after response decoding and before downstream product validation.
-- A successful Voice Prompt Fix normally creates two independent events: its
-  successful audio recognition is `Transcription`, and its successful text
-  transformation is `Fixes`. Failure of the later stage does not remove a
-  valid earlier event. Neither event contains the instruction, source, result,
-  target, or recording identity.
-- Every event freezes the local rate and calculated cost used at recording
-  time. Later pricing-table changes do not rewrite historical estimates.
-- Unknown models retain measurements and request counts while cost remains
-  unavailable or partial. HoldType never guesses a price.
-
-## Categories
-
-- `Transcription` means audio recognition only.
-- `Text Correction` means the optional automatic post-transcription correction
-  request and the built-in Correct Text immediate Fix.
-- `Translation` means post-transcription translation and the built-in Translate
-  immediate Fix.
-- `Fixes` means custom-prompt immediate Fix requests.
-- A future feature requires an explicit category and event producer; it must
-  not be silently folded into an existing category.
-
-## Billing UI
-
-- The Settings sidebar keeps the `Billing` destination. Its content title is
-  `OpenAI Usage Estimate` and explains that values come from successful OpenAI
-  requests made by HoldType on this Mac.
-- The summary shows `Today`, `Last 30 days`, `Average per day`, and `Estimated
-  30-day cost`. Cost includes every locally priced category.
-- One compact daily chart switches between:
-  - `Cost`, using stacked daily values for Transcription, Fixes, Text Correction,
-    and Translation;
-  - `Audio`, showing transcription minutes;
-  - `Text`, using stacked text-token totals for Fixes, Text Correction, and
-    Translation.
-- A compact category breakdown shows each category's estimated cost, primary
-  measurement, and successful request count. Categories with no activity may
-  be omitted.
-- Input, cached-input, output, and reasoning-token details are available through
-  one collapsed `Usage details` disclosure and are not the default scan path.
-- If any retained event has unknown pricing, known cost is labelled `partial`.
-  Measurements and request counts remain visible.
-- With no events, Billing says the estimate appears after successful OpenAI
-  requests. Storage failures remain local, visible, and non-blocking.
-- `Reset Usage Estimate` requires destructive confirmation and removes only the
-  local usage event store. It does not change API key, Settings, History, Last
-  Result, recordings, Fixes, or external OpenAI data.
-- Chart segments expose day, category, and formatted value to accessibility.
-  Textual summary and breakdown remain the complete nonvisual equivalent.
-
-## Persistence And Migration
-
-- macOS keeps one versioned local event store with one process-wide owner.
-- The V2 root records a schema version and bounded events. Existing legacy
-  transcription-only rows migrate losslessly to V2 Transcription events.
-- Migration cannot invent historical text events or token counts.
-- Events retain the current local calendar day and previous 364 calendar days.
-  The 30-day presentation groups by the current local calendar.
-- Reset removes the complete versioned usage store, including migrated audio
-  and later text events, as one isolated local action.
-- Usage data remains local and does not enter Keychain, logs, diagnostics,
-  exports, the keyboard, or a provider usage endpoint.
-
-## Pricing
-
-- New text events use the model's reviewed local input, cached-input, and output
-  rates per one million tokens.
-- A valid pricing entry has a canonical non-empty model key, finite nonnegative
-  rates, and a non-empty source/version label.
-- Reviewed aliases and dated snapshots are explicit pricing keys. HoldType does
-  not infer pricing from an unreviewed model-name prefix.
-- Custom and unknown model identifiers remain unpriced.
-- Pricing updates apply only to new text events unless a later contract defines
-  a narrow idempotent backfill.
-
-## Failure Policy
-
-- Usage persistence never fails, rewinds, or blocks the successful product
-  request that produced it.
-- A write failure or missing provider usage creates a process-local,
-  content-free warning that the estimate may be incomplete.
-- Corrupt or unsupported saved data is not silently replaced with an empty
-  success. Billing presents a local error and keeps Reset available.
-- Public errors and default logs contain no event contents, model usage values,
-  source text, result text, prompt, credential, audio, or provider payload.
-
-## Verification Mapping
-
-- Test legacy transcription migration, V2 round trips, retention, duplicate
-  event handling, unknown pricing, partial cost, and Reset isolation.
-- Test exact text-cost math, including cached input and reasoning tokens without
-  double charging.
-- Test each successful Correction, Translation, built-in Fix, and custom Fix
-  producer, plus missing/invalid usage and every failure path.
-- Test Today, 30-day, elapsed-day average, projection, daily category buckets,
-  request counts, audio minutes, and text-token totals.
-- Render empty, audio-only, mixed-category, unknown-price, storage-error, and
-  incomplete-estimate states. Verify Cost, Audio, Text, disclosure, Reset, and
-  accessibility through macOS runtime QA.
-- Normal tests and automation use provider fixtures and never call live OpenAI
-  billing or usage endpoints.
+`settings-and-secret-storage.md` owns sidebar placement only. Future features
+require an explicit category/producer and cannot be folded into an existing one.

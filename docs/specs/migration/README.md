@@ -33,8 +33,8 @@
 
 ## Current checkpoint
 
-- [Batch 07 — settings](batches/07-settings.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/07-settings.md) — accepted source hash, disposition, nodes, and validation.
+- [Batch 08 — usage estimates](batches/08-usage-estimates.md) — completed and ready for checkpoint integration.
+- [Latest receipt](receipts/08-usage-estimates.md) — accepted source hashes, dispositions, nodes, and validation.
 
 ## Completed checkpoints
 
@@ -52,10 +52,11 @@
   [receipt 05](receipts/05-text-enhancement.md), commit `59564e03`.
 - [Batch 06 — privacy](batches/06-privacy.md) — accepted in
   [receipt 06](receipts/06-privacy.md), commit `6c53171b`.
+- [Batch 07 — settings](batches/07-settings.md) — accepted in
+  [receipt 07](receipts/07-settings.md), commit `bb46a2f3`.
 
 ## Pending queue
 
-`08` usage estimates;
 `09` Dev Vlogs; `10` diagnostics/QA; `11` distribution; `12` website; `13`
 coverage/discovery; `14` backlog automation; `15` automation recovery; `16`
 iOS release; `17` iOS Voice; `18` iOS keyboard; `19` iOS settings; `20` iOS
@@ -64,7 +65,7 @@ iOS privacy; `24` legacy iOS output; `25` legacy iOS history; `26` deferred
 iOS history base; `27` deferred iOS failure history; `28` deferred keyboard
 settings.
 
-Only the current linked batch is loaded. Activate batch `08` after this
+Only the current linked batch is loaded. Activate batch `09` after this
 checkpoint is pushed; completed batch bodies are not reloaded.
 
 ## Completion

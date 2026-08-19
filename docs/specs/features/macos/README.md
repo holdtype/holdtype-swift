@@ -34,6 +34,8 @@ records finer-grained revisions.
   setup/credential gating, disclosure, retention, and diagnostics boundaries.
 - [Settings and secret storage](../settings-and-secret-storage.md) — macOS
   window routing, local defaults, Keychain credential, and feature controls.
+- [OpenAI usage estimate](../openai-usage-estimate.md) — local successful
+  audio/text measurements, frozen pricing, Billing, persistence, and Reset.
 
 ## Pending macOS domains
 
