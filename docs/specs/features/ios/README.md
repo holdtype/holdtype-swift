@@ -6,14 +6,16 @@
 - Do not read when: the task is macOS-only or belongs to an unmigrated iOS domain.
 - Maximum size: 100 physical lines.
 
-This branch grows one bounded migration batch at a time. Current iOS release,
-Voice, keyboard, settings, and historical/deferred contracts remain selectable
-through the [legacy authority index](../../index.md) until migrated.
+This branch grows one bounded migration batch at a time. Unmigrated current and
+historical/deferred contracts remain selectable through the
+[legacy authority index](../../index.md).
 
 ## Children
 
 - [Transcription usage estimate](../ios-usage-estimate.md) — local accepted
   audio events, Usage presentation, strict repository, pricing, and Reset.
+- [V1.1 release](../ios-v1-release.md) — canonical current scope, navigation,
+  cross-feature precedence, privacy, complexity, and release gates.
 
 ## Dependencies
 
