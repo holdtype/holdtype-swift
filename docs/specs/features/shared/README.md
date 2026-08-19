@@ -18,6 +18,10 @@ may specialize only without weakening their invariants.
   prompt composition, secure bounded transport, response, retry, and privacy.
 - [Text correction](../text-correction.md) — optional fail-open OpenAI
   correction, local typography, emoji commands, and replacement rules.
+- [Text Fixes](../text-fixes.md) — shared catalog, target, processing,
+  replacement, and iOS/macOS platform boundaries.
+- [Voice emoji commands](../voice-emoji-commands.md) — built-in/custom catalogs,
+  prompt hints, local matching, and final-output handoff.
 
 ## Pending shared domains
 

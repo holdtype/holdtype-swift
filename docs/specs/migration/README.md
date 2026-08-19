@@ -33,8 +33,8 @@
 
 ## Current checkpoint
 
-- [Batch 04 — output core](batches/04-output-core.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/04-output-core.md) — accepted source hashes, dispositions, nodes, and validation.
+- [Batch 05 — text enhancement](batches/05-text-enhancement.md) — completed and ready for checkpoint integration.
+- [Latest receipt](receipts/05-text-enhancement.md) — accepted source hashes, dispositions, nodes, and validation.
 
 ## Completed checkpoints
 
@@ -46,10 +46,12 @@
   in [receipt 02](receipts/02-recording-history.md), commit `8dddb28f`.
 - [Batch 03 — OpenAI transcription](batches/03-transcription.md) — accepted in
   [receipt 03](receipts/03-transcription.md), commit `c8fdb549`.
+- [Batch 04 — output core](batches/04-output-core.md) — accepted in
+  [receipt 04](receipts/04-output-core.md), commit `f9f4cfe3`.
 
 ## Pending queue
 
-`05` text enhancement; `06` privacy; `07` settings; `08` usage estimates;
+`06` privacy; `07` settings; `08` usage estimates;
 `09` Dev Vlogs; `10` diagnostics/QA; `11` distribution; `12` website; `13`
 coverage/discovery; `14` backlog automation; `15` automation recovery; `16`
 iOS release; `17` iOS Voice; `18` iOS keyboard; `19` iOS settings; `20` iOS
@@ -58,7 +60,7 @@ iOS privacy; `24` legacy iOS output; `25` legacy iOS history; `26` deferred
 iOS history base; `27` deferred iOS failure history; `28` deferred keyboard
 settings.
 
-Only the current linked batch is loaded. Activate batch `05` after this
+Only the current linked batch is loaded. Activate batch `06` after this
 checkpoint is pushed; completed batch bodies are not reloaded.
 
 ## Completion

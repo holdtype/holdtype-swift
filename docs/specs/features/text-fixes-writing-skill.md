@@ -1,99 +1,59 @@
 # Text Fixes Built-In Writing Skill
 
-Status: active product contract addendum.
-Contract revision: 1.
+- Node type: leaf
+- Contract ID: `holdtype.macos.text-fixes-writing-skill`
+- Domain ID: `holdtype.shared.text-fixes`
+- Status: Active
+- Stability: Accepted
+- Release baseline: macOS legacy-released
+- Contract revision: `holdtype.macos.text-fixes-writing-skill@1`
+- Precedence: extends `holdtype.shared.text-fixes@3` only for this option
+- Read when: the app-owned Humanize text option for a macOS custom Fix is in scope.
+- Do not read when: built-ins, Voice Prompt, iOS, or ordinary custom Fixes are in scope.
+- Maximum size: 100 physical lines.
 
-This addendum governs only the optional app-owned writing skill for macOS
-custom Fixes. It extends `text-fixes.md` and wins only where that contract's
-catalog schema, custom-Fix editor, or custom transformation route does not yet
-describe this option. Every other Text Fixes clause remains protected.
+## Product behavior
 
-## Product Behavior
+- Every macOS custom Fix has off-by-default `Humanize text`. Manage Fixes
+  explains that bundled writing guidelines go to OpenAI and may be slower.
+- Translate, Correct Text, Voice Prompt, iOS Voice, and Keyboard neither expose
+  nor use it. Successful custom output remains exact with no post-processing.
 
-- Each macOS custom Fix has an off-by-default `Humanize text` preference.
-- The Manage Fixes SwiftUI editor presents it as an opt-in control with concise
-  copy explaining that HoldType sends its bundled writing guidelines to OpenAI
-  and that processing may take longer.
-- Translate, Correct Text, Voice Prompt, iOS Voice, and HoldType Keyboard do not
-  expose or use this preference.
-- Existing custom Fix output remains exact: HoldType does not trim, normalize,
-  or otherwise post-process a successful result.
+## Skill and provider ownership
 
-## Skill Ownership And Provider Route
+- HoldType ships a versioned ZIP with exactly one top-level `de-ai-writing`
+  folder containing `SKILL.md`, app-owned references, and bounded scripts. It
+  never reads/requires `~/.codex`, user skill directories, or another install.
+- When enabled, HoldType creates an ephemeral hosted OpenAI container with the
+  ZIP as one inline Agent Skill, attaches hosted shell, requires tool use, and
+  explicitly directs the model to use `de-ai-writing` for this transformation.
+- Provisioning is a separate 20-second stage. Cache the active container and
+  recreate it once when a response proves it expired.
+- Provisioning/execution failure never falls back to prompt-only processing,
+  changes the selected model, or changes source text.
+- Only exact model IDs recognized by current OpenAI contracts as Agent-Skill
+  capable are allowed; unknown/unsupported models fail before provider work.
+- Transformation stays `store: false`, uses app-owned credential, explicit
+  cancellation, and the selected profile's transformation timeout.
 
-- The skill is a versioned ZIP resource shipped inside HoldType. HoldType never
-  reads or requires `~/.codex`, a user-owned skill directory, or another local
-  installation.
-- The ZIP contains exactly one top-level `de-ai-writing` folder with its
-  `SKILL.md`, app-owned references, and bounded scripts.
-- When the preference is enabled, HoldType creates an ephemeral OpenAI hosted
-  container with the ZIP as one inline Agent Skill. The Responses request
-  attaches that container as a hosted shell environment, requires tool use,
-  and explicitly instructs the model to use `de-ai-writing` for the current
-  custom transformation.
-- Skill provisioning is a separate provider stage with a 20-second maximum.
-  HoldType caches the active container identifier for later enabled Fixes and
-  recreates the container once after a transformation response proves the
-  cached identifier has expired.
-- Provisioning or skill execution failure never falls back to prompt-only
-  processing and never changes the saved model or source text.
-- The option is available only for exact model identifiers HoldType recognizes
-  from current OpenAI model contracts as supporting Agent Skills. Unknown or
-  unsupported models fail before provider work with an actionable error.
-- The transformation remains `store: false`, uses the current app-owned OpenAI
-  credential, has explicit cancellation, and keeps the selected processing
-  profile's transformation timeout.
+## Privacy, persistence, and compatibility
 
-## Privacy And Network Boundary
+- Send the ZIP only when the user runs an enabled custom Fix; container network
+  access remains off. Keys never enter ZIP/catalog/logs/diagnostics/body.
+- Default logs omit skill contents, prompt/source/result, container ID,
+  authorization header, and response body.
+- Shared catalog schema v3 stores Boolean `usesBuiltInWritingSkill` for every
+  action. v1 defaults profile and option off; v2 preserves profile and sets it
+  off; neither rewrites before a valid save.
+- Built-ins require false. Invalid/corrupt/future/unsupported data is preserved
+  and reported. Separate macOS/iOS stores share schema; iOS behavior is unchanged.
 
-- The bundled ZIP is sent to OpenAI only after the person runs a custom Fix
-  whose `Humanize text` preference is enabled.
-- HoldType does not enable container network access for this skill.
-- API keys never enter the ZIP, catalog, logs, diagnostics, or provider body.
-- Default logs contain no skill contents, prompt, source, result, container
-  identifier, authorization header, or provider response body.
+## Verification and delta
 
-## Persistence And Compatibility
+Tests cover action preservation, built-in/model validation, Sendable/redaction,
+strict v3 and v1/v2 migration, bundled ZIP/payload/hosted shell, exact
+prompt/source, reuse/one 404 recreation, timeout/cancellation, editor autosave,
+and no live calls. Computer Use covers toggle placement and save/reopen.
 
-- The shared local Fixes catalog schema advances to v3 and stores one Boolean
-  `usesBuiltInWritingSkill` value for every action.
-- Schema v1 loads with `Use Writing & Correction Settings` and the preference
-  off. Schema v2 preserves its processing profile and also loads with the
-  preference off. Older files are not rewritten until the next valid save.
-- The two built-in action rows require the preference to be false. Invalid,
-  corrupt, future, or unsupported catalog data remains preserved and reported.
-- The schema remains shared by the separate macOS and iOS catalog stores. iOS
-  does not expose the preference and its existing user-visible behavior stays
-  unchanged.
-
-## Verification Mapping
-
-- Domain tests cover custom-action preservation, built-in rejection, model
-  compatibility, request validation, Sendable boundaries, and redaction.
-- Persistence tests cover canonical v3 round trips, strict Boolean decoding,
-  v1/v2 migration with the preference off, corruption preservation, and
-  separate macOS/iOS stores.
-- Provider tests cover bundled ZIP loading, exact inline-container payload,
-  required hosted-shell projection, exact prompt/source projection, container
-  reuse, one recreation after 404, timeout, cancellation, and no live calls.
-- macOS executor and editor tests cover off-by-default behavior, saved toggle
-  projection, unsupported-model failure before provider work, and autosave.
-- macOS Computer Use QA covers visible editor placement, toggle interaction,
-  save/reopen persistence, and unchanged built-in detail presentation.
-
-## Contract Delta — Revision 1
-
-- Change ID: `TF-SKILL-DELTA-R1`.
-- Change mode: Evolve.
-- Authorized by: explicit user approval of the researched implementation plan
-  on 2026-08-12.
-- Previous behavior: custom Fixes sent their saved prompt and source directly
-  to the selected model and could not attach an Agent Skill.
-- New behavior: each macOS custom Fix may opt into the app-bundled
-  `de-ai-writing` Agent Skill without any user-local skill installation.
-- Compatibility: additive macOS behavior; schema v1 and v2 migrate with the
-  preference off. Built-ins, Voice Prompt, target safety, iOS Voice, and
-  HoldType Keyboard remain protected.
-- Evidence basis: official OpenAI Agent Skills and hosted Shell documentation
-  reviewed on 2026-08-12, plus current Domain, Persistence, OpenAI
-  transformation, execution, editor, and fake-backed test owners.
+`TF-SKILL-DELTA-R1`, authorized 2026-08-12, additively permits this app-bundled
+skill; built-ins, Voice Prompt, target safety, iOS Voice, and Keyboard stay protected.

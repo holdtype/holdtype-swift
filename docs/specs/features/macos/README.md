@@ -26,6 +26,10 @@ records finer-grained revisions.
   Accessibility-gated active-app insertion.
 - [Post-transcription actions](../post-transcription-actions.md) — strict
   translation-mode intent, request, and accepted output.
+- [Text Fixes](../text-fixes.md) — immediate external-text transformations,
+  `Option+J`, Voice Prompt, target safety, and Manage Fixes.
+- [Built-in writing skill](../text-fixes-writing-skill.md) — optional app-owned
+  Humanize text route for custom macOS Fixes.
 
 ## Pending macOS domains
 
