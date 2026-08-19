@@ -1,62 +1,33 @@
 # Spec Backlog
 
-This backlog was created during the initial spec-first bootstrap for
-`holdtype-swift`.
+- Node type: leaf
+- Status: Historical resource
+- Read when: reviewing initial bootstrap provenance or first-pass planning context.
+- Do not read when: selecting executable backlog work or deciding current product behavior.
+- Maximum size: 100 physical lines.
 
-This file is a product/spec planning note. Executable agent tasks now live in
-the root `backlog/` directory and are selected with
-`python3 scripts/backlog_next.py --compact-json` for normal agent readback.
-Use full `--json` only for detailed queue diagnostics.
+This historical planning note came from the initial spec-first bootstrap.
+Executable tasks live under root `backlog/` and follow `BACKLOG_DEVELOPMENT.md`;
+normal compact selection uses `python3 scripts/backlog_next.py --compact-json`.
 
-## Historical Evidence Used
+## Historical evidence and first pass
 
-- Initial bootstrap checkout had no implementation files, docs, tests, or
-  commits.
-- GitHub repository description: "Project for an app for work - text input via
-  microphone".
-- Product brief: `docs/openwhispr_swiftui_codex_tz.md`.
-- Bootstrap reference: `https://github.com/potapenko/spec-first-bootstrap`.
+- Initial checkout had no implementation, docs, tests, or commits.
+- Seed description: “Project for an app for work - text input via microphone”.
+- Product brief: `docs/openwhispr_swiftui_codex_tz.md`; Bootstrap reference:
+  `https://github.com/potapenko/spec-first-bootstrap`.
+- First-pass specs covered microphone, privacy, shell, settings, output,
+  post-processing, hotkey, OpenAI, indicator, History, platform testing, and verification.
+- No first-pass spec is currently missing from this note; executable backlog
+  owns implementation/refinement work.
 
-## First-Pass Specs Created
+## Historical queue shape
 
-- `features/microphone-text-input.md`
-- `features/privacy-and-permissions.md`
-- `features/menu-bar-app-shell.md`
-- `features/settings-and-secret-storage.md`
-- `features/text-output-workflow.md`
-- `features/post-transcription-actions.md`
-- `features/global-hotkey.md`
-- `features/openai-transcription.md`
-- `features/floating-indicator.md`
-- `features/transcript-history.md`
-- `features/platform-testing-strategy.md`
-- `features/verification-strategy.md`
+Umbrella parents described product areas; small children were intended as one
+agent checkpoint. The first slice prioritized a visible native menu bar item.
+The original note deferred iOS until macOS MVP or direct user reopening; that
+statement is historical and does not override current iOS contracts.
 
-## Next Specs To Create
-
-No first-pass specs are currently missing from this planning note. Use the
-executable backlog for the next implementation or refinement task.
-
-## Seeded Backlog Shape
-
-The executable backlog is split into umbrella parent tasks and small child
-tasks. Parent tasks describe product areas, while child tasks should be short
-implementation slices that a single agent checkpoint can claim, implement,
-verify, and commit.
-
-The first implementation slice should establish a visible native menu bar item
-before deeper recording, transcription, permission, or settings work proceeds.
-Keep iOS companion, simulator, and keyboard-extension work deferred to future
-v2 planning until the macOS MVP is usable or a direct user request reopens that
-scope.
-
-## Highest-Priority Unknowns
-
-- Final app name: `OpenWhisprSwift`, `DictationBar`, `HoldType`, or another
-  name.
-- Deployment target: macOS 14 Sonoma and newer.
-- Default hotkey: Control + Space or Option + Space.
-- Primary recording mode: hold-to-record first, or toggle first if hold mode is
-  unstable.
-- Whether the default OpenAI transcription model and timeout should change
-  after real-world QA.
+Initial unknowns included final name, macOS 14 target, default hotkey,
+hold-versus-toggle recording, and later model/timeout QA. Current Active
+contracts supersede any item they resolve.

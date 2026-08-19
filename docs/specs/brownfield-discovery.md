@@ -1,105 +1,34 @@
 # Brownfield Discovery
 
-Status: current context map for the macOS MVP checkout.
+- Node type: hybrid
+- Status: Current resource
+- Read when: repository ownership is unclear after a product contract path is selected.
+- Do not read when: choosing product intent, backlog state, or broad source inventory.
+- Maximum size: 100 physical lines.
 
-This file is a small orientation aid. It is not exhaustive source inventory and
-must not replace targeted `rg` / `rg --files` discovery before edits.
+This is a non-exhaustive orientation aid, never product authority and never a
+replacement for targeted `rg`/`rg --files` discovery before implementation.
 
-## Summary
+## Repository shape
 
-`holdtype-swift` keeps the Xcode project at the repository root next to
-spec-first documentation, backlog tasks, automation runbooks, scripts, and
-reference material.
+- Root: `HoldType.xcodeproj`, spec-first docs, backlog, automations, scripts,
+  and reference material.
+- Targets: macOS `HoldType`, iOS `HoldType-iOS`, `HoldTypeTests`, and
+  `HoldTypeIOSTests`; primary scheme `HoldType`.
+- Current macOS and iOS scope is selected from Active contracts, not historical
+  statements in this map.
 
-The active product phase is the native macOS menu bar MVP. iOS companion,
-simulator, and keyboard-extension work are future v2 scope unless a direct user
-request or v2-labeled task opts in.
+## Children
 
-## Targets And Schemes
+- [Source and test map](brownfield-discovery/source-and-test-map.md) — entry,
+  presentation, model/service, shared, iOS, and test ownership hints.
 
-- Xcode project: `HoldType.xcodeproj`
-- Main macOS app target: `HoldType`
-- iOS containing app target: `HoldType-iOS`
-- Unit test target: `HoldTypeTests`
-- iOS unit test target: `HoldTypeIOSTests`
-- Primary scheme: `HoldType`
+## Routing and verification
 
-## Source Map
+Start at [spec index](index.md), read only the governing contract closure, then
+use targeted source discovery. The old OpenWhispr snapshot is retired and must
+not be recreated; its brief is fallback evidence only.
 
-- `HoldType/HoldTypeApp.swift`
-  - macOS app entry point, app state wiring, menu bar extra, and settings
-    windows.
-- `HoldType/MenuBarView.swift`
-  - menu bar controls and dictation status presentation.
-- `HoldType/SettingsView.swift` and `HoldType/Settings/`
-  - settings navigation, permissions, OpenAI key, transcription, translation,
-    text correction, diagnostics, cache, and related settings sections.
-- `HoldType/FloatingIndicatorView.swift` and
-  `HoldType/FloatingIndicatorPanelController.swift`
-  - recording/transcribing indicator UI and panel hosting.
-- `HoldType/Models/`
-  - persisted settings, setup status, dictation status, output intent, usage
-    estimates, and transcript/history models.
-- `HoldType/Services/`
-  - microphone recording, transcription request building, OpenAI transcription,
-    text correction, translation, text insertion, permissions, Keychain,
-    hotkeys, diagnostics, recording cache, setup preflight, transcript history,
-    runtime orchestration, and active text context.
-- `Shared/`
-  - shared setup/status presentation and containing-app startup seams; the
-    obsolete keyboard-session spike was removed after Brand Stage cutover.
-- `HoldTypeTests/`
-  - focused unit coverage for services, settings view models, setup status,
-    hotkeys, text insertion, OpenAI request handling, history, and diagnostics.
-- `HoldTypeIOS/` and `HoldTypeIOSTests/`
-  - exploratory or future-version surfaces unless a direct request targets
-    them.
-
-## Product Specs
-
-Start with `docs/specs/index.md` to choose a feature spec. Read only the
-feature spec that governs the behavior being changed. Do not read every spec by
-default.
-
-The initial MVP brief in `docs/openwhispr_swiftui_codex_tz.md` is fallback
-evidence only. Use it when a current spec does not settle a behavior.
-
-## Backlog And Automation
-
-Normal direct-chat work does not use backlog mode. Backlog selection,
-claiming, archiving, and scheduled automation rules live in
-`BACKLOG_DEVELOPMENT.md` and the relevant runbook.
-
-Use compact selector readback by default:
-
-```sh
-python3 scripts/backlog_next.py --compact-json
-```
-
-Use full `--json` only when detailed queue diagnostics are needed.
-
-## Retired Reference Material
-
-The former local OpenWhispr snapshot has been removed. Current discovery uses
-active specs plus targeted HoldType source and test evidence. Historical path
-citations are explained in `docs/openwhispr-reference-retirement.md` and must
-not cause an agent to recreate the snapshot.
-
-## Verification Baseline
-
-For Swift behavior changes:
-
-```sh
-xcodebuild -project HoldType.xcodeproj -scheme HoldType -destination 'platform=macOS' build
-git diff --check
-```
-
-When tests or test-covered behavior change:
-
-```sh
-xcodebuild -project HoldType.xcodeproj -scheme HoldType -destination 'platform=macOS' test
-git diff --check
-```
-
-For docs/spec/runbook-only changes, `git diff --check` is usually enough unless
-the edited commands or scripts should be exercised.
+Backlog/automation uses its own runbooks and compact selector. Baseline Swift
+verification is macOS build (and matching tests when touched) plus
+`git diff --check`; docs/spec-only normally uses diff check.

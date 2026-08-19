@@ -12,6 +12,8 @@
   evidence, macOS runtime decisions, iOS/keyboard gates, and task matrix.
 - [Verification strategy](../verification-strategy.md) — deterministic seams,
   no-live automation, bounded waits, and publication separation.
+- [UI/functionality coverage map](../ui-functionality-coverage.md) — resource
+  linking selected surfaces to likely owners and evidence routes.
 
 ## Boundary
 
