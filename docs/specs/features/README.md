@@ -22,6 +22,8 @@ is migrated, select its legacy source through the
   verification boundaries.
 - [Distribution contracts](distribution/README.md) — macOS direct channel,
   native updates, artifacts, trust, and release qualification.
+- [Website contracts](website/README.md) — landing hosting, Pages/feed
+  coexistence, localization, media, and publication integrity.
 
 ## Pending branches
 
