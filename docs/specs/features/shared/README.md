@@ -22,6 +22,8 @@ may specialize only without weakening their invariants.
   replacement, and iOS/macOS platform boundaries.
 - [Voice emoji commands](../voice-emoji-commands.md) — built-in/custom catalogs,
   prompt hints, local matching, and final-output handoff.
+- [Privacy and permissions](../privacy-and-permissions.md) — shared remote-data,
+  retention, credential, redaction, and current-iOS precedence boundaries.
 
 ## Pending shared domains
 

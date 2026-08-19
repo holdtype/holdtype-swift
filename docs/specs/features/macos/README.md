@@ -30,6 +30,8 @@ records finer-grained revisions.
   `Option+J`, Voice Prompt, target safety, and Manage Fixes.
 - [Built-in writing skill](../text-fixes-writing-skill.md) — optional app-owned
   Humanize text route for custom macOS Fixes.
+- [Privacy and permissions](../privacy-and-permissions.md) — TCC state,
+  setup/credential gating, disclosure, retention, and diagnostics boundaries.
 
 ## Pending macOS domains
 
