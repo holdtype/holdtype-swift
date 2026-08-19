@@ -1,6 +1,13 @@
 # iOS Settings Guided Recovery
 
-Status: approved product contract; 2026-07-15.
+- Node type: leaf
+- Status: Active
+- Stability: Accepted
+- Contract: `holdtype.ios.settings.guided-recovery@1`
+- Approved: 2026-07-15
+- Read when: an action is unavailable only because setup is incomplete.
+- Do not read when: a transient safety state or normal Settings edit is active.
+- Maximum size: 100 physical lines.
 
 ## Goal
 

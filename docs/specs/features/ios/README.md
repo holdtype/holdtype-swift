@@ -24,6 +24,10 @@ historical/deferred contracts remain selectable through the
   launch, app-owned capture, reconnection, destination proof, and delivery.
 - [Keyboard experience](../ios-keyboard-experience.md) — subordinate Brand Stage
   composition, local utilities, Fixes, Voice states, and qualification.
+- [Settings and secrets](../ios-settings-and-secret-storage.md) — app-owned
+  configuration, Library, Keychain, protected records, editors, and setup truth.
+- [Settings guided recovery](../ios-settings-guided-recovery.md) — exact owning
+  field routing for setup-dependent actions.
 
 ## Dependencies
 
