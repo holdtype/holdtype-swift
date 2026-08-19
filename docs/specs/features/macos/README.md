@@ -38,6 +38,8 @@ records finer-grained revisions.
   audio/text measurements, frozen pricing, Billing, persistence, and Reset.
 - [Dev Vlogs](../dev-vlogs.md) — Debug-only evolving camera archive, Finder
   review, local Publish/Build/Share, acceptance gates, and release exclusion.
+- [Diagnostics and crash reports](../diagnostics-and-crash-reports.md) — local
+  read-only report discovery, bounded logs, and explicit redacted export.
 
 ## Pending macOS domains
 

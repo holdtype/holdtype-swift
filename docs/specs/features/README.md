@@ -18,6 +18,8 @@ is migrated, select its legacy source through the
   that platform-specific contracts must preserve.
 - [iOS contracts](ios/README.md) — current iOS product behavior migrated one
   bounded domain at a time.
+- [QA contracts](qa/README.md) — platform evidence selection and deterministic
+  verification boundaries.
 
 ## Pending branches
 
