@@ -33,8 +33,8 @@
 
 ## Current checkpoint
 
-- [Batch 21 — iOS diagnostics](batches/21-ios-diagnostics.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/21-ios-diagnostics.md) — accepted source hash, disposition, node, and validation.
+- [Batch 22 — legacy iOS foundations](batches/22-legacy-ios-foundations.md) — completed and ready for checkpoint integration.
+- [Latest receipt](receipts/22-legacy-ios-foundations.md) — accepted source hashes, dispositions, nodes, and validation.
 
 ## Completed checkpoints
 
@@ -51,15 +51,16 @@
 - [18](batches/18-ios-keyboard.md)/[receipt](receipts/18-ios-keyboard.md) `53f92815`.
 - [19](batches/19-ios-settings.md)/[receipt](receipts/19-ios-settings.md) `b153f85c`.
 - [20](batches/20-ios-voice-audio.md)/[receipt](receipts/20-ios-voice-audio.md) `b1a9e6f7`.
+- [21](batches/21-ios-diagnostics.md)/[receipt](receipts/21-ios-diagnostics.md) `438813da`.
 
 ## Pending queue
 
-`22` legacy iOS foundations; `23` legacy iOS privacy; `24` legacy iOS output;
+`23` legacy iOS privacy; `24` legacy iOS output;
 `25` legacy iOS history; `26` deferred
 iOS history base; `27` deferred iOS failure history; `28` deferred keyboard
 settings.
 
-Only the current linked batch is loaded. Activate batch `22` after this
+Only the current linked batch is loaded. Activate batch `23` after this
 checkpoint is pushed; completed batch bodies are not reloaded.
 
 ## Completion

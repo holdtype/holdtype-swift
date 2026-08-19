@@ -33,6 +33,10 @@ historical/deferred contracts remain selectable through the
 - [Diagnostics](../ios-diagnostics.md) — local redacted runtime/crash evidence,
   explicit export, bounded retention, and delivery-proof limits.
 
+## Historical foundations
+
+- [Keyboard feasibility](../ios-keyboard-feasibility.md), [shared state](../ios-keyboard-shared-state.md), and [containing app](../ios-containing-app-experience.md) — legacy evidence superseded by current V1.1 contracts.
+
 ## Dependencies
 
 - [Specification root](../../README.md) — authority and precedence conventions.
