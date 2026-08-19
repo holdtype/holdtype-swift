@@ -40,6 +40,7 @@ historical/deferred contracts remain selectable through the
 - [Output actions](../ios-output-actions.md) and [accepted delivery record](../ios-accepted-output-delivery-record.md) — legacy automatic-delivery and History-coupled evidence superseded by current V1.1 release, Voice state, and handoff contracts.
 - [History and storage](../ios-history-and-storage.md) — superseded P4/P5H/P4D History, Pending, capture, and cache evidence.
 - [Accepted History foundation](../ios-accepted-history-foundation.md) — deferred transactional policy/row/outbox evidence; do not continue for V1.1.
+- [Failed History and retry audio](../ios-failed-history-and-retry-audio.md) — deferred failed-row, retry-audio, and accepted-output interlock evidence outside V1.1.
 
 ## Dependencies
 
