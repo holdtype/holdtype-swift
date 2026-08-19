@@ -33,8 +33,8 @@
 
 ## Current checkpoint
 
-- [Batch 13 — coverage and discovery](batches/13-coverage-discovery.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/13-coverage-discovery.md) — accepted source hashes, dispositions, nodes, and validation.
+- [Batch 14 — backlog automation](batches/14-backlog-automation.md) — completed and ready for checkpoint integration.
+- [Latest receipt](receipts/14-backlog-automation.md) — accepted source hashes, dispositions, nodes, and validation.
 
 ## Completed checkpoints
 
@@ -64,17 +64,19 @@
   [receipt 11](receipts/11-distribution.md), commit `32046f3a`.
 - [Batch 12 — website](batches/12-website.md) — accepted in
   [receipt 12](receipts/12-website.md), commit `2d843db2`.
+- [Batch 13 — coverage and discovery](batches/13-coverage-discovery.md) —
+  accepted in [receipt 13](receipts/13-coverage-discovery.md), commit `c637161e`.
 
 ## Pending queue
 
-`14` backlog automation; `15` automation recovery; `16`
+`15` automation recovery; `16`
 iOS release; `17` iOS Voice; `18` iOS keyboard; `19` iOS settings; `20` iOS
 voice/audio; `21` iOS diagnostics; `22` legacy iOS foundations; `23` legacy
 iOS privacy; `24` legacy iOS output; `25` legacy iOS history; `26` deferred
 iOS history base; `27` deferred iOS failure history; `28` deferred keyboard
 settings.
 
-Only the current linked batch is loaded. Activate batch `14` after this
+Only the current linked batch is loaded. Activate batch `15` after this
 checkpoint is pushed; completed batch bodies are not reloaded.
 
 ## Completion

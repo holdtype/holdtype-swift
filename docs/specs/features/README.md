@@ -24,12 +24,14 @@ is migrated, select its legacy source through the
   native updates, artifacts, trust, and release qualification.
 - [Website contracts](website/README.md) — landing hosting, Pages/feed
   coexistence, localization, media, and publication integrity.
+- [Operations contracts](operations/README.md) — backlog grooming, blocked-task
+  resolution, and installed automation recovery.
 
 ## Pending branches
 
-Other shared capabilities, pending iOS domains, distribution and website, and operations remain in
-the legacy authority index until their approved batches establish those branch
-nodes. Pending text is not product authority and does not change precedence.
+Other shared capabilities and pending iOS domains remain in the legacy
+authority index until their approved batches establish those branch nodes.
+Pending text is not product authority and does not change precedence.
 
 ## Dependencies
 
