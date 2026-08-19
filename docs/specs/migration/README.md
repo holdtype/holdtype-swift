@@ -2,7 +2,7 @@
 
 - Node type: root
 - Migration ID: `holdtype-spec-library-2026-08`
-- Status: in_progress
+- Status: complete
 - Read when: starting, resuming, reviewing, or completing this migration.
 - Do not read when: the task is outside specification migration.
 - Change mode: Reconcile
@@ -33,8 +33,8 @@
 
 ## Current checkpoint
 
-- [Batch 28 — deferred keyboard settings](batches/28-deferred-keyboard-settings.md) — completed and ready for checkpoint integration.
-- [Latest receipt](receipts/28-deferred-keyboard-settings.md) — accepted source hash, disposition, nodes, and validation.
+- [Batch 29 — legacy feature template](batches/29-legacy-feature-template.md) — final batch completed and ready for checkpoint integration.
+- [Latest receipt](receipts/29-legacy-feature-template.md) — accepted source hash, resource disposition, and terminal validation.
 
 ## Completed checkpoints
 
@@ -58,13 +58,12 @@
 - [25](batches/25-legacy-ios-history.md)/[receipt](receipts/25-legacy-ios-history.md) `8fa77866`.
 - [26](batches/26-deferred-ios-history-foundation.md)/[receipt](receipts/26-deferred-ios-history-foundation.md) `04a349f7`.
 - [27](batches/27-deferred-ios-failure-history.md)/[receipt](receipts/27-deferred-ios-failure-history.md) `24ee4a02`.
+- [28](batches/28-deferred-keyboard-settings.md)/[receipt](receipts/28-deferred-keyboard-settings.md) `db62918f`.
 
 ## Pending queue
 
-`29` legacy feature template.
-
-Only the current linked batch is loaded. Activate batch `29` after this
-checkpoint is pushed; completed batch bodies are not reloaded.
+None. All 54 baseline documents have one terminal migration disposition; the
+final resource batch is linked above.
 
 ## Completion
 
@@ -72,3 +71,8 @@ Every source must have one terminal non-deferred disposition; every Active
 contract must be reachable; nodes and migration state must remain within 100
 lines; links must resolve; no JSON routing state may exist; product
 implementation must remain unchanged.
+
+Terminal validation: 54/54 sources covered exactly once, zero missing,
+duplicates, unknowns, or deferred migration items. Product-level contracts
+whose status is Historical or Deferred remain protected evidence and were not
+activated by migration.

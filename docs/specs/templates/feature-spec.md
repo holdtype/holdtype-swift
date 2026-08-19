@@ -1,5 +1,14 @@
 # <Feature name>
 
+- Node type: leaf
+- Status: Resource
+- Read when: authoring a new bounded HoldType product contract.
+- Do not read when: selecting or interpreting existing product behavior.
+- Maximum size: 100 physical lines.
+
+This template is an authoring resource, not product authority. Replace its
+placeholders and reconcile the resulting contract before treating it as Active.
+
 ## Goal
 
 Describe the product goal in one or two short paragraphs.
