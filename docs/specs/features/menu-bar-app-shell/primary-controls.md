@@ -33,12 +33,14 @@
 ## Ordering and development utility
 
 - The three primary dictation/paste commands precede `Manage Fixes…`.
-- `DV-MENU-1`: Debug builds include `Dev Vlogs…`; it dismisses the menu,
+- `DV-MENU-1`: Current development builds include `Dev Vlogs…`; it dismisses
+  the menu,
   activates HoldType as needed, and opens the normal SwiftUI Dev Vlogs window
   without requesting Camera, starting preview, or starting capture.
-- `DV-MENU-1A`: Public Release builds omit `Dev Vlogs…` until explicit shipping
-  activation. HoldType `1.0.11` does not expose it, independently of Dev Vlogs
-  acceptance.
+- `DV-MENU-1A`: HoldType `1.0.11` does not expose `Dev Vlogs…`, independently
+  of Dev Vlogs acceptance. Its post-release restoration in development source
+  does not authorize a later public shipping claim; that remains an explicit
+  release decision.
 - `DV-MENU-2`: The item preserves compactness, existing commands, shortcut
   hints, disabled states, ordering, and recovery. Camera, destination,
   app-policy, library, and build controls remain in the dedicated window.

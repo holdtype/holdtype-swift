@@ -3,8 +3,8 @@
 - Node type: leaf
 - Status: Active
 - Stability: Evolving
-- Parent contract: `holdtype.macos.dev-vlogs@DV-ACTIVE-6`
-- Clauses: `DV-ACTIVE-1..6`, `DV-UI-1`, `DV-MENU-1`
+- Parent contract: `holdtype.macos.dev-vlogs@DV-ACTIVE-7`
+- Clauses: `DV-ACTIVE-1..7`, `DV-UI-1`, `DV-MENU-1`
 - Read when: Dev Vlogs authority, compatibility, release visibility, or delta history is in scope.
 - Do not read when: only capture mechanics or archive reconstruction is in scope.
 - Maximum size: 100 physical lines.
@@ -23,6 +23,10 @@
 - `DV-ACTIVE-6`, directly authorized 2026-08-18, keeps `Dev Vlogs…` in Debug
   but omits it from public Release `1.0.11`; incomplete camera-to-Publish QA
   cannot block a release making no Dev Vlogs claim.
+- `DV-ACTIVE-7`, directly authorized 2026-08-19 after `1.0.11` publication,
+  restores the menu entry in the current development source so local Xcode
+  testing can continue. The immutable `1.0.11` artifact remains excluded, and
+  this restoration makes no readiness claim for a later public release.
 - These are additive changes inside an unreleased domain. Local data ownership,
   future shipping authority, and all adjacent released behavior remain intact.
 - Direct/public publication is deferred evidence only; it authorizes no account,
