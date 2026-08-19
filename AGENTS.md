@@ -59,6 +59,17 @@ visual solution.
   selected skill's interaction, state-ownership, component, and verification
   guidance throughout the task.
 
+### SwiftUI Semantic Routing
+
+Use `$swiftui-semantic` for SwiftUI tasks that change state ownership, data
+flow, `Binding` behavior, effects, lifetime, or component boundaries. When
+changes already exist in any of those areas, route them through
+`$swiftui-semantic` and require its semantic change-review workflow before
+acceptance.
+
+This rule does not apply to unrelated styling, layout-only, performance,
+concurrency, or security work.
+
 ### Mandatory Computer Use For UI QA
 
 For every macOS or iOS task that changes a visible interface or interaction,
