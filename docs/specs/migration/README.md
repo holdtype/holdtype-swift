@@ -33,7 +33,7 @@
 
 ## Current checkpoint
 
-- [Batch 29 — legacy feature template](batches/29-legacy-feature-template.md) — final batch completed and ready for checkpoint integration.
+- [Batch 29 — legacy feature template](batches/29-legacy-feature-template.md) — final batch completed; terminal migration state integrated.
 - [Latest receipt](receipts/29-legacy-feature-template.md) — accepted source hash, resource disposition, and terminal validation.
 
 ## Completed checkpoints
