@@ -12,8 +12,8 @@
   implementation-ready tasks and maintains truthful coverage routing.
 - [Blocked-task resolution](../blocked-task-resolution-automation.md) — sweeps
   blockers into verified completion or durable recovery paths.
-- Automation recovery remains in the [authority index](../../index.md) until
-  migration batch 15 completes.
+- [Automation recovery](../automation-prompt-recovery.md) — versioned records
+  and exact restoration of this repository's installed Codex automations.
 
 ## Boundary
 
