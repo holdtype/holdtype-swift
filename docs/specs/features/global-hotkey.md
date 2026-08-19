@@ -1,198 +1,67 @@
 # Global Hotkey
 
-## Goal
+- Node type: hybrid
+- Contract ID: `holdtype.macos.global-hotkey`
+- Domain ID: `holdtype.macos.global-hotkey`
+- Status: Active
+- Stability: Released
+- Release baseline: legacy-released macOS behavior; explicit historical baseline absent
+- Contract revision: `holdtype.macos.global-hotkey@1`
+- Read when: macOS-wide shortcut assignment, registration, or action behavior is in scope.
+- Do not read when: only menu recording, microphone capture internals, or output processing is in scope.
+- Maximum size: 100 physical lines.
 
-Define how HoldType starts and stops dictation from a macOS-wide shortcut
-without allowing hidden recording or parallel recording sessions.
+## Goal and scope
 
-## Scope
-
-This spec covers:
-
-- default dictation shortcut
-- hold-to-record behavior
-- repeated key events and race prevention
-- shortcut registration failure and collision behavior
-- menu and Settings display for the active shortcut
-- app clipboard paste shortcut
-- post-transcription output intent for the translation shortcut
-- immediate Fixes palette shortcut
-- editable local shortcut assignments for Dictation, Translation, Fixes, and
-  Paste Last Result
+HoldType starts and stops dictation through a macOS-wide shortcut without
+hidden capture or parallel sessions. The domain also owns local assignments for
+Dictation, Translation, Fixes, and Paste Last Result.
 
 ## Non-goals
 
-- cloud-synced or policy-managed shortcut profiles
-- multiple named hotkey slots
-- Electron, React, Node.js, or cross-platform shortcut architecture
-- voice-agent, meeting, notes, or local-model hotkeys
+- Cloud-synced or policy-managed profiles, multiple named slots, cross-platform
+  shortcut architecture, or voice-agent, meeting, notes, and local-model hotkeys.
 
-## User-visible behavior
+## Children
 
-- The MVP default dictation shortcut is `Right Command` as a single-key
-  hold-to-record shortcut.
-- The current MVP has no automatic alternate shortcut or toggle-mode fallback.
-- The app must not use `Command+Space` as the default because that commonly
-  belongs to Spotlight.
-- The app must not use `Option+Space` or `Control+Space` as the default
-  dictation shortcut.
-- The native macOS implementation must observe both key down and key up
-  reliably before it reports the shortcut as registered.
-- The native implementation must distinguish `Right Command` from generic
-  Command before presenting it as the active shortcut.
-- In hold-to-record mode:
-  - key down starts one recording session when the app is idle and microphone
-    permission is available;
-  - key up stops that same recording session and starts transcription;
-  - if key up arrives after microphone capture has started while the key-down
-    action is still completing, the release is remembered and stops that same
-    recording as soon as start succeeds;
-  - if key up arrives while key down is waiting for microphone permission or
-    setup before capture starts, granting permission must not begin a new
-    recording. HoldType returns to Ready without an audio file, History row,
-    transcription, Retry, or Dismiss control;
-  - key repeat or a second key down while the key is already held must be
-    ignored.
-- If reliable key-up handling is unavailable, registration is unavailable and
-  the manual menu controls remain usable. HoldType does not silently change the
-  interaction to toggle mode.
-- While transcription is running, the shortcut must not start another recording.
-  The menu and any indicator should show the transcribing state instead.
-- If the shortcut is unavailable at launch because registration fails or the
-  key combination is already owned by the system or another app, HoldType must
-  keep menu controls usable and show a clear hotkey-unavailable status.
-- If no shortcut can be registered, Transcribe and Stop Recording from
-  the menu remain the supported manual path.
-- The Shortcut Settings section is an editor, not a help-only surface. It lists
-  Dictation, Translation, Fixes, and Paste Last Result with each action's
-  current assignment and activation mode.
-- Dictation and Translation use hold-to-record semantics. Fixes and Paste Last
-  Result run on release. Each assignment can be captured in the app and is
-  applied only when the candidate is valid and registration succeeds.
-- The Shortcut section must not contain an enable/disable toggle for
-  Translation or any Translation language, model, or prompt controls. Those
-  controls remain in the Translation section.
-- The menu should expose the active shortcut near the Transcribe action when
-  practical.
-- A candidate shortcut must not duplicate another HoldType action, use an
-  unsupported key, or replace a working assignment until registration has
-  succeeded. A failed candidate leaves the previous assignment active and
-  shows a concise error in the editor.
-- The Paste Last Result shortcut is `Control+Command+V`.
-- `Control+Command+V` is not a dictation shortcut. It inserts the current Last
-  Result text into the current active app when Keep last result is enabled.
-- Turning Keep last result off must disable the `Control+Command+V` Paste Last
-  Result behavior.
-- If no Last Result is available, `Control+Command+V` should safely no-op and
-  report that no last result is available when a visible surface is available.
-- Paste Last Result should run after the shortcut is released, so the synthetic
-  insertion event is not affected by still-held shortcut modifiers.
-- Synthetic text insertion for Paste Last Result must clear keyboard modifier
-  flags on the generated text events.
-- Paste Last Result must not write transcript text to the macOS system
-  clipboard.
-- The immediate Fixes palette shortcut is `Option+J`.
-- Fixes accepts a press only after the configured key and every configured
-  modifier were observed together. A bare configured key (for the default,
-  `J` without Option) is not a Fixes invocation and must not trigger
-  Accessibility inspection or any Fixes UI.
-- A confirmed Fixes shortcut captures the current external text target and
-  opens the palette only when that target is compatible, as governed by
-  `text-fixes.md`. It does not start recording or reuse the current-line
-  behavior of another product.
-- The Fixes listener must preserve ordinary key input. In particular, failed or
-  unavailable registration and a bare configured key must not make typing
-  disappear silently.
-- If `Option+J` conflicts with another owner, HoldType keeps dictation and menu
-  controls usable and reports only the Fixes shortcut as unavailable. The menu
-  does not provide a fallback for opening the Fixes palette.
-- When enabled in Settings, `Right Command+Option` may act as a hold-to-record
-  dictation shortcut that requests configured translation after transcription
-  under `post-transcription-actions.md`.
-- `Right Command+Option` must not replace the normal `Right Command` dictation
-  shortcut. It is a separate output intent for the current recording session.
-- The translation intent must not depend on pressing the keys in one exact
-  order. Pressing Option before `Right Command`, pressing Option at the same
-  time as `Right Command`, or adding Option while an active `Right Command`
-  hold-to-record session is starting or recording should all request
-  translation for that session.
-- Once Option has requested translation for the current `Right Command` session,
-  releasing Option before `Right Command` must not downgrade that session back to
-  normal dictation.
-- If native dictation hotkey listening requires Input Monitoring permission,
-  Settings must expose that permission state and a bounded next action.
+- [Dictation and translation](global-hotkey/dictation-and-translation.md) —
+  Right Command hold-to-record ownership, key races, and translation intent.
+- [Assignments and registration](global-hotkey/assignments-and-registration.md) —
+  Settings editor, validation, persistence, collision, and permission status.
+- [Fixes and Paste Last Result](global-hotkey/fixes-and-paste-last-result.md) —
+  release-triggered text actions, target capture, and safe insertion.
 
-## Invariants
+## Shared invariants
 
-- A shortcut action must never create parallel recordings.
-- Recording can start only from an explicit user action and only when required
-  microphone permission is available.
-- Failed shortcut registration must not prevent manual menu recording.
-- The app must not claim that the hotkey is active when registration is
-  unavailable.
-- Shortcut handling must not log dictated text, raw audio, API keys, or full
-  provider responses.
-- Fixes shortcut handling must capture the target before HoldType takes focus
-  and must not log source text, prompts, or results.
+- Shortcut actions never create parallel recordings or hidden capture.
+- Recording starts only from explicit input with microphone permission.
+- Failed shortcut registration never disables manual menu recording.
+- HoldType never claims unavailable registration is active.
+- Shortcut handling logs no dictated text, audio, API keys, provider payloads,
+  Fixes source text, prompts, or results.
+- Fixes captures an external target before HoldType takes focus.
 
-## Edge cases and failure policy
+## Dependencies
 
-- If key up arrives without a matching active hotkey-started recording, ignore
-  it.
-- If key up is remembered during an in-flight start action but that start later
-  fails or is blocked by setup, discard the remembered stop and show only the
-  start failure.
-- If key down arrives while recording from the menu, ignore the shortcut or
-  treat it as a no-op; do not attach the existing session to a new key token.
-- If the app is recording and the shortcut service is stopped or loses its
-  event stream, the app should fail or stop the current session visibly rather
-  than continue hidden recording.
-- If microphone permission is denied, a shortcut press should show the same
-  blocked state as the menu start action and must not enter recording.
-- Accessibility permission is not required to start recording. If it is missing
-  after transcription, automatic insertion and Paste Last Result follow
-  the recovery behavior defined by the text output workflow spec without using
-  the macOS system clipboard.
-- Input Monitoring permission may be required for native global hotkey
-  listening, depending on the implementation path. Missing Input Monitoring
-  must not imply hidden recording, open required Settings recovery by itself, or
-  prevent menu-driven recording controls.
-- If the Right Command dictation registration fails, Settings should identify
-  that dictation shortcut as unavailable.
-- If the independent `Option+J` Fixes registration fails, Settings should
-  identify only the Fixes shortcut as unavailable.
-- A Fixes registration failure does not downgrade, disable, or change the
-  separate Right Command dictation registration.
-
-## Route / state / data implications
-
-The app state must distinguish:
-
-- active shortcut value
-- fixed hold-to-record activation mode
-- shortcut registration status: registered or unavailable
-- whether a hotkey press token currently owns the active recording session
-- the output intent attached to the active hotkey-started recording session
-- the independent `Option+J` Fixes registration status
-
-Shortcut assignments are versioned local runtime configuration. A first load
-migrates the spec-defined defaults into the configuration store. The store
-persists only validated assignments and keeps the current assignment when a
-registration attempt fails. Translation enablement remains a Translation
-setting and does not live in the shortcut configuration.
+- [Microphone input](microphone-text-input.md) — capture ownership and session serialization.
+- [Menu bar shell](menu-bar-app-shell.md) — manual fallback and shortcut hints.
+- [Settings and secrets](settings-and-secret-storage.md) — assignment editor and permission status.
+- [Text output](text-output-workflow.md) — Last Result insertion recovery.
+- [Post-transcription actions](post-transcription-actions.md) — translation intent.
+- [Text Fixes](text-fixes.md) — compatible target and palette behavior.
 
 ## Verification mapping
 
-- Spec-only changes require `git diff --check`.
-- Native implementation should add fake-backed tests for hold-mode key down/up,
-  repeat suppression, transcribing-state rejection, and registration failure.
-- Runtime smoke is required only when a task changes the visible running app
-  surface or actual macOS hotkey registration.
+- Spec-only changes use `git diff --check`.
+- Native work covers hold-mode down/up, repeat suppression, transcribing
+  rejection, and registration failure with fakes; runtime smoke is required
+  only for actual visible or macOS-registration changes.
 
-## Source evidence
+## Provenance
 
-- Product brief: `docs/openwhispr_swiftui_codex_tz.md`
-- Existing specs: `microphone-text-input.md`, `menu-bar-app-shell.md`,
-  `settings-and-secret-storage.md`, and `text-output-workflow.md`
-- Historical reference provenance:
-  `docs/openwhispr-reference-retirement.md`
+- Product brief: `docs/openwhispr_swiftui_codex_tz.md`.
+- Prior contract evidence: `microphone-text-input.md`,
+  `menu-bar-app-shell.md`, `settings-and-secret-storage.md`, and
+  `text-output-workflow.md`.
+- Retired historical reference provenance:
+  `docs/openwhispr-reference-retirement.md`.

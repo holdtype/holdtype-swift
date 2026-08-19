@@ -14,6 +14,12 @@ records finer-grained revisions.
 
 - [Menu bar app shell](../menu-bar-app-shell.md) — menu bar lifecycle, primary
   commands, compact state and status, recovery, and quit behavior.
+- [Microphone input](../microphone-text-input.md) — device selection, capture,
+  finalization, recovery, cache, and transcript handoff.
+- [Global hotkey](../global-hotkey.md) — Dictation, Translation, Fixes, and
+  Paste Last Result assignments and macOS-wide activation.
+- [Floating indicator](../floating-indicator.md) — optional non-activating
+  recording, countdown, and transcription feedback.
 
 ## Pending macOS domains
 
