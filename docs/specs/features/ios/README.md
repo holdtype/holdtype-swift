@@ -38,6 +38,7 @@ historical/deferred contracts remain selectable through the
 - [Keyboard feasibility](../ios-keyboard-feasibility.md), [shared state](../ios-keyboard-shared-state.md), and [containing app](../ios-containing-app-experience.md) — legacy evidence superseded by current V1.1 contracts.
 - [Privacy](../ios-privacy-and-permissions.md) and [provider consent record](../ios-provider-consent-record.md) — legacy disclosure/schema evidence superseded by current V1.1 privacy.
 - [Output actions](../ios-output-actions.md) and [accepted delivery record](../ios-accepted-output-delivery-record.md) — legacy automatic-delivery and History-coupled evidence superseded by current V1.1 release, Voice state, and handoff contracts.
+- [History and storage](../ios-history-and-storage.md) — superseded P4/P5H/P4D History, Pending, capture, and cache evidence.
 
 ## Dependencies
 
