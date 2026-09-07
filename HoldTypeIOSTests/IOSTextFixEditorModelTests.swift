@@ -19,7 +19,7 @@ struct IOSTextFixEditorModelTests {
             model.failure
                 == .changeRejected(.catalogNotLoaded)
         )
-        #expect(!(await model.restoreDefaults()))
+        #expect(!(await model.deleteCustomAction(id: "default.summarize")))
         #expect(await store.saveCount() == 0)
         #expect(callbacks.unsavedStates.isEmpty)
         #expect(callbacks.blockingStates == [true, false])
@@ -175,7 +175,7 @@ struct IOSTextFixEditorModelTests {
         #expect(await store.saveCount() == 0)
     }
 
-    @Test func listMutationsPersistToggleOrderDeleteAndRestore()
+    @Test func listMutationsPersistToggleOrderAndDelete()
         async throws
     {
         let store = IOSTextFixEditorTestStore()
@@ -204,17 +204,13 @@ struct IOSTextFixEditorModelTests {
             await model.deleteCustomAction(id: "default.summarize")
         )
         #expect(model.catalog?.action(id: "default.summarize") == nil)
-        #expect(await model.restoreDefaults())
-        #expect(
-            model.catalog?.customActions.last?.id == "default.summarize"
-        )
         #expect(
             model.catalog?.actions.prefix(2).map(\.id) == [
                 TextFixAction.translateIdentifier,
                 TextFixAction.fixIdentifier,
             ]
         )
-        #expect(await store.saveCount() == 4)
+        #expect(await store.saveCount() == 3)
     }
 
     private func makeModel(

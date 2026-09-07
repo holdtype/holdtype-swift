@@ -110,6 +110,40 @@ struct IOSForegroundVoiceTextFixProcessorTests {
         try await fixture.expectVoiceStateUnchanged()
     }
 
+    @Test(arguments: [
+        OpenAITextTransformationServiceError.writingSkillUnavailable,
+        .writingSkillContainerExpired,
+    ])
+    func unavailableWritingSkillFailsWithoutMutatingVoiceState(
+        error: OpenAITextTransformationServiceError
+    ) async throws {
+        let fixture = try await ProcessorFixture()
+        defer { fixture.removeFiles() }
+        let action = try TextFixAction(
+            id: "test.custom",
+            kind: .customPrompt,
+            title: "Custom",
+            icon: .custom,
+            prompt: "Rewrite.",
+            isEnabled: true
+        )
+        let calls = TextFixProcessorCallLog()
+        let processor = fixture.makeProcessor(
+            provider: provider(transform: { _, _ in
+                calls.record("transform")
+                throw error
+            })
+        )
+
+        let result = await processor.processDraftTextFix(
+            fixture.fixRequest(action: action, text: "Original Draft")
+        )
+
+        #expect(result == .failure(.providerUnavailable))
+        #expect(calls.events == ["transform"])
+        try await fixture.expectVoiceStateUnchanged()
+    }
+
     @Test func oversizedOrWhitespaceCustomResultsFailWithoutMutation()
         async throws {
         let fixture = try await ProcessorFixture()

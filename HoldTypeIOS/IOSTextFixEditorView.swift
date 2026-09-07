@@ -9,7 +9,6 @@ struct IOSTextFixEditorView: View {
     @State private var model: IOSTextFixEditorModel
     @State private var pendingDeleteIdentifier: String?
     @State private var showsDeleteConfirmation = false
-    @State private var showsRestoreConfirmation = false
     @State private var newActionIdentifier =
         IOSTextFixEditorDraft.newIdentifier()
 
@@ -85,23 +84,6 @@ struct IOSTextFixEditorView: View {
             }
         } message: {
             Text("This removes one saved custom Fix.")
-        }
-        .confirmationDialog(
-            "Restore Default Fixes?",
-            isPresented: $showsRestoreConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Restore Defaults") {
-                Task {
-                    await model.restoreDefaults()
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(
-                "Missing default custom Fixes will be added. "
-                    + "Your other Fixes will not change."
-            )
         }
         .task {
             await model.load()
@@ -216,21 +198,6 @@ struct IOSTextFixEditorView: View {
                 }
             }
 
-            Section {
-                Button("Restore Defaults") {
-                    showsRestoreConfirmation = true
-                }
-                .disabled(
-                    model.isBlockingOperation || model.activeDraft != nil
-                )
-
-                Text(
-                    "Restore Defaults adds missing default custom Fixes "
-                        + "without deleting or changing your other Fixes."
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            }
         }
         .disabled(model.phase == .loading)
     }

@@ -313,11 +313,6 @@ final class IOSTextFixEditorModel {
         }
     }
 
-    @discardableResult
-    func restoreDefaults() async -> Bool {
-        await mutateCatalog { try $0.restoringDefaults() }
-    }
-
     private func mutateCatalog(
         _ mutation: (TextFixCatalog) throws -> TextFixCatalog
     ) async -> Bool {

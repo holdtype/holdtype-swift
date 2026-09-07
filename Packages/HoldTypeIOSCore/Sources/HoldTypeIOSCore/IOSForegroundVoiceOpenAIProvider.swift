@@ -242,6 +242,8 @@ enum IOSForegroundVoiceProviderFailureMapper {
         case .invalidResponse: .invalidResponse
         case .emptyOutput: .emptyResult
         case .outputTooLarge: .invalidResponse
+        case .writingSkillUnavailable, .writingSkillContainerExpired:
+            .providerUnavailable
         }
     }
 }
