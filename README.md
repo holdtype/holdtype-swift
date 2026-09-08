@@ -5,14 +5,14 @@
 <h1 align="center">HoldType</h1>
 
 <p align="center">
-  <strong>Speak the whole thought. HoldType puts it where you're working.</strong>
+  <strong>One tool. Across your Mac.</strong>
 </p>
 
 <p align="center">
-  Native macOS voice input for long AI prompts, messages, docs, and notes.<br>
-  By default, hold <kbd>Right Command</kbd>, speak, and release. HoldType
-  transcribes through your own OpenAI API key and inserts the accepted text at
-  the cursor in most Mac apps.
+  Blazing-fast dictation. Translation and Quick Fixes, right where you work.<br>
+  One native Mac app, powered by your own OpenAI API key. Hold
+  <kbd>Right Command</kbd> to dictate into most Mac apps; use translation
+  and Quick Fixes to work with text in place.
 </p>
 
 <p align="center">
@@ -55,12 +55,13 @@ another.
 
 ## Where It Fits
 
-- **AI work:** give Codex, Claude, or ChatGPT the context that is easy to skip
-  when a prompt has to be typed line by line.
-- **Everyday writing:** dictate mail, reviews, documentation, chats, and notes
-  without moving the text through a separate editor.
-- **Bilingual work:** speak in the language where the thought comes naturally
-  and insert the result in the configured target language.
+- **Dictation:** use the same shortcut in Codex, Claude, ChatGPT, email,
+  documents, and notes. Your settings follow the tool across apps.
+- **Quick Fixes:** select existing text and shorten, translate, or reformat it
+  in place. Save recurring edits as your own commands. Replacement is available
+  in supported text fields.
+- **Translation:** use its dedicated shortcut to dictate and insert text in
+  the configured target language.
 
 ## What Makes It Different
 
@@ -81,10 +82,9 @@ HoldType sends requests through your OpenAI Platform account. OpenAI deducts
 API usage from that account; HoldType has no recurring fee and does not meter
 dictation through a separate product account.
 
-HoldType is OpenAI-only by design and starts with `gpt-4o-transcribe`. You do
-not have to compare providers or download local models before the first
-dictation. Advanced model, language, prompt, and nearby-context settings remain
-available when you want them.
+HoldType connects directly to OpenAI. Model, language, prompt, and
+nearby-context settings remain available when you want them. HoldType adds no
+product account or subscription; cloud processing uses OpenAI.
 
 ### Vocabulary And Translation For Real Work
 
@@ -160,17 +160,14 @@ HoldType keeps the product boundary explicit:
 
 ## Why I Built HoldType
 
-Typing speed was not the problem for me. The problem was how often a long
-prompt, review, or explanation became shorter before I finished typing it.
-Speaking made it easier to include the full thought.
+I wanted the same dictation shortcut in the apps I work in, with translation
+and text edits close at hand.
 
-I tried Wispr Flow, OpenWhispr, Codex voice input, local Whisper models, and
-other provider setups. They solve different problems. In my daily work, OpenAI
-transcription gave me the first pass I trusted most often.
+With HoldType, I can dictate, translate, and run Quick Fixes where I'm already
+working. Extra model-based correction stays optional and is off by default.
 
-I wanted a narrower setup: one provider, a sensible default, direct API
-billing, and no product subscription to remember. HoldType is the native Swift
-menu bar app I wanted around that choice.
+I built HoldType in Swift, with my own OpenAI key and direct API billing. The
+app lives in the menu bar and adds no product account or subscription.
 
 HoldType has also been built through Codex, directed and tested with the same
 voice-first workflow it is meant to support.

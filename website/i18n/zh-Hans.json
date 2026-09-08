@@ -1,8 +1,8 @@
 {
   "locale": "zh-Hans",
   "meta": {
-    "title": "{brand.holdType} — 在写字的地方，直接开口",
-    "description": "在 Mac 应用里口述消息、邮件和提示词，直接翻译、修改文本。{brand.holdType} 免费，{brand.openAI} API 用量单独计费。",
+    "title": "{brand.holdType} — 一个工具，贯穿整个 Mac",
+    "description": "极速语音输入、翻译和 Quick Fixes，集于一个 Mac 原生应用。使用自己的 {brand.openAI} 密钥，API 用量另行计费。",
     "socialImageAlt": "带有英文文字“Brand-New”“Blazing-Fast”和“Native Mac Dictation Tool”的 {brand.holdType} 社交媒体预览图"
   },
   "common": {
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "在写字的地方，直接开口。",
-    "lede": "{brand.holdType} 将语音转成文字，插入大多数 Mac 应用。使用时需要你自己的 {brand.openAI} API 密钥。",
+    "title": "一个工具，贯穿整个 Mac。",
+    "lede": "极速语音输入。翻译和 Quick Fixes，就在当前工作的位置。",
     "qualification": "应用免费 · {brand.openAI} API 用量另行计费 · {fact.minimumOS}",
     "price": {
       "aria": "应用免费。{brand.openAI} 请求单独计费。",
@@ -48,10 +48,11 @@
         "inserted": "计划已插入。很简单。"
       },
       "caption": "语音输入示意。那一百万，目前还只是文字。"
-    }
+    },
+    "support": "Mac 原生应用。自己的 {brand.openAI} 密钥。无需订阅 {brand.holdType}。"
   },
   "workflow": {
-    "title": "按住。说话。松开。转写文字就会出现在光标处。",
+    "title": "在 Mac 的不同应用中，使用同一个快捷键。",
     "steps": {
       "hold": {
         "title": "按住",
@@ -73,7 +74,7 @@
     }
   },
   "reasons": {
-    "a11yTitle": "{brand.holdType} 如何工作",
+    "a11yTitle": "原生设计，由你掌控。",
     "subscription": {
       "title": "用自己的 {brand.openAI} 密钥",
       "body": "请求费用直接通过 {brand.openAIPlatform} 支付。{brand.holdType} 没有订阅费。"
@@ -88,18 +89,18 @@
     }
   },
   "useCases": {
-    "title": "提示词、邮件、消息，开口就能写。",
-    "intro": "直接在文本框里口述，也可以在原处使用翻译和文本编辑命令。",
+    "title": "听写。翻译。修改。",
+    "intro": "在 Mac 的不同应用中沿用同一套快捷键和设置。语音输入适用于大多数支持文本输入的应用。",
     "aiPrompts": {
-      "title": "把任务说清楚",
-      "body": "将任务、背景和细节直接口述到 {brand.codex}、{brand.claude} 或 {brand.chatGPT}。"
+      "title": "在当前应用中听写",
+      "body": "在 {brand.codex}、{brand.claude}、{brand.chatGPT}、邮件和笔记中，用同一个快捷键调用 {brand.holdType}。"
     },
     "everyday": {
-      "title": "说出回复，发出文字",
-      "body": "聊天回复、邮件或笔记会出现在光标所在的应用里。"
+      "title": "用 Quick Fixes 处理已有文本",
+      "body": "选中文本，即可在原处精简、翻译或调整格式。把常用的修改保存为自己的命令。"
     },
     "bilingual": {
-      "title": "用另一种语言写",
+      "title": "翻译有专用快捷键",
       "body": "用熟悉的语言口述回复。独立的快捷键会将其翻译成设置中选定的语言。"
     }
   },
@@ -161,9 +162,9 @@
     "imageAlt": "开发和测试 {brand.holdType} 时使用的桌面麦克风",
     "imageCaption": "无需专用录音设备。",
     "label": "我为什么开发 {brand.holdType}",
-    "title": "我想要的只是个语音输入工具。不是一堆狗屁玩意儿。",
-    "body1": "我想要一种明白直接的口述方式：按住一个键，说话，文字就出现在我正在写字的地方。",
-    "body2": "在我的工作中，{brand.openAI} 的识别结果通常第一次就能用。因此，{brand.holdType} 默认关闭额外纠错。需要时，我可以单独开启。",
+    "title": "我想要一个贯穿整个 Mac 的工具。",
+    "body1": "我希望在工作所用的应用中使用同一个听写快捷键，也能随时调用翻译和文本编辑。",
+    "body2": "有了 {brand.holdType}，我可以在当前工作的位置听写、翻译和使用 Quick Fixes。额外校正仍然按需开启。",
     "body3": "我用 Swift 写了 {brand.holdType}。应用免费，用我自己的 API 密钥，请求费用直接付给 {brand.openAI}。"
   },
   "install": {
@@ -346,11 +347,11 @@
     }
   },
   "finalCta": {
-    "title": "下一条消息，试着说出来。",
+    "title": "为 Mac 装上 {brand.holdType}。",
     "body": "应用免费 · {brand.openAI} 请求单独计费 · {fact.minimumOS}"
   },
   "footer": {
-    "description": "原生 {brand.macOS} 语音输入。源代码依据 {license.fsl11} 提供，并设有未来的 {license.mit} 许可。",
+    "description": "{brand.macOS} 原生语音输入、翻译和 Quick Fixes。源码以 {license.fsl11} 提供，未来转为 {license.mit} 许可。",
     "twitterLink": "在 {brand.twitter} 上关注 @potapenko",
     "patreonLink": "在 {brand.patreon} 上支持 {brand.holdType}",
     "sourceLink": "在 {brand.github} 上审阅源代码"

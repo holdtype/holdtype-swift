@@ -1,8 +1,8 @@
 {
   "locale": "ja",
   "meta": {
-    "title": "{brand.holdType} — 書く場所で、声を文字に",
-    "description": "Macのアプリにメッセージ、メール、プロンプトを音声入力。その場で翻訳や編集もできます。{brand.holdType}は無料。{brand.openAI}のAPI利用料は別途かかります。",
+    "title": "{brand.holdType} — Mac全体で使える、ひとつのツール",
+    "description": "高速な音声入力、翻訳、Quick FixesをひとつのMacネイティブアプリで。自分の{brand.openAI}キーを使用し、API利用料は別途請求されます。",
     "socialImageAlt": "英語で「Brand-New」「Blazing-Fast」「Native Mac Dictation Tool」と書かれた {brand.holdType} のソーシャルプレビュー画像"
   },
   "common": {
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "書く場所で、声を文字に。",
-    "lede": "{brand.holdType}は音声をテキストに変換し、Macの多くのアプリに挿入します。利用には、ご自身の{brand.openAI} APIキーが必要です。",
+    "title": "ひとつのツールを、Mac全体で。",
+    "lede": "高速な音声入力。翻訳もQuick Fixesも、作業中のアプリで。",
     "qualification": "アプリは無料 · {brand.openAI} API の利用料は別途請求 · {fact.minimumOS}",
     "price": {
       "aria": "アプリは無料です。{brand.openAI}へのリクエストには別途料金がかかります。",
@@ -48,10 +48,11 @@
         "inserted": "計画を入力しました。簡単。"
       },
       "caption": "音声入力のイメージです。100万ドルは、まだ文章の中だけ。"
-    }
+    },
+    "support": "Macネイティブアプリ。自分の{brand.openAI}キー。{brand.holdType}のサブスクは不要。"
   },
   "workflow": {
-    "title": "押す。話す。離す。文字起こしがカーソル位置に挿入されます。",
+    "title": "Macのアプリで、いつものショートカット。",
     "steps": {
       "hold": {
         "title": "押す",
@@ -73,7 +74,7 @@
     }
   },
   "reasons": {
-    "a11yTitle": "{brand.holdType}の仕組み",
+    "a11yTitle": "ネイティブ設計。使い方は自分で決める。",
     "subscription": {
       "title": "自分の{brand.openAI}キーで",
       "body": "リクエストの料金は{brand.openAIPlatform}で直接支払います。{brand.holdType}にサブスクリプションはありません。"
@@ -88,18 +89,18 @@
     }
   },
   "useCases": {
-    "title": "プロンプトも、メールも、メッセージも声で。",
-    "intro": "テキスト欄に直接音声入力できます。翻訳や文章の編集コマンドも、その場で使えます。",
+    "title": "音声入力。翻訳。テキスト編集。",
+    "intro": "Macのアプリでショートカットと設定を共通に使えます。音声入力は、テキストを入力できるほとんどのアプリに対応しています。",
     "aiPrompts": {
-      "title": "仕事の内容を、話して伝える",
-      "body": "タスクの内容、背景、細かい条件を{brand.codex}、{brand.claude}、{brand.chatGPT}に直接話して入力できます。"
+      "title": "使用中のアプリに音声入力",
+      "body": "{brand.codex}、{brand.claude}、{brand.chatGPT}、メール、メモで、同じショートカットから{brand.holdType}を使えます。"
     },
     "everyday": {
-      "title": "声で返事をして、テキストで送る",
-      "body": "チャットの返信、メール、メモを、カーソルのあるアプリに入力できます。"
+      "title": "既存のテキストにもQuick Fixes",
+      "body": "テキストを選択して、その場で短縮、翻訳、書式変更。繰り返す編集は自分のコマンドとして保存できます。"
     },
     "bilingual": {
-      "title": "別の言語で書く",
+      "title": "翻訳には専用のショートカット",
       "body": "話し慣れた言語で返事を音声入力。専用のショートカットで、設定した言語に翻訳します。"
     }
   },
@@ -161,9 +162,9 @@
     "imageAlt": "{brand.holdType} の開発とテストで使用したデスクマイク",
     "imageCaption": "特別な録音機材は必要ありません。",
     "label": "{brand.holdType} を作った理由",
-    "title": "音声入力ツールが欲しかった。余計なクソはいらない。",
-    "body1": "欲しかったのは、仕組みの分かる音声入力でした。キーを押し、話すと、書いている場所にテキストが入る。それだけです。",
-    "body2": "自分の仕事では、{brand.openAI}の音声認識はたいてい一度で使える結果を返してくれました。だから{brand.holdType}の追加修正は初期設定でオフにしています。必要なときだけ、有効にできます。",
+    "title": "Mac全体で使えるツールが欲しかった。",
+    "body1": "仕事で使うアプリで同じ音声入力ショートカットを使い、翻訳やテキスト編集もすぐに呼び出せるようにしたかったのです。",
+    "body2": "{brand.holdType}なら、作業中のアプリで音声入力、翻訳、Quick Fixesを使えます。追加の校正は必要なときだけ有効にできます。",
     "body3": "{brand.holdType}はSwiftで書きました。アプリは無料で、自分のAPIキーを使い、リクエストの料金は{brand.openAI}に直接支払います。"
   },
   "install": {
@@ -346,11 +347,11 @@
     }
   },
   "finalCta": {
-    "title": "次のメッセージは、話して入力。",
+    "title": "Macに{brand.holdType}を。",
     "body": "アプリは無料 · {brand.openAI}のリクエスト料金は別途 · {fact.minimumOS}"
   },
   "footer": {
-    "description": "ネイティブな {brand.macOS} 音声入力。{license.fsl11} のもとでソースを公開し、将来は {license.mit} へ移行します。",
+    "description": "{brand.macOS}ネイティブの音声入力、翻訳、Quick Fixes。ソースコードは{license.fsl11}で公開され、将来{license.mit}ライセンスに移行します。",
     "twitterLink": "{brand.twitter} で @potapenko をフォロー",
     "patreonLink": "{brand.patreon} で {brand.holdType} を支援",
     "sourceLink": "{brand.github} でソースを確認"

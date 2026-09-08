@@ -1,8 +1,8 @@
 {
   "locale": "en",
   "meta": {
-    "title": "{brand.holdType} — dictate right where you write",
-    "description": "Dictate messages, emails and prompts in Mac apps. Translate and edit text in place. {brand.holdType} is free; {brand.openAI} API usage is billed separately.",
+    "title": "{brand.holdType} — one tool across your Mac",
+    "description": "Blazing-fast dictation. Translation and Quick Fixes in one native Mac app. Your {brand.openAI} key; API usage billed separately.",
     "socialImageAlt": "{brand.holdType} social preview with the words “Brand-New, Blazing-Fast, Native Mac Dictation Tool”"
   },
   "common": {
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "Dictate right where you write.",
-    "lede": "{brand.holdType} turns speech into text and inserts it into most Mac apps. Bring your own {brand.openAI} API key.",
+    "title": "One tool. Across your Mac.",
+    "lede": "Blazing-fast dictation. Translation and Quick Fixes, right where you work.",
     "qualification": "Free app · {brand.openAI} API usage billed separately · {fact.minimumOS}",
     "price": {
       "aria": "The app is free. {brand.openAI} requests are billed separately.",
@@ -48,10 +48,11 @@
         "inserted": "Plan inserted. Easy."
       },
       "caption": "Dictation illustration. The million is still just text."
-    }
+    },
+    "support": "Native Mac app. Your {brand.openAI} key. No {brand.holdType} subscription."
   },
   "workflow": {
-    "title": "Hold. Speak. Release. The transcript appears at the cursor.",
+    "title": "The same shortcut across your Mac.",
     "steps": {
       "hold": {
         "title": "Hold",
@@ -73,7 +74,7 @@
     }
   },
   "reasons": {
-    "a11yTitle": "How {brand.holdType} works",
+    "a11yTitle": "Native by design. Under your control.",
     "subscription": {
       "title": "Your {brand.openAI} key",
       "body": "Pay for requests directly through {brand.openAIPlatform}. {brand.holdType} has no subscription."
@@ -88,18 +89,18 @@
     }
   },
   "useCases": {
-    "title": "Prompts, emails and messages. Spoken.",
-    "intro": "Dictation works in the text field. Translation and text-editing commands are available there too.",
+    "title": "Dictate. Translate. Fix.",
+    "intro": "The same shortcuts and settings across your Mac. Dictation works in most apps that accept text.",
     "aiPrompts": {
-      "title": "Talk through the task",
-      "body": "Dictate the task, context and details straight into {brand.codex}, {brand.claude} or {brand.chatGPT}."
+      "title": "Dictation in the app you're using",
+      "body": "Use {brand.holdType} in {brand.codex}, {brand.claude}, {brand.chatGPT}, email and notes with the same shortcut."
     },
     "everyday": {
-      "title": "Speak your reply. Send it as text.",
-      "body": "A chat reply, email or note appears in the app where your cursor is."
+      "title": "Quick Fixes for existing text",
+      "body": "Select text and shorten, translate or reformat it in place. Save recurring edits as your own commands."
     },
     "bilingual": {
-      "title": "Write in another language",
+      "title": "Translation on its own shortcut",
       "body": "Dictate a reply in a familiar language. A separate shortcut translates it into the language selected in Settings."
     }
   },
@@ -161,9 +162,9 @@
     "imageAlt": "A desk microphone used while building and testing {brand.holdType}",
     "imageCaption": "Special recording hardware is not required.",
     "label": "Why I built {brand.holdType}",
-    "title": "I wanted a dictation tool. Not all the bullshit.",
-    "body1": "I wanted a straightforward way to dictate: hold a key, speak, get text where I'm writing.",
-    "body2": "In my work, {brand.openAI} recognition usually got it right on the first try. That's why extra correction is off by default in {brand.holdType}. When I need it, I can turn it on separately.",
+    "title": "One tool I can use across my Mac.",
+    "body1": "I wanted the same dictation shortcut in the apps I work in, with translation and text edits close at hand.",
+    "body2": "With {brand.holdType}, I can dictate, translate and run Quick Fixes where I'm already working. Extra correction stays optional.",
     "body3": "I wrote {brand.holdType} in Swift. The app is free, uses my API key, and I pay {brand.openAI} directly for requests."
   },
   "install": {
@@ -346,11 +347,11 @@
     }
   },
   "finalCta": {
-    "title": "Try dictating your next message.",
+    "title": "Bring {brand.holdType} to your Mac.",
     "body": "Free app · {brand.openAI} requests billed separately · {fact.minimumOS}"
   },
   "footer": {
-    "description": "Native {brand.macOS} dictation. Source-available under {license.fsl11} with an {license.mit} future license.",
+    "description": "Native {brand.macOS} dictation, translation and Quick Fixes. Source-available under {license.fsl11} with an {license.mit} future license.",
     "twitterLink": "Follow @potapenko on {brand.twitter}",
     "patreonLink": "Support {brand.holdType} on {brand.patreon}",
     "sourceLink": "Inspect the source on {brand.github}"

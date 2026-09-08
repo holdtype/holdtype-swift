@@ -1,8 +1,8 @@
 {
   "locale": "pt-BR",
   "meta": {
-    "title": "{brand.holdType} — dite onde você escreve",
-    "description": "Dite mensagens, e-mails e prompts nos apps do Mac. Traduza e edite o texto no próprio app. {brand.holdType} é grátis; o uso da API da {brand.openAI} é cobrado à parte.",
+    "title": "{brand.holdType} — uma ferramenta para todo o seu Mac",
+    "description": "Ditado ultrarrápido, tradução e Quick Fixes em um app nativo para Mac. Sua chave da {brand.openAI}; uso da API cobrado à parte.",
     "socialImageAlt": "Prévia do {brand.holdType} para redes sociais com o texto em inglês “Brand-New, Blazing-Fast, Native Mac Dictation Tool”"
   },
   "common": {
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "Dite onde você escreve.",
-    "lede": "{brand.holdType} transforma a fala em texto e o insere na maioria dos apps do Mac. Você precisa da sua própria chave de API da {brand.openAI}.",
+    "title": "Uma ferramenta. Para todo o seu Mac.",
+    "lede": "Ditado ultrarrápido. Tradução e Quick Fixes onde você trabalha.",
     "qualification": "App gratuito · Uso da API da {brand.openAI} cobrado à parte · {fact.minimumOS}",
     "price": {
       "aria": "O app é grátis. As solicitações à {brand.openAI} são cobradas à parte.",
@@ -48,10 +48,11 @@
         "inserted": "Plano inserido. Fácil."
       },
       "caption": "Ilustração do ditado. O milhão, por enquanto, só existe no texto."
-    }
+    },
+    "support": "App nativo para Mac. Sua chave da {brand.openAI}. Sem assinatura do {brand.holdType}."
   },
   "workflow": {
-    "title": "Segure. Fale. Solte. A transcrição aparece no cursor.",
+    "title": "O mesmo atalho nos apps do seu Mac.",
     "steps": {
       "hold": {
         "title": "Segure",
@@ -73,7 +74,7 @@
     }
   },
   "reasons": {
-    "a11yTitle": "Como o {brand.holdType} funciona",
+    "a11yTitle": "Nativo desde o início. Sob seu controle.",
     "subscription": {
       "title": "Sua chave da {brand.openAI}",
       "body": "As solicitações são pagas diretamente pela {brand.openAIPlatform}. O {brand.holdType} não tem assinatura."
@@ -88,18 +89,18 @@
     }
   },
   "useCases": {
-    "title": "Prompts, e-mails e mensagens. Pela voz.",
-    "intro": "O ditado funciona no campo de texto. A tradução e os comandos de edição também ficam disponíveis ali.",
+    "title": "Dite. Traduza. Edite.",
+    "intro": "Os mesmos atalhos e ajustes no seu Mac. O ditado funciona na maioria dos apps que aceitam texto.",
     "aiPrompts": {
-      "title": "Explique a tarefa falando",
-      "body": "Dite a tarefa, o contexto e os detalhes diretamente no {brand.codex}, {brand.claude} ou {brand.chatGPT}."
+      "title": "Ditado no app que você está usando",
+      "body": "Use o {brand.holdType} no {brand.codex}, {brand.claude}, {brand.chatGPT}, nos e-mails e nas notas com o mesmo atalho."
     },
     "everyday": {
-      "title": "Fale a resposta. Envie como texto.",
-      "body": "Uma resposta no chat, um e-mail ou uma nota aparece no app em que está o cursor."
+      "title": "Quick Fixes para textos existentes",
+      "body": "Selecione um texto para encurtar, traduzir ou reformatar no próprio app. Salve edições recorrentes como seus próprios comandos."
     },
     "bilingual": {
-      "title": "Escreva em outro idioma",
+      "title": "Um atalho próprio para traduzir",
       "body": "Dite a resposta em um idioma familiar. Um atalho separado traduz para o idioma escolhido nos ajustes."
     }
   },
@@ -161,9 +162,9 @@
     "imageAlt": "Microfone de mesa usado durante a criação e os testes do {brand.holdType}",
     "imageCaption": "Não é necessário ter equipamento de gravação especial.",
     "label": "Por que criei o {brand.holdType}",
-    "title": "Eu queria uma ferramenta de ditado. Sem toda essa merda.",
-    "body1": "Eu queria uma maneira clara de ditar: segurar uma tecla, falar e receber o texto onde estou escrevendo.",
-    "body2": "No meu trabalho, o reconhecimento da {brand.openAI} costumava acertar de primeira. Por isso a correção adicional vem desativada no {brand.holdType}. Quando preciso, posso ativá-la separadamente.",
+    "title": "Uma ferramenta para todo o meu Mac.",
+    "body1": "Eu queria usar o mesmo atalho de ditado nos apps em que trabalho, com tradução e edição de texto à mão.",
+    "body2": "Com o {brand.holdType}, posso ditar, traduzir e aplicar Quick Fixes onde já estou trabalhando. A correção extra continua opcional.",
     "body3": "Escrevi o {brand.holdType} em Swift. O app é grátis, usa minha chave de API e eu pago as solicitações diretamente à {brand.openAI}."
   },
   "install": {
@@ -346,11 +347,11 @@
     }
   },
   "finalCta": {
-    "title": "Experimente ditar sua próxima mensagem.",
+    "title": "Leve o {brand.holdType} para o seu Mac.",
     "body": "App grátis · Solicitações à {brand.openAI} à parte · {fact.minimumOS}"
   },
   "footer": {
-    "description": "Ditado nativo para {brand.macOS}. Código-fonte disponível sob a {license.fsl11}, com futura licença {license.mit}.",
+    "description": "Ditado nativo, tradução e Quick Fixes para {brand.macOS}. Código disponível sob {license.fsl11}, com futura licença {license.mit}.",
     "twitterLink": "Siga @potapenko no {brand.twitter}",
     "patreonLink": "Apoie o {brand.holdType} no {brand.patreon}",
     "sourceLink": "Confira o código-fonte no {brand.github}"

@@ -1,8 +1,8 @@
 {
   "locale": "de",
   "meta": {
-    "title": "{brand.holdType} — diktieren, wo du schreibst",
-    "description": "Diktiere Nachrichten, E-Mails und Prompts in Mac-Apps. Übersetze und bearbeite Text direkt vor Ort. {brand.holdType} ist kostenlos; die API-Nutzung bei {brand.openAI} wird separat berechnet.",
+    "title": "{brand.holdType} — ein Tool für deinen ganzen Mac",
+    "description": "Blitzschnelles Diktieren, Übersetzen und Quick Fixes in einer nativen Mac-App. Dein {brand.openAI}-Schlüssel; API-Nutzung wird separat abgerechnet.",
     "socialImageAlt": "Social-Media-Vorschau von {brand.holdType} mit dem englischen Text „Brand-New, Blazing-Fast, Native Mac Dictation Tool“"
   },
   "common": {
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "Diktiere dort, wo du schreibst.",
-    "lede": "{brand.holdType} wandelt Sprache in Text um und fügt ihn in die meisten Mac-Apps ein. Du brauchst einen eigenen API-Schlüssel von {brand.openAI}.",
+    "title": "Ein Tool. Für deinen ganzen Mac.",
+    "lede": "Blitzschnelles Diktieren. Übersetzen und Quick Fixes direkt dort, wo du arbeitest.",
     "qualification": "Kostenlose App · API-Nutzung von {brand.openAI} wird separat berechnet · {fact.minimumOS}",
     "price": {
       "aria": "Die App ist kostenlos. Anfragen an {brand.openAI} werden separat berechnet.",
@@ -48,10 +48,11 @@
         "inserted": "Plan eingefügt. Ganz einfach."
       },
       "caption": "Illustration des Diktierens. Die Million steht bisher nur im Text."
-    }
+    },
+    "support": "Native Mac-App. Dein {brand.openAI}-Schlüssel. Kein {brand.holdType}-Abo."
   },
   "workflow": {
-    "title": "Taste gedrückt halten. Sprechen. Loslassen. Das Transkript erscheint an der Cursorposition.",
+    "title": "Derselbe Kurzbefehl in deinen Mac-Apps.",
     "steps": {
       "hold": {
         "title": "Gedrückt halten",
@@ -73,7 +74,7 @@
     }
   },
   "reasons": {
-    "a11yTitle": "So funktioniert {brand.holdType}",
+    "a11yTitle": "Nativ entwickelt. Unter deiner Kontrolle.",
     "subscription": {
       "title": "Dein {brand.openAI}-Schlüssel",
       "body": "Anfragen werden direkt über {brand.openAIPlatform} bezahlt. Für {brand.holdType} gibt es kein Abo."
@@ -88,18 +89,18 @@
     }
   },
   "useCases": {
-    "title": "Prompts, E-Mails und Nachrichten. Gesprochen.",
-    "intro": "Du diktierst direkt ins Textfeld. Übersetzung und Textbearbeitung sind dort ebenfalls verfügbar.",
+    "title": "Diktieren. Übersetzen. Bearbeiten.",
+    "intro": "Dieselben Kurzbefehle und Einstellungen auf deinem Mac. Diktieren funktioniert in den meisten Apps mit Texteingabe.",
     "aiPrompts": {
-      "title": "Erkläre die Aufgabe mit deiner Stimme",
-      "body": "Diktiere Aufgabe, Kontext und Details direkt in {brand.codex}, {brand.claude} oder {brand.chatGPT}."
+      "title": "Diktieren in der aktuellen App",
+      "body": "Nutze {brand.holdType} in {brand.codex}, {brand.claude}, {brand.chatGPT}, E-Mails und Notizen mit demselben Kurzbefehl."
     },
     "everyday": {
-      "title": "Sprich deine Antwort. Sende sie als Text.",
-      "body": "Eine Chat-Antwort, E-Mail oder Notiz erscheint in der App, in der dein Cursor steht."
+      "title": "Quick Fixes für vorhandenen Text",
+      "body": "Markiere Text und kürze, übersetze oder formatiere ihn direkt in der App. Speichere wiederkehrende Bearbeitungen als eigene Befehle."
     },
     "bilingual": {
-      "title": "Schreibe in einer anderen Sprache",
+      "title": "Ein eigener Kurzbefehl zum Übersetzen",
       "body": "Diktiere die Antwort in einer vertrauten Sprache. Ein eigener Kurzbefehl übersetzt sie in die Sprache, die in den Einstellungen gewählt ist."
     }
   },
@@ -161,9 +162,9 @@
     "imageAlt": "Ein Schreibtischmikrofon, das bei der Entwicklung und beim Testen von {brand.holdType} verwendet wurde",
     "imageCaption": "Spezielle Aufnahmehardware ist nicht erforderlich.",
     "label": "Warum ich {brand.holdType} entwickelt habe",
-    "title": "Ich wollte ein Diktier-Tool. Nicht den ganzen Bullshit.",
-    "body1": "Ich wollte auf nachvollziehbare Weise diktieren: Taste halten, sprechen und den Text dort bekommen, wo ich schreibe.",
-    "body2": "Bei meiner Arbeit lieferte die Spracherkennung von {brand.openAI} meist schon beim ersten Versuch den richtigen Text. Deshalb ist die zusätzliche Korrektur in {brand.holdType} standardmäßig ausgeschaltet. Wenn ich sie brauche, kann ich sie separat einschalten.",
+    "title": "Ein Tool für meinen ganzen Mac.",
+    "body1": "Ich wollte in meinen Arbeits-Apps denselben Diktierkurzbefehl nutzen und Übersetzung und Textbearbeitung griffbereit haben.",
+    "body2": "Mit {brand.holdType} kann ich dort diktieren, übersetzen und Quick Fixes anwenden, wo ich gerade arbeite. Zusätzliche Korrektur bleibt optional.",
     "body3": "Ich habe {brand.holdType} in Swift geschrieben. Die App ist kostenlos, nutzt meinen API-Schlüssel, und für Anfragen bezahle ich direkt bei {brand.openAI}."
   },
   "install": {
@@ -346,11 +347,11 @@
     }
   },
   "finalCta": {
-    "title": "Diktiere doch die nächste Nachricht.",
+    "title": "Hol dir {brand.holdType} auf deinen Mac.",
     "body": "Kostenlose App · {brand.openAI}-Anfragen separat berechnet · {fact.minimumOS}"
   },
   "footer": {
-    "description": "Native Diktierfunktion für {brand.macOS}. Quellcode unter {license.fsl11} mit einer künftigen {license.mit}-Lizenz verfügbar.",
+    "description": "Natives Diktieren, Übersetzen und Quick Fixes für {brand.macOS}. Quellcode unter {license.fsl11} verfügbar, mit späterer {license.mit}-Lizenz.",
     "twitterLink": "@potapenko auf {brand.twitter} folgen",
     "patreonLink": "Unterstütze {brand.holdType} auf {brand.patreon}",
     "sourceLink": "Quellcode auf {brand.github} ansehen"

@@ -181,13 +181,16 @@ text links. Shadows are reserved for the hero editor and real product windows.
 - `320–620px`: stacked actions and workflow, single-column data flow and FAQ,
   16px page gutters, and full-width primary CTAs.
 
-The first viewport leads with `Dictate right where you write.` Its lead explains
-speech-to-text insertion into most Mac apps and the user's own OpenAI API key.
+The first viewport leads with `One tool. Across your Mac.` It addresses people
+who already use dictation and want one responsive native tool across their
+working apps. The lead brings dictation, translation, and Quick Fixes together;
+the support line names the native Mac app, the user's OpenAI key, and the lack
+of a HoldType subscription. The approved qualitative `Blazing-fast` wording is
+not a comparative benchmark or a promise of instantaneous cloud processing.
 The download qualification and app-price badge distinguish the free app from
-separately paid API requests. Translation and editing details appear below.
-The hero has one action: the free macOS download. Source inspection remains in
-the footer, and there is no separate proof-chip row. No unsupported metric,
-comparative speed claim, or undocumented competitor claim is permitted.
+separately paid API requests. The hero has one action: the free macOS download.
+Source inspection remains in the footer. No unsupported metric, comparative
+speed claim, or undocumented competitor claim is permitted.
 
 The code-native editor uses a dry, self-ironic fictional plan to build a tiny
 SaaS and reach `$1M ARR`; the interface presents the request as if it were
@@ -203,14 +206,17 @@ remains visually secondary; it does not advertise a per-dictation API price.
 1. Sticky brand/navigation header with compact Patreon and GitHub icons plus a
    GitHub Releases CTA.
 2. Split hero with the code-native editor illustration and real indicator art.
-3. Hold → speak → release → inserted workflow rail.
-4. Five supporting cards: own key, transcription model, optional correction,
+3. Three-action band: dictation, Quick Fixes for existing text, and translation,
+   with shared shortcuts/settings and the most-apps compatibility qualification.
+4. Quick Fixes screenshots first, then translation/vocabulary and Last Result
+   recovery proof.
+5. Compact hold → speak → release → inserted shortcut guide.
+6. Five supporting cards: own key, transcription model, optional correction,
    direct OpenAI processing, and local storage.
-5. Real-use-case band.
-6. Quick Fixes, translation/vocabulary, and Last Result recovery proof.
 7. OpenAI billing, the qualified 100-dictation usage example, and exact
    data-boundary explanation.
-8. Authentic first-person founder story and microphone photo.
+8. First-person founder story about one native tool across working apps, plus
+   the existing microphone photo.
 9. GitHub/Homebrew setup and a three-step API-key guide with an opt-in video.
 10. Lower-page iPhone source preview with authentic Simulator screens, an
     explicit work-in-progress status, and a source-build path through Xcode.

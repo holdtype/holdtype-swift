@@ -1,8 +1,8 @@
 {
   "locale": "ko",
   "meta": {
-    "title": "{brand.holdType} — 글을 쓰는 곳에서 바로 말하세요",
-    "description": "Mac 앱에서 메시지, 이메일, 프롬프트를 말로 입력하고 그 자리에서 번역하거나 수정하세요. {brand.holdType}는 무료이며 {brand.openAI} API 사용료는 별도입니다.",
+    "title": "{brand.holdType} — Mac 전체에서 쓰는 하나의 도구",
+    "description": "빠른 음성 입력, 번역, Quick Fixes를 하나의 Mac 네이티브 앱에서. 본인의 {brand.openAI} 키를 사용하며 API 사용료는 별도입니다.",
     "socialImageAlt": "영문 문구 ‘Brand-New’, ‘Blazing-Fast’, ‘Native Mac Dictation Tool’이 들어간 {brand.holdType} 소셜 미디어 미리보기 이미지"
   },
   "common": {
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "글을 쓰는 곳에서 바로 말하세요.",
-    "lede": "{brand.holdType}는 음성을 텍스트로 바꿔 대부분의 Mac 앱에 입력합니다. 본인의 {brand.openAI} API 키가 필요합니다.",
+    "title": "하나의 도구. Mac 어디서나.",
+    "lede": "빠른 음성 입력. 작업 중인 곳에서 번역과 Quick Fixes까지.",
     "qualification": "무료 앱 · {brand.openAI} API 사용료 별도 청구 · {fact.minimumOS}",
     "price": {
       "aria": "앱은 무료입니다. {brand.openAI} 요청은 별도로 요금이 부과됩니다.",
@@ -48,10 +48,11 @@
         "inserted": "계획 입력 완료. 쉽죠."
       },
       "caption": "음성 입력을 설명하는 예시입니다. 백만 달러는 아직 글 속에만 있습니다."
-    }
+    },
+    "support": "Mac 네이티브 앱. 본인의 {brand.openAI} 키. {brand.holdType} 구독 불필요."
   },
   "workflow": {
-    "title": "누르고, 말하고, 놓으면 받아쓴 글이 커서에 나타납니다.",
+    "title": "Mac 앱에서 늘 같은 단축키로.",
     "steps": {
       "hold": {
         "title": "누르기",
@@ -73,7 +74,7 @@
     }
   },
   "reasons": {
-    "a11yTitle": "{brand.holdType}의 작동 방식",
+    "a11yTitle": "네이티브 설계. 제어는 사용자에게.",
     "subscription": {
       "title": "본인의 {brand.openAI} 키 사용",
       "body": "요청 비용은 {brand.openAIPlatform}에서 직접 결제합니다. {brand.holdType}에는 구독료가 없습니다."
@@ -88,18 +89,18 @@
     }
   },
   "useCases": {
-    "title": "프롬프트, 이메일, 메시지를 말로.",
-    "intro": "텍스트 입력란에서 바로 받아쓸 수 있습니다. 번역과 텍스트 편집 명령도 그 자리에서 사용할 수 있습니다.",
+    "title": "받아쓰기. 번역. 수정.",
+    "intro": "Mac의 여러 앱에서 같은 단축키와 설정을 사용하세요. 음성 입력은 텍스트를 입력할 수 있는 대부분의 앱에서 작동합니다.",
     "aiPrompts": {
-      "title": "해야 할 일을 말로 설명하세요",
-      "body": "작업 내용과 배경, 세부 조건을 {brand.codex}, {brand.claude}, {brand.chatGPT}에 직접 말로 입력하세요."
+      "title": "사용 중인 앱에서 받아쓰기",
+      "body": "{brand.codex}, {brand.claude}, {brand.chatGPT}, 이메일과 메모에서 같은 단축키로 {brand.holdType}를 사용하세요."
     },
     "everyday": {
-      "title": "말로 답하고, 글로 보내세요",
-      "body": "채팅 답장, 이메일, 메모가 커서가 놓인 앱에 입력됩니다."
+      "title": "기존 텍스트에도 Quick Fixes",
+      "body": "텍스트를 선택해 그 자리에서 줄이거나 번역하고 형식을 바꾸세요. 자주 하는 수정은 나만의 명령으로 저장할 수 있습니다."
     },
     "bilingual": {
-      "title": "다른 언어로 작성하세요",
+      "title": "번역을 위한 별도 단축키",
       "body": "익숙한 언어로 답장을 말하세요. 별도의 단축키를 사용하면 설정에서 선택한 언어로 번역됩니다."
     }
   },
@@ -161,9 +162,9 @@
     "imageAlt": "{brand.holdType}을 개발하고 테스트할 때 사용한 탁상용 마이크",
     "imageCaption": "전용 녹음 장비는 필요하지 않습니다.",
     "label": "{brand.holdType}을 만든 이유",
-    "title": "내가 원한 건 받아쓰기 도구였다. 쓸데없는 헛짓거리 말고.",
-    "body1": "저는 작동 방식이 분명한 음성 입력 도구를 원했습니다. 키를 누르고 말하면, 글을 쓰던 곳에 텍스트가 들어가는 방식이요.",
-    "body2": "제 작업에서는 {brand.openAI} 음성 인식이 대체로 첫 시도에 쓸 만한 결과를 줬습니다. 그래서 {brand.holdType}의 추가 교정은 기본적으로 꺼 두었습니다. 필요할 때 따로 켤 수 있습니다.",
+    "title": "Mac 전체에서 쓸 하나의 도구가 필요했습니다.",
+    "body1": "업무에 쓰는 앱에서 같은 받아쓰기 단축키를 쓰고, 번역과 텍스트 수정도 바로 실행하고 싶었습니다.",
+    "body2": "{brand.holdType}로 작업 중인 곳에서 받아쓰고, 번역하고, Quick Fixes를 실행할 수 있습니다. 추가 교정은 필요할 때만 켭니다.",
     "body3": "{brand.holdType}는 Swift로 만들었습니다. 앱은 무료이고 제 API 키를 사용하며, 요청 비용은 {brand.openAI}에 직접 지불합니다."
   },
   "install": {
@@ -346,11 +347,11 @@
     }
   },
   "finalCta": {
-    "title": "다음 메시지는 말로 입력해 보세요.",
+    "title": "Mac에 {brand.holdType}를 더하세요.",
     "body": "무료 앱 · {brand.openAI} 요청 요금 별도 · {fact.minimumOS}"
   },
   "footer": {
-    "description": "네이티브 {brand.macOS} 음성 입력. {license.fsl11}에 따라 소스 코드를 공개하며 향후 {license.mit} 라이선스로 전환됩니다.",
+    "description": "{brand.macOS} 네이티브 음성 입력, 번역, Quick Fixes. 소스 코드는 {license.fsl11}로 공개되며 향후 {license.mit} 라이선스로 전환됩니다.",
     "twitterLink": "{brand.twitter}에서 @potapenko 팔로우하기",
     "patreonLink": "{brand.patreon}에서 {brand.holdType} 후원하기",
     "sourceLink": "{brand.github}에서 소스 살펴보기"

@@ -1,281 +1,169 @@
 # HoldType Landing Page Working Plan
 
-Status: working brief for the published `holdtype.app` landing page
+Status: accepted positioning for the HoldType landing page and product introduction
 
-Research snapshot: 2026-07-09
+Positioning decision: 2026-09-08, approved in the direct product-positioning chat
 
-## Product Position
+## Audience And Product Position
 
-HoldType is the most honest Wispr Flow "clone": a native macOS dictation app
-that returns text to the active cursor, uses the user's OpenAI Platform API key,
-and adds no HoldType account or subscription. Model-based correction is
-optional and off by default, so ordinary dictation does not require a second
-model rewrite.
+Address people who already use voice input. They are choosing a daily tool
+based on responsiveness, native Mac interaction, consistency across apps, and
+control over processing. Do not spend the first screen teaching them that
+speaking can be faster than typing.
 
-The exact transcription model is a secondary implementation detail, not the
-positioning. Name it once in subdued technical copy; do not repeat it in
-headlines, proof chips, section headings, founder copy, or the footer.
-
-The landing page should lead with this concrete product and commercial
-contract. The idea of speaking a complete thought may remain a supporting use
-case, but it is not the product position.
+HoldType is one native Mac tool for dictation, translation, and Quick Fixes.
+The user's shortcuts, settings, and text commands remain familiar when they
+move between AI tools, editors, email, and notes.
 
 Primary job:
 
-> Let me hold one shortcut, dictate, and put the returned text at the cursor
-> without paying for another dictation subscription.
+> Give me one responsive voice and text tool across the apps I work in, with
+> my own OpenAI key and control over the processing steps.
 
-Secondary job:
+Quick Fixes is part of the core product definition. HoldType remains useful
+when the text already exists: select it, run a built-in or saved command, and
+replace it in place in supported fields.
 
-> Let me speak in the language where the thought comes naturally and insert the
-> result in the language my work requires.
+The product's character is a focused native Mac utility: ready at a shortcut,
+compact, responsive, and under the user's control. Lead with that experience.
+Direct API billing and the lack of a HoldType subscription support the choice.
 
-Recommended positioning line:
+The previous competitor-clone positioning and the proposal to lead with
+speaking a complete thought are retired. Competitor names belong in sourced
+comparison material, not the headline, founder story, or product definition.
 
-> The most honest Wispr Flow "clone".
+## Approved First Screen
 
-Supporting line:
+Headline:
 
-> No account. Full control over your dictation. You pay OpenAI, not HoldType.
+> One tool. Across your Mac.
 
-## Role Of Each Surface
+Lead:
 
-The README and landing page should share the same positioning, but they do not
-have the same job:
+> Blazing-fast dictation. Translation and Quick Fixes, right where you work.
 
-- **GitHub README:** convert an already interested visitor, establish technical
-  trust, provide the direct download, and support source inspection.
-- **Product landing page:** demonstrate the result to a first-time visitor,
-  explain BYOK and privacy without repository context, and answer purchase or
-  download objections.
-- **Launch and ongoing content:** create attention outside either page through
-  a reusable demo, founder story, measured examples, release notes, and factual
-  comparison content.
+Support:
 
-A polished README can improve conversion and trust, but it cannot create
-distribution on its own. The first demo asset should therefore work in the
-README, on the landing page, and in external launch posts.
+> Native Mac app. Your OpenAI key. No HoldType subscription.
 
-## What The Market Currently Emphasizes
+Primary action:
 
-This is a positioning study, not a feature checklist.
+> Download free for macOS
 
-| Product | Strongest presentation pattern | Lesson for HoldType |
+Qualification:
+
+> Free app · OpenAI API usage billed separately · macOS 14+
+
+Russian headline:
+
+> Один инструмент. Для всего Mac.
+
+Use natural equivalents in all ten supported languages. Keep the platform,
+API-key requirement, separate API billing, and compatibility boundaries clear.
+The cross-app headline does not promise compatibility with every text field.
+
+## What Backs The Position
+
+- **One familiar interaction:** a global shortcut invokes dictation in the
+  working app; translation has its own shortcut. Do not imply that one key
+  performs every action or that Quick Fixes commands are necessarily spoken.
+- **Native Mac utility:** a Swift app in the menu bar, with a floating activity
+  indicator and native controls. Do not infer a measured latency advantage
+  from its implementation language alone.
+- **Voice and existing text:** dictation, translation, and Quick Fixes form one
+  tool. Custom Fixes let users save recurring text edits.
+- **Direct processing:** the user's OpenAI key connects the app directly to
+  OpenAI. HoldType adds no speech-processing server, account, or subscription.
+- **Optional extra correction:** the separate model-based correction step is
+  off by default. Local typography cleanup may still run.
+
+Independence means a common tool across working apps and a direct OpenAI
+account relationship. It does not mean provider-neutral operation, offline
+transcription, or freedom from OpenAI availability and API billing.
+
+The transcription model identifier is secondary technical copy. Keep it once
+in the processing details, driven by `website/i18n/site.json`, rather than in
+headlines or repeated promotional claims.
+
+## Page Order
+
+1. Hero: the shared tool, its three capabilities, native Mac identity, key and
+   billing qualification, and one download action.
+2. Three-action band: dictation in the current app, Quick Fixes for existing
+   text, and translation on its own shortcut. State the most-apps boundary.
+3. Quick Fixes screenshots, followed by translation/vocabulary and Last Result
+   recovery. Demonstrate the available actions before detailing architecture.
+4. Compact shortcut guide: hold, speak, release, inserted. This teaches the
+   gesture without making a case against typing.
+5. Processing and control: own key, model, optional correction, direct requests,
+   local settings and storage.
+6. Cost and data boundary, including the qualified usage example.
+7. Founder story: one tool across working apps, built in Swift, with direct API
+   billing and optional extra correction.
+8. Download, permissions and API-key setup; Homebrew remains secondary.
+9. Explicitly labelled iPhone work-in-progress preview.
+10. FAQ, final Mac download action, and source-available footer.
+
+## Demonstration Direction
+
+The existing hero is a labelled illustration, not recorded performance proof.
+Retain its label and authentic indicator artwork. Existing Quick Fixes and
+translation screenshots provide product evidence alongside it.
+
+A future recorded demonstration should show the same tool across applications:
+invoke dictation in one app, switch apps, invoke it again, then apply Quick
+Fixes to existing text. Show the real interaction and processing delay. Do not
+simulate a faster response or represent an illustration as a runtime recording.
+A new recording is a separate asset-production task.
+
+## Market Context
+
+Research checked on 2026-09-08. These are competitors' own descriptions, not
+independent benchmark results or evidence of HoldType superiority.
+
+| Product | Relevant current presentation | Implication |
 | --- | --- | --- |
-| [Wispr Flow](https://wisprflow.ai/) | A quantified speed promise, immediate before/after demonstration, repeated download CTA, and extensive social proof | Show the result before explaining settings. Do not copy speed multipliers without HoldType-specific measurement. |
-| [OpenWhispr](https://openwhispr.com/) | Privacy and user control directly after the hero, plus a concise GitHub README with direct downloads | Explain the data boundary early. Keep HoldType focused instead of matching OpenWhispr's meetings, notes, agents, and local-model breadth. |
-| [Superwhisper](https://superwhisper.com/) | A short “speak → polished text” hero, visible demo, concrete coding workflows, and clear local/cloud data-flow documentation | Use a real end-to-end demo and show the apps where HoldType is useful. Do not turn model choice into the headline. |
-| [VoiceInk](https://tryvoiceink.com/) | Native Mac and privacy positioning, concrete use cases, founder presence, pricing clarity, and public source as trust | Combine founder credibility with product proof. Avoid accuracy and speed claims without a reproducible method. |
-| [MacWhisper](https://www.macwhisper.com/) | Use-case-led product breadth, UI proof, reviews, and a clear one-time purchase story | Borrow use-case clarity, not the all-in-one transcription-studio scope. |
+| [Aqua](https://aquavoice.com/info/faq) | Publishes startup and post-speech latency claims | Responsiveness is a buying criterion; comparisons need actual measurements. |
+| [Typeless](https://www.typeless.com/) | Dictation, translation, and actions on existing text | Voice and text editing belong together; the combination alone is not an exclusivity claim. |
+| [Spokenly](https://spokenly.app/pricing) | Own API keys without a product subscription | BYOK and no subscription are useful terms, not unique inventions. |
+| [Superwhisper](https://superwhisper.com/docs/security/sensitive-data) | Own API keys in Pro and enterprise workflows | Explain the direct account relationship concretely. |
+| [Wispr Flow](https://wisprflow.ai/) | Voice replacing typing, polished output, and cross-app use | HoldType's audience already understands dictation; focus on choosing the daily tool. |
 
-## Recommended Page Order
+## Shared Copy And Product Boundaries
 
-### 1. Hero
+- Keep the landing, GitHub introduction, and future campaign copy aligned with
+  this position. Existing launch artwork already uses the approved native Mac
+  and blazing-fast direction; its literal alt text must match the actual image.
+- `Blazing-fast` is approved qualitative wording for dictation, including the
+  hero and metadata. It is not permission to publish `fastest`, speed
+  multipliers, zero-latency claims, or guaranteed instant translation/Fixes.
+- Do not describe competitors' models as outdated or their apps as slower
+  without current attributable evidence and a suitable comparison.
+- The app works in most Mac apps; text replacement depends on the target field.
+- HoldType is free. OpenAI API usage is billed separately through the user's
+  Platform account. ChatGPT subscriptions do not include that API usage.
+- Keep the qualified cost example and rate in shared site data; do not
+  describe it as a fixed price per dictation or typical daily usage. Correction,
+  translation, and Quick Fixes are additional requests.
+- Audio goes to OpenAI. Correction, translation, and Fixes send text and
+  instructions when used. Nearby-cursor context is optional.
+- The key stays in macOS Keychain. Settings, dictionary, and history are local.
+  Ordinary recording retention is off by default; recovery audio may remain
+  after restarting the app. Last Result saving must be enabled for recovery.
+- The app has no product analytics or cloud sync. The website's analytics are
+  separate and must not be described as app telemetry.
+- The website never asks visitors to submit an API key. The written setup path
+  remains sufficient; the supplementary attributed video loads only on Play.
+- The iPhone app and keyboard remain explicitly labelled work in progress,
+  available to build from source and not yet published in the App Store.
+- Source is available under FSL 1.1 with an MIT future license. Do not call the
+  project open source during the FSL period.
 
-Goal: explain the outcome, platform, and commercial boundary within five
-seconds.
+## Acceptance For Positioning Changes
 
-- Headline: `The most honest Wispr Flow "clone".`
-- Supporting copy: `No account. Full control over your dictation. You pay
-  OpenAI, not HoldType.`
-- Do not add a second explanatory paragraph below that line. Cursor handoff,
-  API-key routing, and translation details belong in the product contract
-  below rather than the hero.
-- Primary CTA: `Download free for macOS`.
-- Source inspection remains in the footer rather than the hero.
-- Qualification: `Free app · OpenAI API usage billed separately · macOS 14+`.
-
-### 2. End-To-End Demo
-
-Show the actual product result, not a Settings window:
-
-1. The cursor is visible in Codex, Claude, ChatGPT, Mail, or Notes.
-2. Right Command is held and the floating indicator appears.
-3. A natural spoken paragraph is recorded.
-4. The accepted text appears at the cursor after release.
-
-The ideal asset is a silent 10–20 second video with a compact caption. A short
-GIF can be the fallback for GitHub.
-
-### 3. What "Honest" Means Here
-
-Present this section under `What "honest" means here`:
-
-1. **The bill has a source:** OpenAI deducts API usage from the Platform account
-   connected through the user's key; HoldType adds no monthly fee.
-2. **The model has an ID:** `gpt-4o-transcribe` is the default. OpenAI documents
-   better word error rate, language recognition, and accuracy than its original
-   Whisper models in the
-   [model documentation](https://developers.openai.com/api/docs/models/gpt-4o-transcribe).
-3. **The rewrite pass is optional:** model-based correction is off by default.
-4. **The data path is explicit:** Mac to OpenAI to the active cursor.
-5. **The limits are visible:** HoldType is Mac-only and is not presented as a
-   team cloud platform.
-
-### 4. Work It Fits
-
-Use real before/after examples rather than profession tiles:
-
-- a detailed prompt for a coding agent;
-- a review or explanation that would otherwise be shortened;
-- a message or note dictated without opening another editor;
-- Russian speech inserted as an English reply;
-- a project name corrected with Dictionary spelling context.
-
-### 5. Cost And Data Boundary
-
-Explain the decision in one place:
-
-- HoldType is free and has no recurring fee; OpenAI deducts API usage directly
-  from the user's Platform balance;
-- ChatGPT subscriptions and OpenAI Platform API billing are separate;
-- new OpenAI API accounts may require prepaid credit;
-- the local Billing view currently estimates successful audio transcriptions,
-  not correction or translation requests;
-- audio goes to OpenAI for transcription;
-- optional correction and translation are separate text requests;
-- the key stays in Keychain;
-- completed audio is not retained by default, while a recoverable failed
-  attempt may keep bounded session-only audio for Retry;
-- HoldType has no account, product backend, telemetry, analytics, or cloud sync.
-
-A simple data-flow visual can make this easier to scan:
-
-`Microphone → HoldType → OpenAI transcription → optional text step → active app`
-
-Use one factual, low-friction cost conversion rather than an abstract
-minutes-per-day table:
-
-> About $0.10 covers 100 voice messages at the current estimated OpenAI
-> transcription rate—roughly 17 minutes of recorded speech in total.
-> Repeating the same daily total for 30 days is about $3.
-
-The hero may use the restrained
-`Even 100 a day · ≈ $0.10 · for voice messages` badge and the supporting line
-`A hundred messages is already a very talkative day.` Keep the 17-minute,
-provider-rate, and $3 monthly qualifications in the detailed cost
-section instead of the first viewport. The detailed example must still state
-that optional correction and translation are separate.
-
-### 6. Founder Story
-
-Keep the story specific and short:
-
-- open with `I wanted a dictation tool. Not all the bullshit.`;
-- explain the concrete frustration: another product account, opaque billing,
-  and a mandatory rewrite pipeline between voice and cursor;
-- answer it with the user's API key, direct OpenAI billing, optional correction,
-  native Swift, and no extra account or subscription;
-- HoldType is built and tested through the same Codex-heavy voice workflow;
-- the desk microphone photo belongs here, with a note that special hardware is
-  not required.
-
-### 7. Trust And Proof
-
-Use evidence that can be checked:
-
-- signed and notarized current release;
-- current macOS requirement;
-- public source and release history;
-- short privacy explanation;
-- measured examples with the provider rate, recording length, date, and method;
-- real user quotes only after permission and attribution.
-
-### 8. Download, Setup, And FAQ
-
-Repeat the primary download CTA, then provide the shortest setup path. Homebrew
-is secondary to the disk image.
-
-For people unfamiliar with API keys, add a compact guide directly under setup:
-
-1. explain that an API key is a private OpenAI Platform credential, separate
-   from a ChatGPT login or subscription;
-2. link to OpenAI's official API-key page and Help Center article;
-3. tell the user to create and copy the key, then paste it only into
-   HoldType Settings → OpenAI;
-4. state that the app stores it locally in macOS Keychain and that the website
-   never asks for the secret.
-
-A short third-party video may sit beside these steps, but it is supplementary.
-Show an attributed local facade first and create a privacy-enhanced YouTube
-iframe only after Play. Preserve a normal YouTube link without JavaScript, and
-keep the written path complete if the video is removed, blocked, or outdated.
-
-FAQ should answer:
-
-- Why is an OpenAI API key required?
-- Is ChatGPT Plus enough?
-- What does dictation usually cost?
-- What data is sent to OpenAI?
-- Is audio stored?
-- Which Mac apps work?
-- Which languages are supported?
-- Why are microphone, Accessibility, and Input Monitoring permissions needed?
-- Is HoldType open source or source-available?
-
-## Assets And Evidence Still Needed
-
-Priority 0:
-
-- 10–20 second end-to-end demo in a real target app;
-- hero frame that shows the cursor, floating indicator, and inserted text;
-- a first-run permissions walkthrough beyond the published API-key guide;
-- a documented cost example that states what the estimate includes.
-
-Priority 1:
-
-- anonymized voice-to-text before/after examples;
-- a Dictionary vocabulary example;
-- screenshots for Transcript History, Permissions, and Updates;
-- a list of tested apps and known insertion limitations;
-- measured latency for a few recording lengths;
-- early user quotes or usage stories.
-
-Priority 2:
-
-- a factual comparison page with dated sources;
-- a privacy/data-flow graphic;
-- a small brand kit (the 1200 × 630 Open Graph image now ships with the landing);
-- a decision on English-only versus localized landing pages.
-
-## Claims Policy
-
-Do not publish `3x faster`, `5x faster`, `99% accurate`, `perfect`, `private`,
-or `works in every app` without a documented HoldType-specific method and the
-necessary qualifications.
-
-The launch social preview uses the approved qualitative line `BLAZING-FAST`.
-Do not repurpose it as a comparative benchmark, multiplier, or `fastest` claim.
-
-The landing page may name `gpt-4o-transcribe` once in the honesty contract and
-repeat OpenAI's documented comparison with its original Whisper models. Keep
-the comparison attributable to OpenAI and do not turn it into an unmeasured
-HoldType-specific speed or accuracy claim. Do not claim that a competitor uses
-`whisper-1` or an older Whisper model unless the competitor publishes that fact.
-
-Do not describe 100 dictations as a daily maximum or typical usage, claim that
-HoldType is always cheaper than a flat subscription, say that free and paid
-competitor tiers use different recognition quality, or suggest that competing
-providers deliberately reduce quality. Cost examples must name the reviewed
-provider rate, recording duration, and excluded optional requests in the
-detailed cost section; the hero may use the approved rounded example backed by
-that explanation. Quality preference must not become an absolute `fastest`,
-`best`, or `most accurate` product claim unless a reproducible HoldType
-benchmark exists.
-
-Prefer claims that are already observable:
-
-- native macOS app;
-- own OpenAI API key;
-- no HoldType account or subscription;
-- audio sent to OpenAI for transcription;
-- optional separate correction and translation requests;
-- local Keychain, settings, recovery, and recording-cache controls;
-- source available for inspection.
-
-## First Measurement Pass
-
-The landing page can be validated without adding telemetry to the app. Start
-with GitHub release-download counts, direct feedback, and a small set of
-permissioned user interviews. Measure the page itself only if a separate,
-privacy-conscious website analytics decision is made.
+Keep localized copy, English template fallbacks, metadata, the product
+introduction, and this brief consistent. Preserve download destinations,
+privacy disclosures, setup instructions, and locale routes. Generate the
+static site to validate catalogs and token parity, and check the scoped diff.
+No app implementation, model migration, or app runtime QA is part of this
+marketing change.
