@@ -24,6 +24,19 @@ full-size screenshot lightbox, the language menu, and root-page locale routing.
 Each localized URL contains its complete translated content
 in generated HTML, so JavaScript is not required to read or navigate the site.
 
+## Website analytics
+
+The landing page uses the HoldType Google Analytics 4 property and its web
+stream for `https://holdtype.app` (Measurement ID `G-055LWPDNZX`). The Google tag in `index.html` is shared by
+all ten generated locale pages. It measures website traffic; it does not add
+analytics to the macOS or iOS apps. Google signals and advertising
+personalization are disabled in the tag configuration.
+
+The tag loads asynchronously and can be blocked without affecting the page.
+Google Analytics may store first-party analytics cookies in visitors' browsers.
+After publishing, verify the installed tag and page views in the HoldType
+property's Realtime report.
+
 ## Localization
 
 The public routes are `/` (English and `x-default`), `/es/`, `/de/`, `/fr/`,
@@ -293,8 +306,9 @@ Distribution configuration updated on 2026-08-05:
 
 ## Implementation constraints
 
-There is no framework, package manager, external font, CDN, form, cookie,
-analytics script, tracker, backend, or API route. The standard-library build is
+There is no framework, package manager, external font, form, backend, or API
+route. Google Analytics is the landing page's external analytics script; the
+site is served through DigitalOcean's CDN. The standard-library build is
 bounded by the release tooling. All URLs used for local assets are relative so
 the generated artifact can be served at a domain root or under a static-hosting
 subpath.
