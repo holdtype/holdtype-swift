@@ -56,10 +56,10 @@ Qualification:
 
 Russian headline:
 
-> Молниеносная диктовка. Нативное приложение для Mac.
+> Молниеносная диктовка. Создан для Mac.
 
 Use natural equivalents in all ten supported languages. The approved Russian
-adaptation is `Нативное приложение для Mac`; it names the app explicitly.
+adaptation is `Создан для Mac`. Do not use `нативное` in the Russian headline.
 The fragment `Нативно на Mac` is retired. Other locales retain their accepted
 equivalents of `Built for Mac`. Adapt sentence structure to each language and
 do not propagate a Russian-only wording change to other locales. Keep the platform,
