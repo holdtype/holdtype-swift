@@ -56,7 +56,7 @@ Qualification:
 
 Russian headline:
 
-> Молниеносная диктовка. Специально для Mac.
+> Молниеносная диктовка. Создан для Mac.
 
 Use natural equivalents in all ten supported languages. Translate `Built for
 Mac` as made or designed for Mac, not as a literal fragment about being
