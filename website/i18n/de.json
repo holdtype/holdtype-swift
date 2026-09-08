@@ -49,7 +49,7 @@
       },
       "caption": "Illustration des Diktierens. Die Million steht bisher nur im Text."
     },
-    "support": "Dein {brand.openAI}-Schlüssel. Kein {brand.holdType}-Abo."
+    "support": "Dein {brand.openAI}-Schlüssel. Ohne Abo und Registrierung."
   },
   "workflow": {
     "title": "Derselbe Kurzbefehl in deinen Mac-Apps.",

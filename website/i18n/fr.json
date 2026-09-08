@@ -49,7 +49,7 @@
       },
       "caption": "Illustration de la dictée. Le million n’existe encore que dans le texte."
     },
-    "support": "Votre clé {brand.openAI}. Aucun abonnement {brand.holdType}."
+    "support": "Votre clé {brand.openAI}. Sans abonnement ni inscription."
   },
   "workflow": {
     "title": "Le même raccourci dans vos apps Mac.",

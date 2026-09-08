@@ -49,7 +49,7 @@
       },
       "caption": "Ilustração do ditado. O milhão, por enquanto, só existe no texto."
     },
-    "support": "Sua chave da {brand.openAI}. Sem assinatura do {brand.holdType}."
+    "support": "Sua chave da {brand.openAI}. Sem assinatura nem cadastro."
   },
   "workflow": {
     "title": "O mesmo atalho nos apps do seu Mac.",

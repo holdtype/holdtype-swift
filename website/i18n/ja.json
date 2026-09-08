@@ -49,7 +49,7 @@
       },
       "caption": "音声入力のイメージです。100万ドルは、まだ文章の中だけ。"
     },
-    "support": "自分の{brand.openAI}キー。{brand.holdType}のサブスクは不要。"
+    "support": "自分の{brand.openAI}キーで。サブスクも登録も不要。"
   },
   "workflow": {
     "title": "Macのアプリで、いつものショートカット。",

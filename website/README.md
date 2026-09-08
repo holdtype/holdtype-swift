@@ -191,7 +191,7 @@ The first viewport leads with `Blazing-fast dictation. Built for Mac.` It
 addresses people who already use dictation and want a responsive native tool.
 The headline names the category, speed, and platform; the lead adds translation
 and Quick Fixes in working apps. The support line names the user's OpenAI key
-and the lack of a HoldType subscription. The approved qualitative
+and says that HoldType requires no subscription or sign-up. The approved qualitative
 `Blazing-fast` wording is not a comparative benchmark or a promise of
 instantaneous cloud processing.
 The download qualification and app-price badge distinguish the free app from

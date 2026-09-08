@@ -49,7 +49,7 @@
       },
       "caption": "Dictation illustration. The million is still just text."
     },
-    "support": "Your {brand.openAI} key. No {brand.holdType} subscription."
+    "support": "Your {brand.openAI} key. No subscription or sign-up."
   },
   "workflow": {
     "title": "The same shortcut across your Mac.",

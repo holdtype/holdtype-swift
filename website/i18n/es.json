@@ -49,7 +49,7 @@
       },
       "caption": "Ilustración del dictado. El millón, por ahora, solo está escrito."
     },
-    "support": "Tu clave de {brand.openAI}. Sin suscripción a {brand.holdType}."
+    "support": "Tu clave de {brand.openAI}. Sin suscripción ni registro."
   },
   "workflow": {
     "title": "El mismo atajo en las apps de tu Mac.",

@@ -26,7 +26,7 @@
 </p>
 
 <p align="center">
-  <sub>macOS 14 Sonoma or newer · Free app · No HoldType subscription · OpenAI API usage billed directly</sub>
+  <sub>macOS 14 Sonoma or newer · Free app · No subscription or sign-up · OpenAI API usage billed directly</sub>
 </p>
 
 <p align="center">
@@ -207,7 +207,7 @@ described below.
 <p align="center">
   <a href="https://github.com/holdtype/holdtype-swift/releases/latest/download/HoldType.dmg"><strong>Download HoldType for macOS</strong></a>
   <br>
-  <sub>Free app · No HoldType subscription · OpenAI API usage billed directly · macOS 14+</sub>
+  <sub>Free app · No subscription or sign-up · OpenAI API usage billed directly · macOS 14+</sub>
 </p>
 
 ## iPhone App — Work in Progress

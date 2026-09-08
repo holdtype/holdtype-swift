@@ -49,7 +49,7 @@
       },
       "caption": "语音输入示意。那一百万，目前还只是文字。"
     },
-    "support": "自己的 {brand.openAI} 密钥。无需订阅 {brand.holdType}。"
+    "support": "使用自己的 {brand.openAI} 密钥。无需订阅或注册。"
   },
   "workflow": {
     "title": "在 Mac 的不同应用中，使用同一个快捷键。",

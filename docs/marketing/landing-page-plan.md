@@ -44,7 +44,7 @@ Lead:
 
 Support:
 
-> Your OpenAI key. No HoldType subscription.
+> Your OpenAI key. No subscription or sign-up.
 
 Primary action:
 
@@ -57,6 +57,14 @@ Qualification:
 Russian headline:
 
 > Молниеносная диктовка. Создан для Mac.
+
+Russian support:
+
+> Свой ключ OpenAI. Без подписки и регистрации.
+
+Across all locales, the support line states that HoldType needs no subscription
+or registration. An OpenAI account and separately billed API usage are still
+required; preserve the adjacent API billing qualification and setup guidance.
 
 Use natural equivalents in all ten supported languages. The approved Russian
 adaptation is `Создан для Mac`. Do not use `нативное` in the Russian headline.
