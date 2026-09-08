@@ -1,7 +1,7 @@
 {
   "locale": "ja",
   "meta": {
-    "title": "{brand.holdType} — Mac全体で使える、ひとつのツール",
+    "title": "{brand.holdType} — Macのための高速な音声入力",
     "description": "高速な音声入力、翻訳、Quick FixesをひとつのMacネイティブアプリで。自分の{brand.openAI}キーを使用し、API利用料は別途請求されます。",
     "socialImageAlt": "英語で「Brand-New」「Blazing-Fast」「Native Mac Dictation Tool」と書かれた {brand.holdType} のソーシャルプレビュー画像"
   },
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "ひとつのツールを、Mac全体で。",
-    "lede": "高速な音声入力。翻訳もQuick Fixesも、作業中のアプリで。",
+    "title": "高速な音声入力。Macネイティブ。",
+    "lede": "翻訳もQuick Fixesも、作業中のアプリで。",
     "qualification": "アプリは無料 · {brand.openAI} API の利用料は別途請求 · {fact.minimumOS}",
     "price": {
       "aria": "アプリは無料です。{brand.openAI}へのリクエストには別途料金がかかります。",
@@ -49,7 +49,7 @@
       },
       "caption": "音声入力のイメージです。100万ドルは、まだ文章の中だけ。"
     },
-    "support": "Macネイティブアプリ。自分の{brand.openAI}キー。{brand.holdType}のサブスクは不要。"
+    "support": "自分の{brand.openAI}キー。{brand.holdType}のサブスクは不要。"
   },
   "workflow": {
     "title": "Macのアプリで、いつものショートカット。",

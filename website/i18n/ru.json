@@ -1,7 +1,7 @@
 {
   "locale": "ru",
   "meta": {
-    "title": "{brand.holdType} — один инструмент для всего Mac",
+    "title": "{brand.holdType} — молниеносная диктовка для Mac",
     "description": "Молниеносная диктовка, перевод и Quick Fixes в одном нативном приложении для Mac. Свой ключ {brand.openAI}; запросы API оплачиваются отдельно.",
     "socialImageAlt": "Изображение для соцсетей {brand.holdType} с английскими надписями «Brand-New», «Blazing-Fast» и «Native Mac Dictation Tool»"
   },
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "Один инструмент. Для всего Mac.",
-    "lede": "Молниеносная диктовка. Перевод и Quick Fixes прямо там, где вы работаете.",
+    "title": "Молниеносная диктовка. Нативно на Mac.",
+    "lede": "Перевод и Quick Fixes — прямо в рабочих приложениях.",
     "qualification": "Бесплатное приложение · Использование API {brand.openAI} оплачивается отдельно · {fact.minimumOS}",
     "price": {
       "aria": "Приложение бесплатно. Запросы {brand.openAI} оплачиваются отдельно.",
@@ -49,7 +49,7 @@
       },
       "caption": "Иллюстрация диктовки. Миллион пока только в тексте."
     },
-    "support": "Нативное приложение для Mac. Свой ключ {brand.openAI}. Без подписки {brand.holdType}."
+    "support": "Свой ключ {brand.openAI}. Без подписки {brand.holdType}."
   },
   "workflow": {
     "title": "Привычное сочетание клавиш в приложениях на Mac.",

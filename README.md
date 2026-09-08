@@ -5,11 +5,11 @@
 <h1 align="center">HoldType</h1>
 
 <p align="center">
-  <strong>One tool. Across your Mac.</strong>
+  <strong>Blazing-fast dictation. Built for Mac.</strong>
 </p>
 
 <p align="center">
-  Blazing-fast dictation. Translation and Quick Fixes, right where you work.<br>
+  Translation and Quick Fixes, right where you work.<br>
   One native Mac app, powered by your own OpenAI API key. Hold
   <kbd>Right Command</kbd> to dictate into most Mac apps; use translation
   and Quick Fixes to work with text in place.

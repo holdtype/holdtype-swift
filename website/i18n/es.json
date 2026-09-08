@@ -1,7 +1,7 @@
 {
   "locale": "es",
   "meta": {
-    "title": "{brand.holdType} — una herramienta para todo tu Mac",
+    "title": "{brand.holdType} — dictado ultrarrápido para Mac",
     "description": "Dictado ultrarrápido, traducción y Quick Fixes en una app nativa para Mac. Tu clave de {brand.openAI}; el uso de la API se factura aparte.",
     "socialImageAlt": "Vista previa de {brand.holdType} para redes sociales con el texto en inglés «Brand-New, Blazing-Fast, Native Mac Dictation Tool»"
   },
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "Una herramienta. Para todo tu Mac.",
-    "lede": "Dictado ultrarrápido. Traducción y Quick Fixes justo donde trabajas.",
+    "title": "Dictado ultrarrápido. Nativo para Mac.",
+    "lede": "Traducción y Quick Fixes justo donde trabajas.",
     "qualification": "Aplicación gratuita · El uso de la API de {brand.openAI} se factura por separado · {fact.minimumOS}",
     "price": {
       "aria": "La app es gratis. Las solicitudes a {brand.openAI} se pagan aparte.",
@@ -49,7 +49,7 @@
       },
       "caption": "Ilustración del dictado. El millón, por ahora, solo está escrito."
     },
-    "support": "App nativa para Mac. Tu clave de {brand.openAI}. Sin suscripción a {brand.holdType}."
+    "support": "Tu clave de {brand.openAI}. Sin suscripción a {brand.holdType}."
   },
   "workflow": {
     "title": "El mismo atajo en las apps de tu Mac.",

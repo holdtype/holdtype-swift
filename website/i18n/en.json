@@ -1,7 +1,7 @@
 {
   "locale": "en",
   "meta": {
-    "title": "{brand.holdType} — one tool across your Mac",
+    "title": "{brand.holdType} — blazing-fast dictation for Mac",
     "description": "Blazing-fast dictation. Translation and Quick Fixes in one native Mac app. Your {brand.openAI} key; API usage billed separately.",
     "socialImageAlt": "{brand.holdType} social preview with the words “Brand-New, Blazing-Fast, Native Mac Dictation Tool”"
   },
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "One tool. Across your Mac.",
-    "lede": "Blazing-fast dictation. Translation and Quick Fixes, right where you work.",
+    "title": "Blazing-fast dictation. Built for Mac.",
+    "lede": "Translation and Quick Fixes, right where you work.",
     "qualification": "Free app · {brand.openAI} API usage billed separately · {fact.minimumOS}",
     "price": {
       "aria": "The app is free. {brand.openAI} requests are billed separately.",
@@ -49,7 +49,7 @@
       },
       "caption": "Dictation illustration. The million is still just text."
     },
-    "support": "Native Mac app. Your {brand.openAI} key. No {brand.holdType} subscription."
+    "support": "Your {brand.openAI} key. No {brand.holdType} subscription."
   },
   "workflow": {
     "title": "The same shortcut across your Mac.",

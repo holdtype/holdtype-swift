@@ -1,7 +1,7 @@
 {
   "locale": "de",
   "meta": {
-    "title": "{brand.holdType} — ein Tool für deinen ganzen Mac",
+    "title": "{brand.holdType} — blitzschnell diktieren auf dem Mac",
     "description": "Blitzschnelles Diktieren, Übersetzen und Quick Fixes in einer nativen Mac-App. Dein {brand.openAI}-Schlüssel; API-Nutzung wird separat abgerechnet.",
     "socialImageAlt": "Social-Media-Vorschau von {brand.holdType} mit dem englischen Text „Brand-New, Blazing-Fast, Native Mac Dictation Tool“"
   },
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "Ein Tool. Für deinen ganzen Mac.",
-    "lede": "Blitzschnelles Diktieren. Übersetzen und Quick Fixes direkt dort, wo du arbeitest.",
+    "title": "Blitzschnell diktieren. Nativ auf dem Mac.",
+    "lede": "Übersetzen und Quick Fixes direkt dort, wo du arbeitest.",
     "qualification": "Kostenlose App · API-Nutzung von {brand.openAI} wird separat berechnet · {fact.minimumOS}",
     "price": {
       "aria": "Die App ist kostenlos. Anfragen an {brand.openAI} werden separat berechnet.",
@@ -49,7 +49,7 @@
       },
       "caption": "Illustration des Diktierens. Die Million steht bisher nur im Text."
     },
-    "support": "Native Mac-App. Dein {brand.openAI}-Schlüssel. Kein {brand.holdType}-Abo."
+    "support": "Dein {brand.openAI}-Schlüssel. Kein {brand.holdType}-Abo."
   },
   "workflow": {
     "title": "Derselbe Kurzbefehl in deinen Mac-Apps.",

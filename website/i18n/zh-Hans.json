@@ -1,7 +1,7 @@
 {
   "locale": "zh-Hans",
   "meta": {
-    "title": "{brand.holdType} — 一个工具，贯穿整个 Mac",
+    "title": "{brand.holdType} — Mac 极速语音输入",
     "description": "极速语音输入、翻译和 Quick Fixes，集于一个 Mac 原生应用。使用自己的 {brand.openAI} 密钥，API 用量另行计费。",
     "socialImageAlt": "带有英文文字“Brand-New”“Blazing-Fast”和“Native Mac Dictation Tool”的 {brand.holdType} 社交媒体预览图"
   },
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "一个工具，贯穿整个 Mac。",
-    "lede": "极速语音输入。翻译和 Quick Fixes，就在当前工作的位置。",
+    "title": "极速语音输入。Mac 原生体验。",
+    "lede": "翻译和 Quick Fixes，就在当前工作的位置。",
     "qualification": "应用免费 · {brand.openAI} API 用量另行计费 · {fact.minimumOS}",
     "price": {
       "aria": "应用免费。{brand.openAI} 请求单独计费。",
@@ -49,7 +49,7 @@
       },
       "caption": "语音输入示意。那一百万，目前还只是文字。"
     },
-    "support": "Mac 原生应用。自己的 {brand.openAI} 密钥。无需订阅 {brand.holdType}。"
+    "support": "自己的 {brand.openAI} 密钥。无需订阅 {brand.holdType}。"
   },
   "workflow": {
     "title": "在 Mac 的不同应用中，使用同一个快捷键。",

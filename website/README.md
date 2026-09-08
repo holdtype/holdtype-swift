@@ -187,12 +187,13 @@ text links. Shadows are reserved for the hero editor and real product windows.
 - `320–620px`: stacked actions and workflow, single-column data flow and FAQ,
   16px page gutters, and full-width primary CTAs.
 
-The first viewport leads with `One tool. Across your Mac.` It addresses people
-who already use dictation and want one responsive native tool across their
-working apps. The lead brings dictation, translation, and Quick Fixes together;
-the support line names the native Mac app, the user's OpenAI key, and the lack
-of a HoldType subscription. The approved qualitative `Blazing-fast` wording is
-not a comparative benchmark or a promise of instantaneous cloud processing.
+The first viewport leads with `Blazing-fast dictation. Built for Mac.` It
+addresses people who already use dictation and want a responsive native tool.
+The headline names the category, speed, and platform; the lead adds translation
+and Quick Fixes in working apps. The support line names the user's OpenAI key
+and the lack of a HoldType subscription. The approved qualitative
+`Blazing-fast` wording is not a comparative benchmark or a promise of
+instantaneous cloud processing.
 The download qualification and app-price badge distinguish the free app from
 separately paid API requests. The hero has one action: the free macOS download.
 Source inspection remains in the footer. No unsupported metric, comparative

@@ -1,7 +1,7 @@
 {
   "locale": "fr",
   "meta": {
-    "title": "{brand.holdType} — un outil pour tout votre Mac",
+    "title": "{brand.holdType} — dictée ultrarapide pour Mac",
     "description": "Dictée ultrarapide, traduction et Quick Fixes dans une app Mac native. Votre clé {brand.openAI} ; utilisation de l’API facturée séparément.",
     "socialImageAlt": "Aperçu de {brand.holdType} pour les réseaux sociaux avec le texte en anglais « Brand-New, Blazing-Fast, Native Mac Dictation Tool »"
   },
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "Un outil. Pour tout votre Mac.",
-    "lede": "Dictée ultrarapide. Traduction et Quick Fixes, là où vous travaillez.",
+    "title": "Dictée ultrarapide. Conçue pour Mac.",
+    "lede": "Traduction et Quick Fixes, là où vous travaillez.",
     "qualification": "Application gratuite · Utilisation de l’API {brand.openAI} facturée séparément · {fact.minimumOS}",
     "price": {
       "aria": "L’app est gratuite. Les requêtes {brand.openAI} sont facturées séparément.",
@@ -49,7 +49,7 @@
       },
       "caption": "Illustration de la dictée. Le million n’existe encore que dans le texte."
     },
-    "support": "App Mac native. Votre clé {brand.openAI}. Aucun abonnement {brand.holdType}."
+    "support": "Votre clé {brand.openAI}. Aucun abonnement {brand.holdType}."
   },
   "workflow": {
     "title": "Le même raccourci dans vos apps Mac.",

@@ -1,7 +1,7 @@
 {
   "locale": "ar",
   "meta": {
-    "title": "{brand.holdType} — أداة واحدة في مختلف تطبيقات Mac",
+    "title": "{brand.holdType} — إملاء فائق السرعة لـMac",
     "description": "إملاء فائق السرعة وترجمة وQuick Fixes في تطبيق أصلي واحد لـMac. بمفتاح {brand.openAI} الخاص بك؛ استخدام API يُحاسب عليه بشكل منفصل.",
     "socialImageAlt": "صورة معاينة لـ {brand.holdType} على الشبكات الاجتماعية تتضمن العبارات الإنجليزية «Brand-New» و«Blazing-Fast» و«Native Mac Dictation Tool»"
   },
@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "أداة واحدة. في مختلف تطبيقات Mac.",
-    "lede": "إملاء فائق السرعة. ترجمة وQuick Fixes حيث تعمل مباشرةً.",
+    "title": "إملاء فائق السرعة. تطبيق أصلي لـMac.",
+    "lede": "ترجمة وQuick Fixes حيث تعمل مباشرةً.",
     "qualification": "تطبيق مجاني · تُحاسب على استخدام API من {brand.openAI} بصورة منفصلة · {fact.minimumOS}",
     "price": {
       "aria": "التطبيق مجاني. طلبات {brand.openAI} تُحاسب بشكل منفصل.",
@@ -49,7 +49,7 @@
       },
       "caption": "رسم توضيحي للإملاء. المليون ما زال كلامًا مكتوبًا."
     },
-    "support": "تطبيق أصلي لـMac. مفتاح {brand.openAI} الخاص بك. بلا اشتراك في {brand.holdType}."
+    "support": "مفتاح {brand.openAI} الخاص بك. بلا اشتراك في {brand.holdType}."
   },
   "workflow": {
     "title": "الاختصار نفسه في تطبيقات Mac.",

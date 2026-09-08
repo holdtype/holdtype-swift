@@ -36,15 +36,15 @@ comparison material, not the headline, founder story, or product definition.
 
 Headline:
 
-> One tool. Across your Mac.
+> Blazing-fast dictation. Built for Mac.
 
 Lead:
 
-> Blazing-fast dictation. Translation and Quick Fixes, right where you work.
+> Translation and Quick Fixes, right where you work.
 
 Support:
 
-> Native Mac app. Your OpenAI key. No HoldType subscription.
+> Your OpenAI key. No HoldType subscription.
 
 Primary action:
 
@@ -56,11 +56,15 @@ Qualification:
 
 Russian headline:
 
-> Один инструмент. Для всего Mac.
+> Молниеносная диктовка. Нативно на Mac.
 
 Use natural equivalents in all ten supported languages. Keep the platform,
 API-key requirement, separate API billing, and compatibility boundaries clear.
-The cross-app headline does not promise compatibility with every text field.
+The headline must name dictation, speed, and the Mac platform. The previous
+`One tool. Across your Mac.` / `Один инструмент. Для всего Mac.` slogan is
+retired: it was too broad and did not identify what the tool does. Cross-app
+use and Quick Fixes support the headline; they do not imply a general-purpose
+tool for every Mac task or compatibility with every text field.
 
 ## What Backs The Position
 
@@ -87,8 +91,8 @@ headlines or repeated promotional claims.
 
 ## Page Order
 
-1. Hero: the shared tool, its three capabilities, native Mac identity, key and
-   billing qualification, and one download action.
+1. Hero: blazing-fast dictation and native Mac identity, followed by translation
+   and Quick Fixes, the key and billing qualification, and one download action.
 2. Three-action band: dictation in the current app, Quick Fixes for existing
    text, and translation on its own shortcut. State the most-apps boundary.
 3. Quick Fixes screenshots, followed by translation/vocabulary and Last Result
