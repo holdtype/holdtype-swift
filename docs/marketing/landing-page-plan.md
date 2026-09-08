@@ -165,5 +165,9 @@ Keep localized copy, English template fallbacks, metadata, the product
 introduction, and this brief consistent. Preserve download destinations,
 privacy disclosures, setup instructions, and locale routes. Generate the
 static site to validate catalogs and token parity, and check the scoped diff.
+Commit the task-owned changes on master and immediately push to origin/master
+without waiting for a separate publication request. Wait for the automatic
+deployment and verify the changed content on https://holdtype.app/ before
+reporting completion. Local previews and local commits are intermediate work.
 No app implementation, model migration, or app runtime QA is part of this
 marketing change.

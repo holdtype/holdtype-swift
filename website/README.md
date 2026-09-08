@@ -77,10 +77,16 @@ repository inputs or documentation and are deliberately excluded from public
 artifacts. App Platform runs `build_site.py` and publishes only generated HTML,
 shared CSS/JavaScript/assets, `sitemap.xml`, and `robots.txt`.
 
-### Publish explicitly
+### Publish after every change
 
-App Platform normally deploys a committed landing change after it reaches
-`master`. To force a rebuild and verify the deployed page:
+After the required checks, commit the task-owned changes on `master` and
+immediately push to `origin/master`. Publication is part of the task; a
+separate user request is not required. App Platform deploys automatically
+after the push. Verify the changed content on `https://holdtype.app/` before
+reporting completion. A local preview is not the delivered site.
+
+If a manual rebuild is needed, the existing command deploys and verifies the
+site:
 
 ```sh
 scripts/release/publish_digitalocean.py

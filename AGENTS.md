@@ -136,9 +136,13 @@ organization under `website/`, `marketing/`, and `docs/marketing/`.
   asks for that verification.
 - Use a quick artifact check when useful, such as image dimensions, metadata,
   or `git diff --check`.
-- When the user says to publish, make the requested change, create the scoped
-  checkpoint commit on `master`, and push it. If a safe direct `master` push is
-  impossible, follow the Master-Only Git Policy and ask the user.
+- After every completed change, create the scoped checkpoint commit on
+  `master` and immediately push it. The user does not need to separately ask
+  for publication. For landing changes, wait for the configured automatic
+  deployment and verify the changed content on `https://holdtype.app/` before
+  reporting completion; a local preview or commit alone is not delivery.
+  If a safe direct `master` push is impossible, follow the Master-Only Git
+  Policy and ask the user.
 
 ## Backlog Development
 
@@ -189,6 +193,13 @@ response.
 Automation runs and bounded worker iterations follow the same rule: finish
 required status updates and verification, then create a scoped checkpoint
 commit before reporting completion or handing off.
+
+Immediately push every task checkpoint to `origin/master` after the required
+checks. This is standing user authorization; do not wait for a separate push
+request or leave completed work only in a local commit. A task that changes
+files is not complete until the safe fast-forward push succeeds. An explicit
+user instruction to keep a particular task local or not to push overrides this
+default. Preserve the Master-Only Git Policy and never force-push.
 
 ## Local Engineering Boundary
 
