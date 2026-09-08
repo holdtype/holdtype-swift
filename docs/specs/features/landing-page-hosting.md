@@ -5,7 +5,7 @@
 - Domain ID: `holdtype.website`
 - Status: Active
 - Stability: Accepted
-- Contract revision: `holdtype.website.hosting@1`
+- Contract revision: `holdtype.website.hosting@2`
 - Read when: public landing behavior, DigitalOcean deployment, Pages/appcast coexistence, DNS, or website QA is in scope.
 - Do not read when: app behavior or localization routing alone is in scope.
 - Maximum size: 100 physical lines.

@@ -15,16 +15,6 @@
       "translate": false,
       "direction": "ltr"
     },
-    "model.gpt4oTranscribe": {
-      "value": "gpt-4o-transcribe",
-      "translate": false,
-      "direction": "ltr"
-    },
-    "model.whisper": {
-      "value": "Whisper",
-      "translate": false,
-      "direction": "ltr"
-    },
     "brand.openAIPlatform": {
       "value": "OpenAI Platform",
       "translate": false,
@@ -210,7 +200,7 @@
       "direction": "ltr"
     },
     "pricing.dailyPrice": {
-      "value": "$0.10",
+      "value": "$0.08",
       "translate": false,
       "direction": "ltr"
     },
@@ -225,7 +215,7 @@
       "direction": "ltr"
     },
     "pricing.monthlyPrice": {
-      "value": "$3",
+      "value": "$2.30",
       "translate": false,
       "direction": "ltr"
     },
@@ -241,6 +231,21 @@
     },
     "video.year": {
       "value": "2026",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "model.transcription": {
+      "value": "gpt-transcribe",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "pricing.appPrice": {
+      "value": "$0",
+      "translate": false,
+      "direction": "ltr"
+    },
+    "pricing.transcriptionRate": {
+      "value": "$0.0045",
       "translate": false,
       "direction": "ltr"
     }

@@ -1,8 +1,8 @@
 {
   "locale": "zh-Hans",
   "meta": {
-    "title": "{brand.holdType} — 最坦诚的 Wispr Flow“克隆”",
-    "description": "{brand.holdType} 是最坦诚的 Wispr Flow“克隆”：一款使用你自己的 {brand.openAI} API 密钥的原生 {brand.macOS} 语音输入工具，无需订阅 {brand.holdType}，也不会强制二次改写。",
+    "title": "{brand.holdType} — 在写字的地方，直接开口",
+    "description": "在 Mac 应用里口述消息、邮件和提示词，直接翻译、修改文本。{brand.holdType} 免费，{brand.openAI} API 用量单独计费。",
     "socialImageAlt": "带有英文文字“Brand-New”“Blazing-Fast”和“Native Mac Dictation Tool”的 {brand.holdType} 社交媒体预览图"
   },
   "common": {
@@ -24,14 +24,14 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "最坦诚的 Wispr Flow“克隆”。",
-    "lede": "无需注册账号。你的语音输入，完全由你掌控。你付费给 OpenAI，而不是 {brand.holdType}。",
+    "title": "在写字的地方，直接开口。",
+    "lede": "{brand.holdType} 将语音转成文字，插入大多数 Mac 应用。使用时需要你自己的 {brand.openAI} API 密钥。",
     "qualification": "应用免费 · {brand.openAI} API 用量另行计费 · {fact.minimumOS}",
     "price": {
-      "aria": "按当前预估转写费率，{pricing.dailyDictations} 次听写约需 {pricing.dailyPrice}。",
-      "kicker": "{pricing.dailyDictations} 次听写",
-      "value": "约 {pricing.dailyPrice}",
-      "suffix": "按当前预估费率"
+      "aria": "应用免费。{brand.openAI} 请求单独计费。",
+      "kicker": "应用价格",
+      "value": "{pricing.appPrice}",
+      "suffix": "{brand.openAI} 请求单独计费"
     },
     "demo": {
       "editorIllustration": "一份无比现实的创业计划",
@@ -47,7 +47,7 @@
         "transcribing": "正在转写",
         "inserted": "计划已插入。很简单。"
       },
-      "caption": "这是 {brand.holdType} 工作流程示意，不是实录演示。Codex 并没有真的赚到 100 万美元。至少现在还没有。"
+      "caption": "语音输入示意。那一百万，目前还只是文字。"
     }
   },
   "workflow": {
@@ -73,88 +73,88 @@
     }
   },
   "reasons": {
-    "a11yTitle": "在 {brand.holdType} 这里，“坦诚”意味着什么",
+    "a11yTitle": "{brand.holdType} 如何工作",
     "subscription": {
-      "title": "你的 OpenAI 密钥。直接计费。",
-      "body": "{brand.openAI} 直接向与你的密钥关联的 {brand.openAIPlatform} 账户计费。{brand.holdType} 不收取月费。"
+      "title": "用自己的 {brand.openAI} 密钥",
+      "body": "请求费用直接通过 {brand.openAIPlatform} 支付。{brand.holdType} 没有订阅费。"
     },
     "model": {
-      "title": "{model.gpt4oTranscribe} 模型",
-      "body": "{brand.openAI} 表示，与早期 {model.whisper} 模型相比，该模型的词错误更少，语言识别和准确性也更高。"
+      "title": "{model.transcription} 语音识别",
+      "body": "用于多语言语音转写的 {brand.openAI} 模型。词典可提供人名和专业术语的拼写提示。"
     },
     "openAI": {
-      "title": "无需强制进行第二遍处理",
-      "body": "默认情况下，转写结果无需再经过另一个模型处理。仅在需要时开启纠错。"
+      "title": "需要时再开启额外纠错",
+      "body": "转写后，{brand.holdType} 可以向 {brand.openAI} 另发请求来修正错误。此选项默认关闭。"
     }
   },
   "useCases": {
-    "title": "一款语音输入工具，而不是 AI 写作平台。",
-    "intro": "{brand.holdType} 只做三件实用的事：在光标处插入文字、按需翻译，以及为姓名和技术术语提供拼写上下文。",
+    "title": "提示词、邮件、消息，开口就能写。",
+    "intro": "直接在文本框里口述，也可以在原处使用翻译和文本编辑命令。",
     "aiPrompts": {
-      "title": "直接在工作的位置听写",
-      "body": "直接在 {brand.codex}、{brand.claude} 或 {brand.chatGPT} 中听写提示词。无需中间编辑器，也不要求二次改写。"
+      "title": "把任务说清楚",
+      "body": "将任务、背景和细节直接口述到 {brand.codex}、{brand.claude} 或 {brand.chatGPT}。"
     },
     "everyday": {
-      "title": "无需中间编辑器",
-      "body": "在光标处直接听写邮件、评论、文档、聊天和笔记。"
+      "title": "说出回复，发出文字",
+      "body": "聊天回复、邮件或笔记会出现在光标所在的应用里。"
     },
     "bilingual": {
-      "title": "需要时才翻译",
-      "body": "需要翻译时再使用翻译快捷键。普通听写不会发起翻译请求。"
+      "title": "用另一种语言写",
+      "body": "用熟悉的语言口述回复。独立的快捷键会将其翻译成设置中选定的语言。"
     }
   },
   "features": {
     "a11yTitle": "产品功能",
-    "appUiLanguageNote": "当前 {brand.holdType} 应用和产品截图中的界面均为英文。",
+    "appUiLanguageNote": "应用界面目前为英文。",
     "translation": {
       "label": "语言与词汇",
-      "title": "只有你提出要求时才翻译。",
-      "body1": "选择目标语言，然后使用 {keyboard.translationShortcut}。翻译会在转写后作为独立的文本请求运行。",
-      "body2": "{appUi.localDictionary} 中的条目会为姓名、项目术语和文件名提供拼写上下文，并随转写请求一并发送。",
+      "title": "用一种语言说，用另一种语言写。",
+      "body1": "在设置中选择目标语言，按住 {keyboard.translationShortcut}。{brand.holdType} 会转写语音、翻译文本，再插入结果。",
+      "body2": "把人名、项目名称和专业术语加入 {appUi.localDictionary}，为语音识别提供拼写提示。",
       "imageAlt": "显示翻译快捷键和目标语言控件的 {brand.holdType} {appUi.translation} 设置",
-      "caption": "真实的 {brand.holdType} {appUi.translation} 设置。在手机上，可以横向滑动聚焦的裁剪区域进行查看。",
+      "caption": "{appUi.translation} 设置。在手机上可横向滚动图片。",
       "lightboxCaption": "{brand.holdType} {appUi.translation} 设置"
     },
     "menu": {
       "imageAlt": "{brand.holdType} 菜单栏弹出窗口，包含转写、翻译、{appUi.pasteLastResult}、历史记录、设置和退出操作",
-      "imageCaption": "真实的菜单栏控件，包括通过 {appUi.lastResult} 恢复文本。",
+      "imageCaption": "在菜单栏中使用语音输入、翻译、历史记录和设置。",
       "label": "恢复与控制",
-      "title": "即使插入失败，也会保留转写结果。",
-      "body1": "即使插入失败，确认后的转写文本仍会保留在 {appUi.lastResult} 中。使用 {keyboard.pasteShortcut} 即可粘贴，且不会替换 {brand.macOS} 系统剪贴板中的内容。",
-      "body2": "基于 {brand.openAI} 模型的纠错默认关闭。听写、翻译、恢复、历史记录和设置都集中在菜单栏中。"
+      "title": "上次的结果，还能再次插入。",
+      "body1": "开启 {appUi.lastResult} 保存后，可用 {keyboard.pasteShortcut} 再次插入文本。{brand.macOS} 剪贴板里的内容会保留。",
+      "body2": "历史记录将最近的转写保存在这台 Mac 上，可从菜单栏打开。"
     }
   },
   "privacy": {
-    "label": "无需 HoldType 账户或后端",
-    "title": "你的 Mac → {brand.openAI} → 光标。",
-    "intro": "{brand.holdType} 没有账户系统、产品后端、遥测、分析或云同步。音频会使用你提供的 API 密钥直接发送给 {brand.openAI}。",
+    "label": "数据处理与存储",
+    "title": "音频直接发送到 {brand.openAI}。",
+    "intro": "{brand.holdType} 使用你的 API 密钥，将 Mac 上的录音发送到 {brand.openAI} 转写。{brand.holdType} 没有自己的语音处理服务器。应用不含使用情况分析或云同步。",
     "flow": {
-      "aria": "明确展示 {brand.holdType} 的数据路径",
+      "aria": "直接发送到 {brand.openAI}",
       "microphone": "麦克风",
       "holdType": "{brand.holdType}",
       "openAI": "{brand.openAI} 转写",
       "activeApp": "当前应用"
     },
     "dataPath": {
-      "title": "限制也清清楚楚",
+      "title": "保存在 Mac 上",
       "items": {
-        "apiKey": "你的 API 密钥会保存在 {brand.macOSKeychain} 中。",
-        "audio": "你的 Mac → {brand.openAI} → 光标。",
-        "optionalTextRequests": "二次改写是可选的。仅在你提出要求时才翻译。",
-        "failedAudio": "发生可恢复的失败时，可能会在当前会话内保留有限的音频供 {appUi.retry} 使用；默认不保留已完成的音频。",
-        "recordingCache": "HoldType 仅适用于 Mac，也不假装自己是团队云平台；可选的录音缓存只保存在本地。"
+        "apiKey": "API 密钥保存在 {brand.macOSKeychain} 中。",
+        "audio": "Mac → {brand.openAI} → 应用中的文字。",
+        "optionalTextRequests": "使用纠错、翻译和 Quick Fixes 时，文本会发送到 {brand.openAI}。",
+        "failedAudio": "用于在出错或中断后恢复的音频可能保留在 Mac 本地，包括重启应用之后。",
+        "recordingCache": "设置、词典和历史记录都保存在本地。普通录音的保留功能默认关闭，可单独开启。"
       }
     },
     "billing": {
-      "title": "账单有明确来源",
-      "body": "{brand.holdType} 使用你提供的密钥。{brand.openAI} 向关联的 {brand.openAIPlatform} 账户计费；{brand.holdType} 不收取月费，也不会通过产品账户统计听写用量。",
-      "exampleTitle": "{pricing.dailyDictations} 次听写，约 {pricing.dailyPrice}。",
-      "exampleBody": "{pricing.dailyDictations} 次听写合计约为 {pricing.recordedMinutes} 分钟的录音。连续 {pricing.daysInMonth} 天保持相同用量，预估转写费用约为 {pricing.monthlyPrice}。",
-      "note": "{appUi.billing} 页面是在本地对成功音频转写量作出的估算。它不是 {brand.openAI} 发票，也不包含修正或翻译请求。",
+      "title": "应用免费，请求费用直接付给 {brand.openAI}。",
+      "body": "费用从 API 密钥关联的 {brand.openAIPlatform} 余额中扣除，取决于模型和使用量。",
+      "exampleTitle": "在这个例子中，{pricing.dailyDictations} 次口述约需 {pricing.dailyPrice}。",
+      "exampleBody": "如果 {pricing.dailyDictations} 次口述总计 {pricing.recordedMinutes} 分钟，按默认模型每分钟 {pricing.transcriptionRate} 的费率，转写约需 {pricing.dailyPrice}。每天使用相同的量，持续 {pricing.daysInMonth} 天，约需 {pricing.monthlyPrice}。纠错、翻译和 Quick Fixes 另行计费。",
+      "note": "{appUi.billing} 估算这台 Mac 上的转写、纠错、翻译和 Fixes 费用。费率未知的模型可能导致估算不完整。实际扣款和余额可在 {brand.openAIPlatform} 查看。",
       "pricingLink": "{brand.openAI} API 定价",
-      "imageAlt": "显示本地转写用量估算的 {brand.holdType} {appUi.billing} 设置",
-      "imageCaption": "在手机上，可以横向滑动同一张真实 {appUi.billing} 截图中聚焦的裁剪区域。",
-      "lightboxCaption": "{brand.holdType} {appUi.billing} 设置和本地用量估算"
+      "imageAlt": "{brand.holdType} 的 {appUi.billing} 界面，展示本地费用估算示例",
+      "imageCaption": "{appUi.billing} 界面示例。在手机上可横向滚动图片。",
+      "lightboxCaption": "{appUi.billing}：本地费用估算示例"
     }
   },
   "founder": {
@@ -162,9 +162,9 @@
     "imageCaption": "无需专用录音设备。",
     "label": "我为什么开发 {brand.holdType}",
     "title": "我想要的只是个语音输入工具。不是一堆狗屁玩意儿。",
-    "body1": "我想知道钱到底付给了谁，也想知道为什么每次转写都非得再由第二个模型改写一遍。我不想在自己的声音和光标之间再塞进一个黑盒。",
-    "body2": "在日常工作中，{brand.openAI} 转写最常给出我愿意信任的第一版结果。可选的二次改写会一直关闭，除非我亲自开启。",
-    "body3": "{brand.holdType} 就是我为此开发的原生 Swift 应用：使用你自己的 API 密钥，由 OpenAI 直接计费，无需产品账户，也没有月费。"
+    "body1": "我想要一种明白直接的口述方式：按住一个键，说话，文字就出现在我正在写字的地方。",
+    "body2": "在我的工作中，{brand.openAI} 的识别结果通常第一次就能用。因此，{brand.holdType} 默认关闭额外纠错。需要时，我可以单独开启。",
+    "body3": "我用 Swift 写了 {brand.holdType}。应用免费，用我自己的 API 密钥，请求费用直接付给 {brand.openAI}。"
   },
   "install": {
     "label": "开始使用",
@@ -177,8 +177,8 @@
     },
     "allReleases": "所有版本",
     "homebrew": {
-      "title": "更喜欢使用 {brand.homebrew}？",
-      "body": "项目 Tap 安装的磁盘映像与 {brand.githubReleases} 上发布的版本相同。",
+      "title": "通过 {brand.homebrew} 安装",
+      "body": "{brand.homebrew} 安装的版本与下载链接提供的版本相同。",
       "copyAria": "复制 {brand.homebrew} 安装命令",
       "copyIdle": "复制",
       "copyCopied": "已复制",
@@ -189,9 +189,9 @@
     }
   },
   "apiKeyGuide": {
-    "label": "第一次使用 API 密钥？",
+    "label": "连接 {brand.openAI}",
     "title": "创建 API 密钥，然后在设置中添加。",
-    "intro": "API 密钥是一种私密凭证，让 {brand.holdType} 可以通过你的 {brand.openAIPlatform} 账户发送音频进行转写。它与你的 {brand.chatGPT} 登录信息和订阅相互独立。",
+    "intro": "API 密钥将 {brand.holdType} 连接到你的 {brand.openAIPlatform} 账户。在 {brand.openAI} 网站创建密钥，然后保存在应用设置中。{brand.chatGPT} 订阅不包含 API 用量。",
     "steps": {
       "openPage": {
         "parts": [
@@ -217,7 +217,7 @@
     "instructionsAction": "官方说明",
     "note": "{brand.openAI} 只会在创建时显示完整密钥。请妥善保管，并且只将它粘贴到 {brand.holdType} 中；应用会把密钥存储在本机的 {brand.macOSKeychain} 中。API 计费与 {brand.chatGPT} 相互独立，新的 {brand.openAIPlatform} 账户可能需要预付额度。",
     "video": {
-      "iframeTitle": "如何创建 {brand.chatGPT} API 密钥（{video.year} 年教程）",
+      "iframeTitle": "如何创建 {brand.openAI} API 密钥：{video.year} 年教程",
       "playAria": "播放时长 {video.roundedMinutes} 分钟的 API 密钥教程",
       "kicker": "{video.roundedMinutes} 分钟指南",
       "title": "查看如何创建 {brand.openAI} API 密钥",
@@ -245,9 +245,9 @@
   },
   "quickFixes": {
     "label": "Quick Fixes",
-    "title": "用语音输入文本，再在同一输入框中完成修改。",
-    "body1": "Quick Fixes 可对选中的文本或当前输入框中的内容运行提示词，无需将文本粘贴到 {brand.chatGPT}，再把结果复制回来。",
-    "body2": "内置操作可用于纠错、缩短、润色、总结或翻译。还可以为格式化及其他经常重复的编辑添加自定义提示词。",
+    "title": "缩短、翻译、整理成列表。",
+    "body1": "选中文本，在 Quick Fixes 中选择操作。在支持的文本框中，结果会直接替换应用里的选中内容。",
+    "body2": "将反复使用的编辑操作保存为自己的命令，例如缩短文本或转成 Markdown 格式。",
     "galleryAria": "Quick Fixes 截图",
     "popup": {
       "caption": "通过全局快捷键打开的 Quick Fixes 菜单。",
@@ -255,15 +255,15 @@
       "alt": "带搜索和内置文本操作的 Quick Fixes 菜单"
     },
     "manage": {
-      "caption": "内置 Fix 和自定义 Fix 集中在同一列表中。",
-      "lightboxCaption": "内置 Fix 和自定义 Fix 集中在同一列表中。",
+      "caption": "内置操作和自定义命令。",
+      "lightboxCaption": "内置操作和自定义命令。",
       "alt": "已选择自定义 Markdown 提示词的 Manage Fixes 窗口"
     }
   },
   "mobile": {
-    "label": "也有 {brand.iPhone} 版",
-    "title": "{brand.holdType} {brand.iPhone} 版的源代码已经公开。",
-    "body": "应用和 {appUi.holdTypeKeyboard} 尚未上架 {brand.appStore}。发布工作仍在进行中，但你现在就可以在 {brand.xcode} 中自行构建并运行。",
+    "label": "{brand.iPhone} 版",
+    "title": "{brand.iPhone} 版 {brand.holdType} 正在开发中。",
+    "body": "应用和 {appUi.holdTypeKeyboard} 已可通过 {brand.xcode} 从源码构建，目前尚未在 {brand.appStore} 发布。",
     "sourceAction": "在 {brand.github} 上打开 {brand.iPhone} 版源代码",
     "status": "开发中 · 尚未上架 {brand.appStore}",
     "galleryAria": "{brand.holdType} {brand.iPhone} 版截图",
@@ -292,7 +292,6 @@
   },
   "faq": {
     "title": "常见问题",
-    "intro": "简要回答安装前需要了解的重要问题。",
     "apiKeyRequired": {
       "question": "为什么需要 {brand.openAI} API 密钥？",
       "answer": {
@@ -319,19 +318,19 @@
     },
     "cost": {
       "question": "听写费用是多少？",
-      "answer": "{brand.holdType} 不收取固定费用。{brand.openAI} 会从你的 {brand.openAIPlatform} 余额中扣除 API 使用费，新 API 账户可能需要预付额度。{brand.holdType} 的 {appUi.billing} 页面会估算这台 {brand.mac} 上成功完成的转写；可选的修正和翻译属于独立请求。"
+      "answer": "{brand.holdType} 应用免费。请求费用从你的 {brand.openAIPlatform} 余额中扣除，开始使用前可能需要充值。{appUi.billing} 显示的是本地费用估算，并非账户的完整账单。"
     },
     "dataSent": {
       "question": "哪些数据会发送给 {brand.openAI}？",
-      "answer": "音频会发送用于转写。可选的修正和翻译会分别发送转写文本；启用可选的邻近上下文时，还会随转写请求发送一小段摘录。"
+      "answer": "转写时会发送音频。纠错、翻译和 Quick Fixes 会向 {brand.openAI} 发送文本和指令。如果开启光标附近的上下文，转写请求还会附带光标周围的一小段文本。"
     },
     "audioStorage": {
       "question": "音频会被存储吗？",
-      "answer": "默认不会保留已处理完成的音频。若发生可恢复的失败，可能会在当前会话期间保留有限的音频以供 {appUi.retry} 使用；可选的录音缓存仅保存在本地，并由用户控制。"
+      "answer": "普通已完成录音的保留功能默认关闭。用于在出错或中断后恢复的音频可能在重启后继续保存在本地。额外的录音存储可在设置中开启，同样保存在本地。"
     },
     "compatibleApps": {
       "question": "支持哪些 {brand.mac} 应用？",
-      "answer": "{brand.holdType} 通过 {brand.macOS} 辅助功能支持，将确认后的文本插入大多数 {brand.mac} 应用的光标位置。如果交接失败，{appUi.lastResult} 仍会保留，方便恢复。"
+      "answer": "{brand.holdType} 通过 {brand.macOS} 辅助功能将文本插入大多数 Mac 应用。开启 {appUi.lastResult} 保存后，如果首次插入失败，可以再次插入结果。"
     },
     "languages": {
       "question": "支持哪些语言？",
@@ -347,8 +346,8 @@
     }
   },
   "finalCta": {
-    "title": "你的语音输入，完全由你掌控。",
-    "body": "应用免费 · 你的 {brand.openAI} API 密钥 · 无 {brand.holdType} 订阅 · {fact.minimumOS}"
+    "title": "下一条消息，试着说出来。",
+    "body": "应用免费 · {brand.openAI} 请求单独计费 · {fact.minimumOS}"
   },
   "footer": {
     "description": "原生 {brand.macOS} 语音输入。源代码依据 {license.fsl11} 提供，并设有未来的 {license.mit} 许可。",

@@ -2,7 +2,7 @@
 
 - Node type: leaf
 - Status: Active
-- Parent contract: `holdtype.website.hosting@1`
+- Parent contract: `holdtype.website.hosting@2`
 - Clauses: `WEBSITE.DIGITALOCEAN`, `WEBSITE.PAGES`, `WEBSITE.DNS`
 - Read when: App Platform, GitHub Pages, appcast, publish workflow, domain, or DNS is in scope.
 - Do not read when: only page copy or locale selection is in scope.

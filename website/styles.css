@@ -452,10 +452,10 @@ h3 {
 .hero-lede {
   margin-bottom: 24px;
   color: var(--text-soft);
-  font-size: clamp(1.8rem, 3vw, 2.65rem);
+  font-size: clamp(1.2rem, 1.6vw, 1.4rem);
   font-weight: 470;
-  letter-spacing: -0.035em;
-  line-height: 1.16;
+  letter-spacing: -0.015em;
+  line-height: 1.5;
 }
 
 .hero-actions {
@@ -2356,7 +2356,7 @@ body.has-image-lightbox {
   }
 
   .hero-lede {
-    font-size: 1.75rem;
+    font-size: 1.2rem;
   }
 
   .hero-price-sticker {

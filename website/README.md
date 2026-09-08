@@ -163,6 +163,9 @@ hero. Section headings use a 36–56px desktop range and a 32–44px mobile rang
 Body copy remains at 16px or larger; captions are 12.5px with AA-compliant
 foreground color.
 
+The hero's explanatory paragraph uses 19–22px type with a 1.5 line height so
+longer localized copy stays subordinate to the headline.
+
 The container model is deliberately open: thin page-width rules, one soft use-
 case band, real screenshots in restrained macOS-style frames, and no repeated
 card grid. Primary buttons are solid blue; navigation and secondary actions are
@@ -170,22 +173,21 @@ text links. Shadows are reserved for the hero editor and real product windows.
 
 ### Responsive anatomy
 
-- `1021px+`: split hero, four-step horizontal workflow, five-point honesty
-  contract, alternating feature rows, and two-column FAQ.
+- `1021px+`: split hero, four-step horizontal workflow, five supporting
+  product cards, alternating feature rows, and two-column FAQ.
 - `861–1020px`: narrower split hero and reduced product-window scale.
 - `621–860px`: single-column hero and feature sections, two-step workflow rows,
   compact mobile navigation, and two-column data flow.
 - `320–620px`: stacked actions and workflow, single-column data flow and FAQ,
   16px page gutters, and full-width primary CTAs.
 
-The first viewport leads with `The most honest Wispr Flow "clone".` It must
-immediately ground `Full control over your dictation` through no HoldType
-account and direct OpenAI billing. Cursor handoff, API-key routing, and
-translation details appear below; the hero has no separate gray explanatory
-paragraph. The hero has one action: the free macOS download. Source inspection
-remains in the footer, and there is no separate proof-chip row. No unsupported
-metric, comparative speed claim, or undocumented claim about Wispr Flow's
-internal model is permitted above the fold.
+The first viewport leads with `Dictate right where you write.` Its lead explains
+speech-to-text insertion into most Mac apps and the user's own OpenAI API key.
+The download qualification and app-price badge distinguish the free app from
+separately paid API requests. Translation and editing details appear below.
+The hero has one action: the free macOS download. Source inspection remains in
+the footer, and there is no separate proof-chip row. No unsupported metric,
+comparative speed claim, or undocumented competitor claim is permitted.
 
 The code-native editor uses a dry, self-ironic fictional plan to build a tiny
 SaaS and reach `$1M ARR`; the interface presents the request as if it were
@@ -193,9 +195,8 @@ ordinary. Its caption still identifies the scene as an illustration rather
 than a recorded demo and makes no claim that Codex produced the business
 result. The toolbar label stays unbranded and on one line, using an ellipsis
 rather than wrapping when space is tight. The document title appears only in
-the editor body instead of being repeated in the toolbar. The usage-cost badge
-remains visually secondary and must not present 100 as a usage cap, guaranteed
-maximum, or typical day.
+the editor body instead of being repeated in the toolbar. The app-price badge
+remains visually secondary; it does not advertise a per-dictation API price.
 
 ### Page anatomy
 
@@ -203,7 +204,8 @@ maximum, or typical day.
    GitHub Releases CTA.
 2. Split hero with the code-native editor illustration and real indicator art.
 3. Hold → speak → release → inserted workflow rail.
-4. Five-point `What "honest" means here` contract.
+4. Five supporting cards: own key, transcription model, optional correction,
+   direct OpenAI processing, and local storage.
 5. Real-use-case band.
 6. Quick Fixes, translation/vocabulary, and Last Result recovery proof.
 7. OpenAI billing, the qualified 100-dictation usage example, and exact
@@ -250,7 +252,7 @@ UI states were redrawn or retouched.
 ## Product-copy boundaries
 
 - HoldType is a native macOS app for macOS 14 or newer.
-- The exact API model identifier `gpt-4o-transcribe` appears at most once in
+- The exact API model identifier `gpt-transcribe` appears once in
   subdued secondary copy. Its hyphens and lowercase spelling stay verbatim in
   every locale. It is not used in metadata, headlines, hero lead or support
   copy, proof chips, section headings, founder copy, the final CTA, or the
@@ -261,12 +263,13 @@ UI states were redrawn or retouched.
   compatibility.
 - HoldType has no account or recurring fee. OpenAI may require prepaid API
   credit and deducts actual request usage from the user's Platform balance.
-- The approved cost examples use the current estimated
-  `gpt-4o-transcribe` rate of `$0.006/minute`: about `$0.10` for 100 messages
-  representing roughly 17 minutes of recorded speech, or about `$3`
-  if the same total is repeated daily for 30 days. These are illustrations, not
-  a fixed price, usage cap, or typical-day claim, and optional correction and
-  translation are separate requests.
+- The cost example uses the released default model's `$0.0045/minute` rate,
+  checked against OpenAI pricing on 2026-09-08. If 100 dictations total 17
+  minutes of speech, transcription costs about `$0.08`, or about `$2.30` when
+  repeated daily for 30 days. This is an explicit duration assumption, not a
+  fixed per-message price, usage cap, or typical-day claim. Optional correction,
+  translation, and Fixes cost extra. Billing estimates locally priced requests
+  across those categories and may be incomplete for unknown model rates.
 - It uses the user's OpenAI Platform API key, and OpenAI bills API usage
   separately.
 - The setup guide never asks for the API key on the website. It links to the
@@ -278,10 +281,11 @@ UI states were redrawn or retouched.
 - The iPhone app and HoldType Keyboard exist in the repository and can be built
   in Xcode, but they are not yet published in the App Store; the release remains
   explicitly labelled as work in progress.
-- Audio goes to OpenAI for transcription. Optional correction and translation
-  are separate text requests.
-- Completed audio is not retained by default; bounded session-only Retry audio
-  and optional local recording-cache retention are disclosed.
+- Audio goes to OpenAI for transcription. Correction, translation, and Fixes
+  send text and instructions when used; nearby cursor context is optional.
+- Ordinary completed recordings are not retained by default. Local recovery
+  audio may survive relaunch; optional recording-cache retention is separate.
+- Last Result recovery requires its save setting to be enabled.
 - HoldType has no product account, subscription, telemetry, analytics, backend,
   or cloud sync.
 - The project is source-available under FSL 1.1 with an MIT future license; it
@@ -301,8 +305,8 @@ Distribution configuration updated on 2026-08-05:
   pointing to the same GitHub Release disk image and requiring macOS Sonoma.
 - The Homebrew block keeps the explicit project-tap flow (`tap`, `trust`,
   `install`, then `open`) and its Copy button copies all four lines together.
-- The page links to the current OpenAI API pricing documentation rather than
-  embedding a rate that can become stale.
+- The page links to OpenAI API pricing alongside its qualified cost example.
+  Recheck the example whenever the default model or provider pricing changes.
 
 ## Implementation constraints
 

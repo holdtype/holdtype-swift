@@ -2,7 +2,7 @@
 
 - Node type: leaf
 - Status: Active
-- Parent contract: `holdtype.website.hosting@1`
+- Parent contract: `holdtype.website.hosting@2`
 - Clauses: `WEBSITE.FAILURE`, `WEBSITE.VERIFY`
 - Read when: publish stop conditions, artifact integrity, deployed health, or browser QA is in scope.
 - Do not read when: only authoring local copy is in scope.
