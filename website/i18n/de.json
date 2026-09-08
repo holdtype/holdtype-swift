@@ -24,7 +24,7 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "Blitzschnell diktieren. Nativ auf dem Mac.",
+    "title": "Blitzschnell diktieren. Für den Mac gemacht.",
     "lede": "Übersetzen und Quick Fixes direkt dort, wo du arbeitest.",
     "qualification": "Kostenlose App · API-Nutzung von {brand.openAI} wird separat berechnet · {fact.minimumOS}",
     "price": {

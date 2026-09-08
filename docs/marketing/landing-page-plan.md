@@ -56,9 +56,12 @@ Qualification:
 
 Russian headline:
 
-> Молниеносная диктовка. Нативно на Mac.
+> Молниеносная диктовка. Специально для Mac.
 
-Use natural equivalents in all ten supported languages. Keep the platform,
+Use natural equivalents in all ten supported languages. Translate `Built for
+Mac` as made or designed for Mac, not as a literal fragment about being
+`native`. The Russian `Нативно на Mac` wording is retired as an unnatural
+technical calque. Adapt sentence structure to each language. Keep the platform,
 API-key requirement, separate API billing, and compatibility boundaries clear.
 The headline must name dictation, speed, and the Mac platform. The previous
 `One tool. Across your Mac.` / `Один инструмент. Для всего Mac.` slogan is

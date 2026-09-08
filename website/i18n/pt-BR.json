@@ -24,7 +24,7 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "Ditado ultrarrápido. Nativo para Mac.",
+    "title": "Ditado ultrarrápido. Feito para Mac.",
     "lede": "Tradução e Quick Fixes onde você trabalha.",
     "qualification": "App gratuito · Uso da API da {brand.openAI} cobrado à parte · {fact.minimumOS}",
     "price": {

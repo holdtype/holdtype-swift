@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "إملاء فائق السرعة. تطبيق أصلي لـMac.",
-    "lede": "ترجمة وQuick Fixes حيث تعمل مباشرةً.",
+    "title": "إملاء فائق السرعة. مصمّم خصيصًا لـ Mac.",
+    "lede": "الترجمة وQuick Fixes داخل التطبيقات التي تستخدمها.",
     "qualification": "تطبيق مجاني · تُحاسب على استخدام API من {brand.openAI} بصورة منفصلة · {fact.minimumOS}",
     "price": {
       "aria": "التطبيق مجاني. طلبات {brand.openAI} تُحاسب بشكل منفصل.",

@@ -24,7 +24,7 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "高速な音声入力。Macネイティブ。",
+    "title": "Macのための高速音声入力。",
     "lede": "翻訳もQuick Fixesも、作業中のアプリで。",
     "qualification": "アプリは無料 · {brand.openAI} API の利用料は別途請求 · {fact.minimumOS}",
     "price": {

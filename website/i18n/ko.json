@@ -24,7 +24,7 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "초고속 음성 입력. Mac 네이티브.",
+    "title": "Mac을 위해 만든 초고속 음성 입력.",
     "lede": "작업 중인 곳에서 번역과 Quick Fixes까지.",
     "qualification": "무료 앱 · {brand.openAI} API 사용료 별도 청구 · {fact.minimumOS}",
     "price": {

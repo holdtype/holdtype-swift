@@ -24,8 +24,8 @@
     "faq": "{term.faq}"
   },
   "hero": {
-    "title": "极速语音输入。Mac 原生体验。",
-    "lede": "翻译和 Quick Fixes，就在当前工作的位置。",
+    "title": "极速语音输入。专为 Mac 打造。",
+    "lede": "翻译和 Quick Fixes，就在你常用的应用里。",
     "qualification": "应用免费 · {brand.openAI} API 用量另行计费 · {fact.minimumOS}",
     "price": {
       "aria": "应用免费。{brand.openAI} 请求单独计费。",
