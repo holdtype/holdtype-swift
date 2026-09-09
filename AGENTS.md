@@ -214,6 +214,23 @@ small, isolated, and explained in review or the final response.
 
 ## Verification
 
+### Required Cleanup After Testing
+
+Before reporting completion, remove task-owned temporary build directories,
+test results, logs, screenshots, and other disposable QA files after accepting
+their results. This applies to successful, failed, and interrupted runs; stop
+run-owned processes before removing their files. Prefer a uniquely named
+temporary directory outside the repository for disposable build and test
+output, and track the exact paths created by the task.
+
+Delete only files proved to belong to the task and no longer in use. Do not
+clear shared Xcode or SwiftPM caches, another task's files, installed apps,
+release artifacts, or user data as routine cleanup. Keep explicitly required
+deliverables and retained evidence under their governing retention contract.
+Report any cleanup that remains pending, including the exact path and reason;
+when disk cleanup is requested, measure and report the removed file sizes and
+remaining free space. Do not run a new build solely to verify cleanup.
+
 For macOS UI tests, Computer Use, or automated runtime QA, follow
 `docs/qa/macos/AGENTS.run.md` and these repository-wide additions:
 
