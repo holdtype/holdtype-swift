@@ -129,18 +129,48 @@ struct DictationSessionControllerRecordingActionTests {
         #expect(transcriptOutput.calls == ["One transcript"])
     }
 
+    @Test func writingProfileUsesRecordingStartPreferenceAndResetsForNextSession() async {
+        var settings = AppSettings.defaults
+        settings.writingContextMode = .aiTasks
+        settings.saveTranscriptHistory = false
+        settings.soundEnabled = false
+        let service = RecordingActionTranscriptionService()
+        let controller = makeController(
+            recorder: RecordingActionRecorder(),
+            transcriptionService: service,
+            settingsProvider: { settings }
+        )
+        await controller.performRecordingAction()
+        #expect(controller.status == .recording)
+        settings.writingContextMode = .off
+        await controller.performRecordingAction()
+        #expect(service.requests.count == 1)
+        #expect(service.requests.first?.promptComposition.providerPrompt?.contains(
+            TranscriptionWritingContext.aiTasks.promptText
+        ) == true)
+
+        await controller.performRecordingAction()
+        settings.writingContextMode = .aiTasks
+        await controller.performRecordingAction()
+        #expect(service.requests.count == 2)
+        #expect(service.requests.last?.promptComposition.providerPrompt?.contains(
+            TranscriptionWritingContext.aiTasks.promptText
+        ) != true)
+    }
+
     private func makeController(
         recorder: RecordingActionRecorder,
         transcriptionService: RecordingActionTranscriptionService = RecordingActionTranscriptionService(),
         transcriptOutput: RecordingActionTranscriptOutput = RecordingActionTranscriptOutput(),
         historyAudioPlaybackStopper: any TranscriptHistoryAudioPlaybackStopping =
             RecordingActionPlaybackStopper(),
-        initialStatus: DictationStatus = .idle
+        initialStatus: DictationStatus = .idle,
+        settingsProvider: @escaping () -> AppSettings = { .defaults }
     ) -> DictationSessionController {
         DictationSessionController(
             recorder: recorder,
             transcriptionService: transcriptionService,
-            settingsProvider: { .defaults },
+            settingsProvider: settingsProvider,
             transcriptOutput: transcriptOutput,
             historyAudioPlaybackStopper: historyAudioPlaybackStopper,
             transcriptionFailureRecovery: FakeTranscriptionFailureRecovery(),
@@ -253,6 +283,7 @@ private final class RecordingActionRecorder: AudioRecorderService {
 private final class RecordingActionTranscriptionService: OpenAITranscriptionServing {
     private let result: String
     private(set) var calls: [URL] = []
+    private(set) var requests: [AudioTranscriptionRequest] = []
 
     init(result: String = "Controller transcript") {
         self.result = result
@@ -263,6 +294,7 @@ private final class RecordingActionTranscriptionService: OpenAITranscriptionServ
         credential: OpenAICredential
     ) async throws -> String {
         calls.append(request.audioFileURL)
+        requests.append(request)
         return result
     }
 }

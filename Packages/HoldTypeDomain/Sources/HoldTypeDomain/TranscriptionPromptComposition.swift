@@ -14,7 +14,8 @@ public struct TranscriptionPromptComposition: Equatable, Sendable {
         resolvedFreeformPrompt: String?,
         context: TranscriptionPromptContext?,
         emojiCommandsConfiguration: EmojiCommandsConfiguration,
-        customDictionary: CustomDictionary
+        customDictionary: CustomDictionary,
+        writingContext: TranscriptionWritingContext? = nil
     ) {
         let emojiPrompt = emojiCommandsConfiguration.promptText
         let dictionaryPrompt = customDictionary.promptText
@@ -25,6 +26,9 @@ public struct TranscriptionPromptComposition: Equatable, Sendable {
 
         if let resolvedFreeformPrompt, !resolvedFreeformPrompt.isEmpty {
             contextPromptParts.append(resolvedFreeformPrompt)
+        }
+        if let writingContext {
+            contextPromptParts.append(writingContext.promptText)
         }
         if let context {
             contextPromptParts.append(context.promptText)

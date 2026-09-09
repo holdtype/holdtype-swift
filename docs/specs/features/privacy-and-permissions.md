@@ -6,7 +6,7 @@
 - Status: Active
 - Stability: Accepted
 - Release baseline: macOS legacy-released; current iOS contracts retain precedence
-- Contract revision: `holdtype.macos.privacy-and-permissions@2`
+- Contract revision: `holdtype.macos.privacy-and-permissions@3`
 - Read when: permissions, setup gating, remote-processing disclosure, sensitive persistence, or diagnostic privacy is in scope.
 - Do not read when: only provider mechanics or feature presentation is in scope.
 - Maximum size: 100 physical lines.

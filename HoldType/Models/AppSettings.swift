@@ -65,6 +65,7 @@ struct AppSettings: Equatable {
     var enabledEmojiCommandSetIDs: [String] = Self.defaultEnabledEmojiCommandSetIDs
     var customEmojiCommands: [CustomEmojiCommand] = []
     var useActiveTextContext: Bool = false
+    var writingContextMode: WritingContextMode = .off
     var textCorrectionEnabled: Bool = false
     var textCorrectionModelPreset: TextCorrectionModelPreset = .quality
     var customTextCorrectionModel: String = ""
@@ -190,24 +191,27 @@ struct AppSettings: Equatable {
     }
 
     func transcriptionPromptComposition(
-        context: TranscriptionPromptContext?
+        context: TranscriptionPromptContext?,
+        writingContext: TranscriptionWritingContext? = nil
     ) -> TranscriptionPromptComposition {
         TranscriptionPromptComposition(
             resolvedFreeformPrompt: transcriptionConfiguration.resolvedFreeformPrompt,
             context: useActiveTextContext ? context : nil,
             emojiCommandsConfiguration: emojiCommandsConfiguration,
-            customDictionary: resolvedCustomDictionary
+            customDictionary: resolvedCustomDictionary,
+            writingContext: writingContext
         )
     }
 
     func audioTranscriptionRequest(
         audioFileURL: URL,
-        context: TranscriptionPromptContext?
+        context: TranscriptionPromptContext?,
+        writingContext: TranscriptionWritingContext? = nil
     ) throws -> AudioTranscriptionRequest {
         try AudioTranscriptionRequest(
             audioFileURL: audioFileURL,
             transcriptionConfiguration: transcriptionConfiguration,
-            promptComposition: transcriptionPromptComposition(context: context)
+            promptComposition: transcriptionPromptComposition(context: context, writingContext: writingContext)
         )
     }
 

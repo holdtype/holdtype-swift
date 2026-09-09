@@ -574,7 +574,7 @@ final class DictationSessionController {
     private func startRecording(intent: DictationOutputIntent, credential: OpenAICredential?, authorization: RecordingStartAuthorization?) async {
         outputStatusText = nil
         failurePresentation = nil
-        let settings = settingsProvider()
+        let settings = DictationWritingContextCapture.capture(settingsProvider(), intent: intent)
         if intent == .translate,
            let translationIssue = settings.translationConfigurationIssue {
             let message = Self.userFacingMessage(for: translationIssue)
@@ -913,7 +913,7 @@ final class DictationSessionController {
             let transcriptionRequest = try transcriptPipeline.makeAudioTranscriptionRequest(
                 audioFileURL: recoveryCheckpoint?.audioFileURL ?? artifact.fileURL,
                 settings: transcriptionSettings,
-                context: context
+                context: context, writingContext: transcriptionSettings.writingContextMode.profile
             )
             if let recoveryCheckpoint {
                 try transcriptionFailureRecovery.sealProviderDispatch(

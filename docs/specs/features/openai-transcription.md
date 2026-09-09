@@ -6,7 +6,7 @@
 - Status: Active
 - Stability: Accepted
 - Release baseline: macOS legacy-released; iOS scope governed by current iOS contracts
-- Contract revision: `holdtype.shared.openai-transcription@1`
+- Contract revision: `holdtype.shared.openai-transcription@2`
 - Read when: OpenAI file transcription, request transport, prompt, response, timeout, recovery, or provider privacy is in scope.
 - Do not read when: only capture, output insertion, or a downstream text transform is in scope.
 - Maximum size: 100 physical lines.
@@ -31,6 +31,7 @@ timeout/cancellation, recovery classification, usage handoff, and redaction.
 - [Prompt, dictionary, and nearby context](openai-transcription/prompt-and-dictionary.md)
 - [Response and downstream handoffs](openai-transcription/response-and-handoffs.md)
 - [Failure recovery presentation](openai-transcription/failure-recovery.md)
+- [macOS writing context](openai-transcription/writing-context.md)
 - [Runtime prompt composition](openai-transcription/runtime-prompt-composition.md)
 - [Runtime request and iOS reader](openai-transcription/runtime-request-and-ios-reader.md)
 - [Multipart scratch and transport](openai-transcription/multipart-and-transport.md)

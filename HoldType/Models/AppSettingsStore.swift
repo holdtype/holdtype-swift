@@ -23,6 +23,7 @@ struct AppSettingsStore {
         static let enabledEmojiCommandSetIDs = keyPrefix + "enabledEmojiCommandSetIDs"
         static let customEmojiCommands = keyPrefix + "customEmojiCommands"
         static let useActiveTextContext = keyPrefix + "useActiveTextContext"
+        static let writingContextMode = keyPrefix + "writingContextMode"
         static let textCorrectionEnabled = keyPrefix + "textCorrectionEnabled"
         static let textCorrectionModelPreset = keyPrefix + "textCorrectionModelPreset"
         static let customTextCorrectionModel = keyPrefix + "customTextCorrectionModel"
@@ -98,6 +99,9 @@ struct AppSettingsStore {
             ),
             useActiveTextContext: optionalBool(forKey: Key.useActiveTextContext)
                 ?? defaultSettings.useActiveTextContext,
+            writingContextMode: WritingContextMode(
+                rawValue: userDefaults.string(forKey: Key.writingContextMode) ?? ""
+            ) ?? .off,
             textCorrectionEnabled: optionalBool(forKey: Key.textCorrectionEnabled)
                 ?? defaultSettings.textCorrectionEnabled,
             textCorrectionModelPreset: loadTextCorrectionModelPreset(
@@ -175,6 +179,7 @@ struct AppSettingsStore {
         )
         saveCustomEmojiCommands(settings.customEmojiCommands)
         userDefaults.set(settings.useActiveTextContext, forKey: Key.useActiveTextContext)
+        userDefaults.set(settings.writingContextMode.rawValue, forKey: Key.writingContextMode)
         userDefaults.set(settings.textCorrectionEnabled, forKey: Key.textCorrectionEnabled)
         userDefaults.set(settings.textCorrectionModelPreset.rawValue, forKey: Key.textCorrectionModelPreset)
         userDefaults.set(settings.customTextCorrectionModel, forKey: Key.customTextCorrectionModel)

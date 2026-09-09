@@ -60,12 +60,14 @@ struct DictationTranscriptPipeline {
     func makeAudioTranscriptionRequest(
         audioFileURL: URL,
         settings: AppSettings,
-        context: TranscriptionPromptContext?
+        context: TranscriptionPromptContext?,
+        writingContext: TranscriptionWritingContext? = nil
     ) throws -> AudioTranscriptionRequest {
         do {
             return try settings.audioTranscriptionRequest(
                 audioFileURL: audioFileURL,
-                context: context
+                context: context,
+                writingContext: writingContext
             )
         } catch AudioTranscriptionRequest.ValidationError.invalidCustomLanguageCode(let code) {
             throw OpenAITranscriptionServiceError.invalidRecording(

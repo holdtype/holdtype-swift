@@ -52,6 +52,20 @@ struct TranscriptionSettingsSection: View {
                 maxLines: 4
             )
 
+            Picker("Writing context", selection: $settings.writingContextMode) {
+                Text("Off").tag(WritingContextMode.off)
+                Text("Automatic").tag(WritingContextMode.automatic)
+                Text("AI Tasks").tag(WritingContextMode.aiTasks)
+            }
+            .accessibilityIdentifier("transcription.writingContext")
+
+            Text(
+                "Experimental. Automatic uses AI Tasks in Codex; AI Tasks applies it in any app. " +
+                "Sends a writing-purpose hint to OpenAI, without the app name or window contents."
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+
             Toggle("Use nearby text as transcription context", isOn: $settings.useActiveTextContext)
 
             Text(

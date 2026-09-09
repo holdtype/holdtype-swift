@@ -2,7 +2,7 @@
 
 - Node type: leaf
 - Status: Active
-- Parent contract: `holdtype.macos.privacy-and-permissions@2`
+- Parent contract: `holdtype.macos.privacy-and-permissions@3`
 - Clauses: `PRIVACY.DISCLOSE`, `PRIVACY.RETAIN`, `DV-PRIVACY-1..3`
 - Read when: remote-processing copy, content retention, logs, diagnostics, or Dev Vlogs privacy is in scope.
 - Do not read when: only system permission status or setup routing is in scope.
@@ -17,6 +17,8 @@
   to OpenAI without a separate consent gate. Voice Prompt additionally sends
   explicit instruction audio, omits Nearby Text, then sends frozen source and
   instruction separately. Keyboard coordinates only invoked source through App Group.
+- Optional [writing context](../openai-transcription/writing-context.md) sends a
+  generic purpose hint; foreground application identity stays local.
 - Typography and literal replacements run locally and make no remote request.
 - MVP has no accounts, subscription, analytics, telemetry, server state, or cloud sync.
 

@@ -2,7 +2,7 @@
 
 - Node type: leaf
 - Status: Active
-- Parent contract: `holdtype.macos.settings-and-secret-storage@1`
+- Parent contract: `holdtype.macos.settings-and-secret-storage@2`
 - Clauses: `SETTINGS.DEFAULTS`, `SETTINGS.STORAGE`, `SETTINGS.VERIFY`
 - Read when: canonical defaults, persistence inventory, invariants, failures, or acceptance is in scope.
 - Do not read when: only Settings navigation is in scope.
@@ -38,3 +38,6 @@ behavior, cache list/retention/clear, local-only diagnostics/updates, and defaul
 Correction failure leaves successful transcript usable. Runtime credential loss
 blocks unauthenticated request. Unknowns: import/export and whether Custom
 language remains free text versus constrained code.
+
+- [Writing context](../openai-transcription/writing-context.md) adds the local
+  Off/Automatic/AI Tasks preference, default Off, and its disclosure.

@@ -5,7 +5,7 @@
 - Domain ID: `holdtype.shared.openai-transcription`
 - Status: Active
 - Stability: Accepted
-- Contract revision: `holdtype.shared.openai-transcription.prompt@1`
+- Contract revision: `holdtype.shared.openai-transcription.prompt@2`
 - Read when: freeform prompt, dictionary, emoji hints, nearby text, or echo rejection is in scope.
 - Do not read when: only audio transport, credential, timeout, or response parsing is in scope.
 - Maximum size: 100 physical lines.
@@ -13,7 +13,7 @@
 ## Prompt and keywords
 
 - Trimmed non-empty freeform prompt is optional user content and is not logged.
-- `gpt-transcribe` context order is freeform prompt, nearby active text,
+- `gpt-transcribe` context order is freeform prompt, optional writing profile, nearby active text,
   built-in emoji hints, then exact-spelling dictionary guidance.
 - Each normalized dictionary term is also one `keywords[]` field after trimming
   and duplicate removal. Terms are literal hints, relevant only, and not output guarantees.
@@ -21,6 +21,8 @@
   entries are omitted rather than forming an invalid request.
 - Legacy models retain dictionary-in-prompt compatibility.
 - Emoji hints are included only when enabled with an active command set.
+
+- [macOS writing context](writing-context.md) governs optional app-selected hints.
 
 ## Nearby context and privacy
 

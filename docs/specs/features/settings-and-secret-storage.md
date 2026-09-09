@@ -6,7 +6,7 @@
 - Status: Active
 - Stability: Accepted
 - Release baseline: macOS legacy-released
-- Contract revision: `holdtype.macos.settings-and-secret-storage@1`
+- Contract revision: `holdtype.macos.settings-and-secret-storage@2`
 - Read when: macOS Settings navigation, defaults, local persistence, or OpenAI credential storage is in scope.
 - Do not read when: current iOS settings/persistence or a feature's detailed behavior alone is in scope.
 - Maximum size: 100 physical lines.

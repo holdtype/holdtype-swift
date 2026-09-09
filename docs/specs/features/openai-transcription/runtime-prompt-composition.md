@@ -5,7 +5,7 @@
 - Domain ID: `holdtype.shared.openai-transcription`
 - Status: Active
 - Stability: Accepted
-- Contract revision: `holdtype.shared.openai-transcription.prompt-composition@1`
+- Contract revision: `holdtype.shared.openai-transcription.prompt-composition@2`
 - Read when: `TranscriptionPromptComposition` inputs, projections, echo guards, or persistence boundary is in scope.
 - Do not read when: only multipart transport, recovery UI, or Settings acquisition is in scope.
 - Maximum size: 100 physical lines.
@@ -13,7 +13,7 @@
 ## Frozen input
 
 `TranscriptionPromptComposition` is a pure transient value receiving exactly a
-resolved optional freeform prompt, optional already-acquired/authorized
+resolved optional freeform prompt, optional typed writing profile, optional already-acquired/authorized
 `TranscriptionPromptContext`, one `EmojiCommandsConfiguration`, and one
 normalized `CustomDictionary`.
 
@@ -22,7 +22,7 @@ output preference, History, or permission state.
 
 ## Projections
 
-- `gpt-transcribe` projection joins non-empty freeform, Nearby Text, prefixed
+- `gpt-transcribe` projection joins non-empty freeform, writing-profile hint, Nearby Text, prefixed
   emoji hints, and exact-spelling dictionary in that order with exactly two
   newline characters; absent sections yield `nil`.
 - Legacy provider projection retains the same dictionary section.
@@ -42,9 +42,10 @@ output preference, History, or permission state.
 
 ## Verification
 
-Cover each source, exact four-source order/separators, disabled/empty inputs,
+Cover each source, exact source order/separators (including an optional writing profile), disabled/empty inputs,
 Nearby Text gating, echo values, `Sendable`, and no Codable consumer contract.
 
 ## Dependencies
 
+- [macOS writing context](writing-context.md) — profile semantics; nil preserves all other consumers.
 - [OpenAI transcription](../openai-transcription.md) — shared prompt privacy.

@@ -2,7 +2,7 @@
 
 - Node type: leaf
 - Status: Active
-- Parent contract: `holdtype.macos.settings-and-secret-storage@1`
+- Parent contract: `holdtype.macos.settings-and-secret-storage@2`
 - Clauses: `SETTINGS.TRANSCRIPTION`, `SETTINGS.DICTIONARY`, `SETTINGS.CORRECTION`
 - Read when: model/language/prompt, Nearby Text, dictionary, emoji, or correction settings is in scope.
 - Do not read when: only credential or output behavior is in scope.
@@ -21,3 +21,6 @@
   follow `voice-emoji-commands.md`.
 - Text Correction has its own section. Remote correction defaults off; local
   typography may default on. Detailed behavior follows `text-correction.md`.
+
+- [Writing context](../openai-transcription/writing-context.md) adds the local
+  Off/Automatic/AI Tasks preference, default Off, and its disclosure.
