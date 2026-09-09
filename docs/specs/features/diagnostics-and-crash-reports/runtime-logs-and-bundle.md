@@ -2,6 +2,7 @@
 
 - Node type: leaf
 - Status: Active
+- Contract revision: `holdtype.macos.diagnostics.runtime-logs@2`
 - Parent contract: `holdtype.macos.diagnostics-and-crash-reports@1`
 - Clauses: `DIAGNOSTICS.LOGS`, `DIAGNOSTICS.BUNDLE`, `DIAGNOSTICS.VERIFY`
 - Read when: runtime-event logging, retention, bundle export, redaction, or diagnostics verification is in scope.
@@ -14,6 +15,9 @@
   intent, retention, or closed error category.
 - Log hotkey, recording, transcription, cache, correction, translation, output,
   cancellation, retry, and export lifecycle—not payloads.
+- Event producers enqueue bounded metadata without waiting for disk writes or
+  retention scans; preserve event-time timestamps and order. Explicit export
+  includes preceding queued events. Diagnostic overload never blocks capture.
 - Retain at most seven days and five megabytes, pruning during normal use.
   Debug/verbose is opt-in and bounded.
 - Explicit Export saves to user choice or visible diagnostics cache. Bundle may
@@ -26,3 +30,10 @@
 - Fake-filesystem tests cover discovery/sort/errors/stale files, log append/
   formatting/pruning, bundle contents/redaction; bounded log stream/show checks
   instrumentation. Docs-only verification is `git diff --check`.
+
+## Responsiveness delta, revision 2
+
+User-approved start-responsiveness plan, 2026-09-09. Background preparation
+removes optional work from the microphone start path. Existing privacy,
+durability, export, and capture-authority boundaries remain protected.
+Verification covers ordering, cancellation, late completion, and local runtime.

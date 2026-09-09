@@ -218,7 +218,7 @@ actor DevVlogsPhase0BE07SlowPreparationGate {
         await controller.performRecordingAction(intent: intent); guard controller.status == .recording else { throw DevVlogsPhase0BE07HarnessError.unexpectedTerminal }
         if let gate { let pre = try await gate.snapshot(); guard pre.resolutionCount == 0 else { throw DevVlogsPhase0BE07HarnessError.snapshotMismatch }; try await gate.resolve(.timedOut); _ = try await observerPreparation?.value; outstandingTasks -= 1; let terminal = try await gate.snapshot(); guard terminal == .init(enterCount: 1, resolutionCount: 1, waiterCount: 0, isResolved: true, pendingContinuationCount: 0, openSuspendingMethodCount: 0, isClosed: true) else { throw DevVlogsPhase0BE07HarnessError.outstandingResource } }
         else if let observer { _ = try await observer.prepare() }
-        if caseID == .explicit_cancel { if let observer { _ = observer.cancel(); _ = observer.cancel() }; controller.cancelRecording() }
+        if caseID == .explicit_cancel { if let observer { _ = observer.cancel(); _ = observer.cancel() }; await controller.cancelRecording() }
         else {
             if caseID == .destination_disconnect, let observer { _ = observer.destinationDidDisconnect(); _ = observer.destinationDidDisconnect() }
             if let observer, [.camera_unavailable, .camera_busy, .camera_slow_timeout, .destination_unavailable].contains(caseID) { _ = try await observer.prepare() }

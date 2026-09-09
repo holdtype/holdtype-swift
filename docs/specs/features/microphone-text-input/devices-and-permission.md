@@ -5,7 +5,7 @@
 - Domain ID: `holdtype.macos.microphone-input`
 - Status: Active
 - Stability: Released
-- Contract revision: `holdtype.macos.microphone-input.devices@1`
+- Contract revision: `holdtype.macos.microphone-input.devices@2`
 - Read when: capture start, input selection, microphone permission, or disconnect behavior is in scope.
 - Do not read when: only stopping, finalization, recovery, or output is in scope.
 - Maximum size: 100 physical lines.
@@ -27,6 +27,21 @@
   explains that it is disconnected, and lets the user choose another device or
   return to System Default.
 - Active capture has an unmistakable recording state and can be stopped by the user.
+
+## Start responsiveness
+
+- `MIC.START-RESPONSIVENESS`: explicit ready-state hold begins capture without
+  waiting for diagnostic file I/O, sound cues, or optional camera preparation.
+- Audio-device preparation and required capture-journal I/O leave the main
+  event loop responsive. Durable ownership still precedes retained audio.
+- Release before capture commits cancels the pending start; after commit it
+  finishes that same attempt exactly once. No idle microphone keepalive.
+- Recording feedback reflects actual capture readiness; an early icon alone
+  is not evidence that the beginning of speech was captured.
+- Acceptance compares input receipt, capture readiness, and indicator latency
+  for repeat and post-idle starts, and checks the beginning of local audio.
+- Revision 2: user-approved responsiveness plan, 2026-09-09; permission, pinned
+  input, durability, and provider boundaries are unchanged.
 
 ## Failure policy
 

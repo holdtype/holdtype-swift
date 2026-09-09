@@ -259,6 +259,7 @@ final class CGEventGlobalHotkeyService: GlobalHotkeyService {
         )
 
         if let hotkeyEvent {
+            if hotkeyEvent.action == .keyDown { DictationStartTiming.mark("input", inputTimestamp: event.timestamp) }
             actionHandler?(hotkeyEvent)
         }
 

@@ -10,6 +10,7 @@ final class FixesVoicePromptCoordinator {
     private let executionService: any TextFixExecuting
     private let panelPresenter: any FixesPalettePanelPresenting
 
+    private var cleanupTask: Task<Void, Never>?
     private var activeTask: Task<Void, Never>?
     private var snapshot: FocusedTextTargetSnapshot?
     private var settings: AppSettings?
@@ -40,7 +41,7 @@ final class FixesVoicePromptCoordinator {
         model: FixesPaletteModel,
         onSuccess: @escaping @MainActor () -> Void
     ) {
-        guard !isActive, activeTask == nil else {
+        guard !isActive, activeTask == nil, cleanupTask == nil else {
             return
         }
         do {
@@ -118,9 +119,14 @@ final class FixesVoicePromptCoordinator {
             return
         }
         isActive = false
-        activeTask?.cancel()
+        let previousTask = activeTask
+        previousTask?.cancel()
         activeTask = nil
-        captureSession.cancel()
+        cleanupTask = Task { [self] in
+            await captureSession.cancel()
+            await previousTask?.value
+            cleanupTask = nil
+        }
         executionService.cancelActiveExecution()
         clearContext()
     }

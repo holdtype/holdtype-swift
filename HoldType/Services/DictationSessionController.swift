@@ -41,8 +41,9 @@ final class DictationSessionController {
     private let recordingStopTailSleeper: any RecordingStopTailSleeping
     private let eventLogger: any DictationEventLogging
     private let credentialResolverForUngatedActions: (any OpenAICredentialResolving)?
-    private let devVlogsCapture: any DevVlogsCaptureCoordinating
+    private let devVlogsCapture: DictationDevVlogsAttempt
     private let voiceWorkReservation: VoiceWorkReservation
+    private var isDiscardingRecording = false
     private var isPerformingAction = false
     private var nextSessionID = 0
     private var activeSessionID: Int?
@@ -146,7 +147,7 @@ final class DictationSessionController {
         self.recordingStopTailSleeper = recordingStopTailSleeper
         self.eventLogger = eventLogger
         self.credentialResolverForUngatedActions = credentialResolverForUngatedActions
-        self.devVlogsCapture = devVlogsCapture ?? DevVlogsCaptureCoordinator.shared
+        self.devVlogsCapture = DictationDevVlogsAttempt(capture: devVlogsCapture ?? DevVlogsCaptureCoordinator.shared)
         self.voiceWorkReservation = voiceWorkReservation
         self.status = initialStatus
         self.lastTranscriptText = lastTranscriptText.flatMap {
@@ -162,7 +163,8 @@ final class DictationSessionController {
     }
     func performRecordingAction(
         intent: DictationOutputIntent = .standard,
-        credential: OpenAICredential? = nil
+        credential: OpenAICredential? = nil,
+        authorization: RecordingStartAuthorization? = nil
     ) async {
         guard !terminationRequested else {
             return
@@ -173,23 +175,25 @@ final class DictationSessionController {
         defer { completeExclusiveAction() }
         switch status.voiceWorkPhase {
         case .inactive:
-            await startRecording(intent: intent, credential: credential)
+            await startRecording(intent: intent, credential: credential, authorization: authorization)
         case .listening:
             await stopRecordingAndTranscribe(intent: intent, credential: credential)
         case .arming, .ready, .finalizing, .processing:
             return
         }
     }
-    func cancelRecording() {
+    func cancelRecording() async {
         switch status.voiceWorkPhase {
         case .listening:
-            guard !isPerformingAction || activeRecordingStopTailTask != nil else {
+            guard !isDiscardingRecording, !isPerformingAction || activeRecordingStopTailTask != nil else {
                 return
             }
             activeRecordingStopTailTask?.cancel()
             activeRecordingStopTailTask = nil
+            isDiscardingRecording = true
+            defer { isDiscardingRecording = false }
             let captureLease = activeRecordingCaptureLease
-            recorder.cancelRecording()
+            await recorder.cancelRecording()
             if let captureLease {
                 let durability: RecordingDurabilityOutcome
                 do {
@@ -207,7 +211,7 @@ final class DictationSessionController {
             }
             activeRecordingCaptureLease = nil
             activeRecordingSettings = nil
-            devVlogsCapture.endAttemptWithoutAudio(reason: .dictationDidNotComplete)
+            devVlogsCapture.end()
             stopRecordingDurationMonitoring()
             deferredRecordingTerminalOutcome = nil
             cancelActiveSession()
@@ -445,16 +449,14 @@ final class DictationSessionController {
             )
         }
     }
-
     private func beginExclusiveAction() -> Bool {
-        guard !isPerformingAction else {
+        guard !isPerformingAction, !isDiscardingRecording else {
             return false
         }
 
         isPerformingAction = true
         return true
     }
-
     private func completeExclusiveAction() {
         isPerformingAction = false
         if runDeferredRecordingTerminalOutcomeIfNeeded() {
@@ -462,9 +464,8 @@ final class DictationSessionController {
         }
         runPendingFailedTranscriptionRetryIfNeeded()
     }
-
     private func runDeferredRecordingTerminalOutcomeIfNeeded() -> Bool {
-        guard !isPerformingAction,
+        guard !isPerformingAction, !isDiscardingRecording,
               activeSessionID != nil,
               status.voiceWorkPhase == .listening,
               let outcome = deferredRecordingTerminalOutcome else {
@@ -570,7 +571,7 @@ final class DictationSessionController {
         voiceWorkReservation.release(.dictation)
     }
 
-    private func startRecording(intent: DictationOutputIntent, credential: OpenAICredential?) async {
+    private func startRecording(intent: DictationOutputIntent, credential: OpenAICredential?, authorization: RecordingStartAuthorization?) async {
         outputStatusText = nil
         failurePresentation = nil
         let settings = settingsProvider()
@@ -607,43 +608,43 @@ final class DictationSessionController {
         activeRecordingSettings = settings
         deferredRecordingTerminalOutcome = nil
         eventLogger.record(.recordingStartRequested)
-        await devVlogsCapture.beginAttempt()
 
         do {
-            let captureLease: RecordingCaptureLease?
-            if recorder.acceptsPreparedRecordingFileURL {
-                captureLease = try recordingCaptureJournal.prepareCapture(
-                    settings: settings,
-                    maximumDuration: recordingDurationLimit.duration
-                )
-            } else {
-                captureLease = nil
-            }
+            let captureLease = recorder.acceptsPreparedRecordingFileURL
+                ? try await recordingCaptureJournal.prepareCaptureForStart(
+                    settings: settings, maximumDuration: recordingDurationLimit.duration
+                ) : nil
             activeRecordingCaptureLease = captureLease
+            guard authorization?.isRequested ?? true, !terminationRequested else { throw CancellationError() }
             historyAudioPlaybackStopper.stopPlayback()
             try await recorder.startRecording(
                 maximumDuration: recordingDurationLimit.duration,
-                outputFileURL: captureLease?.audioFileURL
+                outputFileURL: captureLease?.audioFileURL,
+                authorization: authorization
             )
             guard isCurrentSession(sessionID) else {
-                devVlogsCapture.endAttemptWithoutAudio(reason: .dictationDidNotComplete)
+                devVlogsCapture.end()
                 return
             }
 
-            devVlogsCapture.dictationDidStart()
             status = .recording
+            devVlogsCapture.start()
             eventLogger.record(.recordingStarted)
             playCue(.startRecording, settings: settings)
             startRecordingDurationMonitoring(sessionID: sessionID, settings: settings)
+        } catch is CancellationError {
+            discardNonRecordingCapture()
+            finishSession(sessionID)
+            status = .idle
         } catch {
-            devVlogsCapture.endAttemptWithoutAudio(reason: .dictationDidNotComplete)
+            devVlogsCapture.end()
             let recoveredAttempt = preserveInterruptedCapture(
                 completionKind: .standard,
                 terminalCause: .platformInterrupted
             )
             stopRecordingDurationMonitoring()
             finishSession(sessionID)
-            eventLogger.record(.recordingStartFailed(category: Self.operatorLogCategory(for: error)))
+            eventLogger.record(.recordingStartFailed(category: DictationFailureLogClassifier.category(for: error)))
             let message = Self.userFacingMessage(for: error)
             if recoveredAttempt != nil {
                 outputStatusText = "Recording interrupted — saved to History."
@@ -839,7 +840,7 @@ final class DictationSessionController {
             }
             activeRecordingSettings = nil
             allowsRecordingCacheHandling = true
-            await devVlogsCapture.finishAttempt(audioArtifact: artifact)
+            await devVlogsCapture.finish(audioArtifact: artifact)
             let terminalCause = Self.recordingTerminalCause(
                 automaticCompletion: resolvedAutomaticCompletion,
                 userFinishOwnedAuthority: userFinishOwnedAuthority
@@ -1312,7 +1313,7 @@ final class DictationSessionController {
 
     func prepareForTermination() async {
         terminationRequested = true
-        devVlogsCapture.endAttemptWithoutAudio(reason: .dictationDidNotComplete)
+        devVlogsCapture.end()
         activeRecordingStopTailTask?.cancel()
         stopRecordingDurationMonitoring()
 
@@ -1326,7 +1327,7 @@ final class DictationSessionController {
         }
 
         guard status.voiceWorkPhase == .listening,
-              !isPerformingAction,
+              !isPerformingAction, !isDiscardingRecording,
               let sessionID = activeSessionID else {
             // The start/stop action already in flight still owns the recorder.
             // Its start-time journal is the bounded termination fallback.
@@ -1535,7 +1536,7 @@ final class DictationSessionController {
             do {
                 try recordingCaptureJournal.discardCapture(captureLease)
             } catch {
-                eventLogger.record(.recordingStopFailed(category: Self.operatorLogCategory(for: error)))
+                eventLogger.record(.recordingStopFailed(category: DictationFailureLogClassifier.category(for: error)))
             }
         }
         activeRecordingCaptureLease = nil
@@ -1841,7 +1842,7 @@ final class DictationSessionController {
             )
             eventLogger.record(.recordingCacheHandled(policy: settings.recordingCachePolicy))
         } catch {
-            eventLogger.record(.recordingCacheFailed(category: Self.operatorLogCategory(for: error)))
+            eventLogger.record(.recordingCacheFailed(category: DictationFailureLogClassifier.category(for: error)))
             guard outputStatusText == nil else {
                 return
             }
@@ -1907,7 +1908,7 @@ final class DictationSessionController {
     }
 
     private func recordFailure(_ error: Error, at stage: VoiceAttemptStage) {
-        let category = Self.operatorLogCategory(for: error)
+        let category = DictationFailureLogClassifier.category(for: error)
 
         switch stage {
         case .recordingFinalization:
@@ -1921,7 +1922,4 @@ final class DictationSessionController {
         }
     }
 
-    private static func operatorLogCategory(for error: Error) -> String {
-        DictationFailureLogClassifier.category(for: error)
-    }
 }

@@ -124,11 +124,11 @@ struct AudioRecorderServiceTests {
 
         try await recorder.startRecording(maximumDuration: 60)
         #expect(engine.requestedRecordDuration == 60)
-        recorder.cancelRecording()
+        await recorder.cancelRecording()
 
         try await recorder.startRecording(maximumDuration: 900)
         #expect(engine.requestedRecordDuration == 900)
-        recorder.cancelRecording()
+        await recorder.cancelRecording()
     }
 
     @Test func automaticCompletionUsesTheCurrentAttemptsSelectedMaximum() async throws {
@@ -261,7 +261,7 @@ struct AudioRecorderServiceTests {
         try Data([0x01]).write(to: activeFileURL)
         try Data([0x02]).write(to: unrelatedFileURL)
 
-        recorder.cancelRecording()
+        await recorder.cancelRecording()
 
         #expect(recorder.currentStatus == .cancelled)
         #expect(engine.stopCallCount == 1)
@@ -283,7 +283,7 @@ struct AudioRecorderServiceTests {
 
         try Data([0x01]).write(to: unrelatedFileURL)
 
-        recorder.cancelRecording()
+        await recorder.cancelRecording()
 
         #expect(recorder.currentStatus == .cancelled)
         #expect(engine.stopCallCount == 0)
@@ -753,7 +753,7 @@ struct AudioRecorderServiceTests {
 
         try await recorder.startRecording()
         let staleFinishHandler = try #require(engine.recordingFinishedHandlers.first)
-        recorder.cancelRecording()
+        await recorder.cancelRecording()
 
         try await recorder.startRecording()
         try Data([0x01]).write(to: secondFileURL)
@@ -763,7 +763,7 @@ struct AudioRecorderServiceTests {
         #expect(recorder.currentStatus == .recording)
         #expect(engine.deleteCallCount == 1)
 
-        recorder.cancelRecording()
+        await recorder.cancelRecording()
     }
 
     @Test func avFoundationRecorderReturnsPositiveFileDespiteDurationOverrun() async throws {

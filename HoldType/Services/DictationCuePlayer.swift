@@ -9,7 +9,7 @@ import AVFoundation
 import Foundation
 import HoldTypeDomain
 
-enum DictationCue: Equatable {
+nonisolated enum DictationCue: Equatable, Sendable {
     case startRecording
     case stopRecording
     case recordingLimitWarning(VoiceSessionWarningUrgency)
@@ -37,6 +37,13 @@ protocol DictationCuePlaying: AnyObject {
 }
 
 final class NativeDictationCuePlayer: DictationCuePlaying {
+    nonisolated static let shared = NativeDictationCuePlayer()
+    private let worker = DictationCueWorker()
+    nonisolated init() {}
+    @MainActor func play(_ cue: DictationCue) { worker.enqueue(cue) }
+}
+
+nonisolated private final class DictationCueWorker: @unchecked Sendable {
     private enum Constants {
         static let sampleRate: Double = 44_100
         static let noteDuration: TimeInterval = 0.09
@@ -45,21 +52,24 @@ final class NativeDictationCuePlayer: DictationCuePlaying {
         static let maxGain: Double = 0.18
     }
 
-    nonisolated static let shared = NativeDictationCuePlayer()
-
-    private let engine = AVAudioEngine()
-    private let playerNode = AVAudioPlayerNode()
+    private lazy var engine = AVAudioEngine()
+    private lazy var playerNode = AVAudioPlayerNode()
     private var isConfigured = false
+    private let queue = DispatchQueue(label: "app.holdtype.dictation-cues", qos: .userInitiated)
+    private var buffers: [String: AVAudioPCMBuffer] = [:]
+    private var generation = 0
 
-    nonisolated init() {}
+    func enqueue(_ cue: DictationCue) {
+        queue.async { self.play(cue) }
+    }
 
-    @MainActor
-    func play(_ cue: DictationCue) {
+
+    private func play(_ cue: DictationCue) {
         guard let format = AVAudioFormat(
             standardFormatWithSampleRate: Constants.sampleRate,
             channels: 1
         ),
-            let buffer = makeBuffer(for: cue, format: format)
+            let buffer = cachedBuffer(for: cue, format: format)
         else {
             return
         }
@@ -69,12 +79,18 @@ final class NativeDictationCuePlayer: DictationCuePlaying {
             playerNode.stop()
             playerNode.scheduleBuffer(buffer, at: nil, options: .interrupts)
             playerNode.play()
+            generation += 1
+            let currentGeneration = generation
+            queue.asyncAfter(deadline: .now() + 1) { [self] in
+                guard generation == currentGeneration else { return }
+                playerNode.stop()
+                engine.stop()
+            }
         } catch {
             return
         }
     }
 
-    @MainActor
     private func prepareIfNeeded(format: AVAudioFormat) throws {
         if !isConfigured {
             engine.attach(playerNode)
@@ -85,6 +101,14 @@ final class NativeDictationCuePlayer: DictationCuePlaying {
         if !engine.isRunning {
             try engine.start()
         }
+    }
+
+    private func cachedBuffer(for cue: DictationCue, format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        let key = cue.frequencies.map(String.init(describing:)).joined(separator: ",")
+        if let buffer = buffers[key] { return buffer }
+        let buffer = makeBuffer(for: cue, format: format)
+        buffers[key] = buffer
+        return buffer
     }
 
     private func makeBuffer(for cue: DictationCue, format: AVAudioFormat) -> AVAudioPCMBuffer? {

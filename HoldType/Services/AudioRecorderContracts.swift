@@ -19,9 +19,10 @@ protocol AudioRecorderService {
         maximumDuration: TimeInterval,
         outputFileURL: URL?
     ) async throws
+    func startRecording(maximumDuration: TimeInterval, outputFileURL: URL?, authorization: RecordingStartAuthorization?) async throws
     func stopRecording() async throws -> AudioRecordingArtifact
     func stopRecordingOutcome() async throws -> AudioRecorderStopOutcome
-    func cancelRecording()
+    func cancelRecording() async
     func setAutomaticStopHandler(_ handler: AudioRecorderAutomaticStopHandler?)
 }
 
@@ -56,6 +57,11 @@ typealias AudioRecorderAutomaticStopHandler = @MainActor (
 ) -> Void
 
 extension AudioRecorderService {
+    func startRecording(maximumDuration: TimeInterval, outputFileURL: URL?, authorization: RecordingStartAuthorization?) async throws {
+        guard authorization?.commitCapture() ?? true else { throw CancellationError() }
+        try await startRecording(maximumDuration: maximumDuration, outputFileURL: outputFileURL)
+    }
+
     var lastFinalizationReachedMaximumDuration: Bool { false }
     var acceptsPreparedRecordingFileURL: Bool { false }
 
@@ -118,4 +124,18 @@ enum AudioRecorderServiceError: Error, Equatable, LocalizedError {
             return "Recording was too short. Try speaking for a little longer."
         }
     }
+}
+
+extension AudioRecorderServiceError {
+    static func startError(for permissionStatus: MicrophonePermissionStatus) -> AudioRecorderServiceError {
+        switch permissionStatus {
+        case .allowed:
+            return .startFailed
+        case .denied, .notDetermined:
+            return .microphonePermissionDenied
+        case .unavailable:
+            return .recordingUnavailable
+        }
+    }
+
 }

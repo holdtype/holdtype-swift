@@ -177,7 +177,7 @@ struct FloatingIndicatorPresentationTests {
         #expect(presenter.presentations.count == 1)
         #expect(presenter.lastPresentation?.phase == .recording)
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
         await yieldUntil { presenter.presentations.count == 2 }
 
         #expect(presenter.presentations.count == 2)
@@ -259,7 +259,7 @@ struct FloatingIndicatorPresentationTests {
     }
 
     @MainActor
-    @Test func panelControllerRemainsNonActivatingAndInputTransparentAcrossHideShow() throws {
+    @Test func panelControllerRemainsNonActivatingAndInputTransparentAcrossHideShow() async throws {
         let controller = FloatingIndicatorPanelController()
         defer { controller.hide() }
         let recording = FloatingIndicatorPresentation(

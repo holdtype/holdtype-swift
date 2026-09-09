@@ -7,12 +7,12 @@
 
 import Foundation
 
-enum RuntimeDiagnosticSeverity: String, Equatable {
+nonisolated enum RuntimeDiagnosticSeverity: String, Equatable, Sendable {
     case info
     case error
 }
 
-struct RuntimeDiagnosticEvent: Equatable {
+nonisolated struct RuntimeDiagnosticEvent: Equatable, Sendable {
     let category: String
     let name: String
     let severity: RuntimeDiagnosticSeverity
@@ -31,7 +31,7 @@ struct RuntimeDiagnosticEvent: Equatable {
     }
 }
 
-struct RuntimeDiagnosticLogExport: Codable, Equatable {
+nonisolated struct RuntimeDiagnosticLogExport: Codable, Equatable, Sendable {
     let relativePath: String
     let lineCount: Int
 }
@@ -60,8 +60,8 @@ protocol RuntimeDiagnosticLogManaging: RuntimeDiagnosticLogRecording {
     func exportRecentLogs(to bundleURL: URL, since startDate: Date) throws -> RuntimeDiagnosticLogExport?
 }
 
-struct RuntimeDiagnosticsLogStore: RuntimeDiagnosticLogManaging {
-    static let shared = RuntimeDiagnosticsLogStore()
+nonisolated struct RuntimeDiagnosticsLogStore: RuntimeDiagnosticLogManaging {
+    @MainActor static let shared = BufferedRuntimeDiagnosticsLogStore()
 
     private static let logFilePrefix = "runtime-"
     private static let logFileExtension = "log"
@@ -151,9 +151,9 @@ struct RuntimeDiagnosticsLogStore: RuntimeDiagnosticLogManaging {
         try pruneToMaximumSize()
     }
 
-    private func append(_ event: RuntimeDiagnosticEvent) throws {
+    func append(_ event: RuntimeDiagnosticEvent, at timestamp: Date? = nil) throws {
         try fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true)
-        let date = now()
+        let date = timestamp ?? now()
         let line = Self.line(for: event, at: date)
         let fileURL = logFileURL(for: date)
         let data = Data((line + "\n").utf8)

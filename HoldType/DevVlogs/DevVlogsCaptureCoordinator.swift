@@ -26,10 +26,17 @@ protocol DevVlogsCaptureCoordinating: AnyObject {
     var state: DevVlogsCaptureState { get }
 
     func beginAttempt() async
+    func prepareStart(audioStartedAt: TimeInterval) -> @MainActor () async -> Void
     func dictationDidStart()
     func finishAttempt(audioArtifact: AudioRecordingArtifact) async
     func endAttemptWithoutAudio(reason: DevVlogsCaptureSkipReason)
     func featureDidDisable()
+}
+
+extension DevVlogsCaptureCoordinating {
+    func prepareStart(audioStartedAt: TimeInterval) -> @MainActor () async -> Void {
+        { await self.beginAttempt(); self.dictationDidStart() }
+    }
 }
 
 @MainActor
@@ -129,7 +136,28 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
         self.attemptIDProvider = attemptIDProvider
     }
 
+    func prepareStart(audioStartedAt: TimeInterval) -> @MainActor () async -> Void {
+        // Freeze trigger identity and eligibility before deferred camera work.
+        let current = settingsProvider()
+        let settings = DevVlogsSettingsStore(isEnabled: current.isEnabled,
+                                            preferredCamera: current.preferredCamera,
+                                            applicationPolicy: current.applicationPolicy)
+        let trigger = current.isEnabled ? triggerApplicationProvider.currentTriggerApplication() : nil
+        return { [self] in
+            guard !Task.isCancelled else { return }
+            await beginAttempt(settings: settings, trigger: trigger, audioStartedAt: audioStartedAt)
+        }
+    }
+
     func beginAttempt() async {
+        await beginAttempt(settings: settingsProvider(),
+                           trigger: triggerApplicationProvider.currentTriggerApplication(),
+                           audioStartedAt: nil)
+    }
+
+    private func beginAttempt(settings: DevVlogsSettingsStore,
+                              trigger: DevVlogsTriggerApplication?,
+                              audioStartedAt: TimeInterval?) async {
         let attemptID = attemptIDProvider()
         guard activeAttempt == nil else {
             visibleAttemptID = attemptID
@@ -137,13 +165,12 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
             return
         }
 
-        let settings = settingsProvider()
-        guard settings.isEnabled else {
+        guard settings.isEnabled, settingsProvider().isEnabled else {
             visibleAttemptID = attemptID
             state = .skipped(attemptID: attemptID, reason: .disabled)
             return
         }
-        guard let triggerApplication = triggerApplicationProvider.currentTriggerApplication() else {
+        guard let triggerApplication = trigger else {
             visibleAttemptID = attemptID
             state = .skipped(attemptID: attemptID, reason: .triggerApplicationUnknown)
             return
@@ -209,6 +236,7 @@ final class DevVlogsCaptureCoordinator: ObservableObject, DevVlogsCaptureCoordin
             workspace: workspace,
             ownershipLease: ownershipLease
         )
+        attempt.audioStartedAtUptime = audioStartedAt
         activeAttempt = attempt
         visibleAttemptID = attemptID
         state = .preparing(attemptID: attemptID)

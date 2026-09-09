@@ -72,7 +72,7 @@ struct VoicePromptFixSessionTests {
             automaticCompletionStarted: {},
             automaticCompletion: { _ in }
         )
-        session.cancel()
+        await session.cancel()
 
         #expect(recorder.cancelCount == 1)
         #expect(transcription.requests.isEmpty)
@@ -127,7 +127,7 @@ struct VoicePromptFixSessionTests {
         )
         _ = try await session.finish()
 
-        session.cancel()
+        await session.cancel()
 
         #expect(recovery.failedAttempts.isEmpty)
         #expect(reservation.owner == nil)
@@ -156,6 +156,38 @@ struct VoicePromptFixSessionTests {
         #expect(recorder.startCount == 0)
         #expect(reservation.owner == .dictation)
         #expect(reservation.acquire(.dictation) == false)
+    }
+
+    @Test func cancelledPreflightCannotResetAReplacementRecording() async throws {
+        let recorder = FakeAudioRecorderService()
+        let preflight = SuspendedVoicePromptPreflight()
+        let reservation = VoiceWorkReservation()
+        let session = VoicePromptFixSession(
+            recorder: recorder, setupPreflight: preflight,
+            transcriptionService: VoicePromptTranscriptionFake(output: "Unused"),
+            textCorrectionService: VoicePromptCorrectionFake(),
+            recoveryStore: FakeTranscriptionFailureRecovery(),
+            captureJournal: VoicePromptCaptureJournalFake(),
+            recordingCache: VoicePromptCacheFake(), usageRecorder: VoicePromptUsageFake(),
+            voiceWorkReservation: reservation
+        )
+        let credential = try OpenAICredential(apiKey: "test-key")
+        let oldStart = Task { @MainActor in
+            try await session.start(settings: .defaults, credential: credential,
+                                    automaticCompletionStarted: {}, automaticCompletion: { _ in })
+        }
+        for _ in 0..<100 where preflight.continuation == nil { await Task.yield() }
+        #expect(preflight.continuation != nil)
+        await session.cancel()
+        try await session.start(settings: .defaults, credential: credential,
+                                automaticCompletionStarted: {}, automaticCompletion: { _ in })
+        preflight.continuation?.resume(returning: nil)
+        preflight.continuation = nil
+        await #expect(throws: CancellationError.self) { try await oldStart.value }
+        #expect(recorder.startCount == 1)
+        #expect(recorder.currentStatus == .recording)
+        #expect(reservation.owner == .voicePromptFix)
+        await session.cancel()
     }
 
     private func makeSession(
@@ -281,4 +313,15 @@ private final class VoicePromptCaptureJournalFake: RecordingCaptureJournaling {
 
 private enum VoicePromptTestError: Error {
     case unexpectedCaptureJournalCall
+}
+
+@MainActor
+private final class SuspendedVoicePromptPreflight: VoicePromptRecordingPreflighting {
+    var continuation: CheckedContinuation<MicrophonePermissionStatus?, Never>?
+    private var requested = false
+    func requestMicrophonePermissionIfNeeded() async -> MicrophonePermissionStatus? {
+        guard !requested else { return nil }
+        requested = true
+        return await withCheckedContinuation { continuation = $0 }
+    }
 }

@@ -13,7 +13,8 @@ final class DictationHotkeyCoordinator {
     typealias StatusProvider = @MainActor () -> DictationStatus
     typealias RecordingAction = @MainActor (
         DictationOutputIntent,
-        @escaping @MainActor () -> Bool
+        @escaping @MainActor () -> Bool,
+        RecordingStartAuthorization?
     ) async -> Void
 
     private let hotkeyService: any GlobalHotkeyService
@@ -21,6 +22,7 @@ final class DictationHotkeyCoordinator {
     private let performRecordingAction: RecordingAction
     private let eventLogger: any DictationEventLogging
 
+    private var startAuthorization: RecordingStartAuthorization?
     private var isShortcutPressed = false
     private var isHotkeyRecordingActive = false
     private var isPerformingRecordingAction = false
@@ -57,6 +59,8 @@ final class DictationHotkeyCoordinator {
     }
 
     func stop() {
+        startAuthorization?.release()
+        startAuthorization = nil
         hotkeyService.stopListening()
         registrationStatus = hotkeyService.currentRegistrationStatus
         isShortcutPressed = false
@@ -73,6 +77,7 @@ final class DictationHotkeyCoordinator {
         let wasShortcutPressed = isShortcutPressed
 
         if action == .keyUp {
+            startAuthorization?.release()
             isShortcutPressed = false
         }
 
@@ -113,6 +118,7 @@ final class DictationHotkeyCoordinator {
 
         switch command {
         case .startRecording:
+            startAuthorization = RecordingStartAuthorization()
             isShortcutPressed = true
             isHotkeyRecordingActive = true
             shouldStopAfterCurrentAction = false
@@ -189,7 +195,7 @@ final class DictationHotkeyCoordinator {
         shouldStartRecording: @escaping @MainActor () -> Bool
     ) async {
         isPerformingRecordingAction = true
-        await performRecordingAction(intent, shouldStartRecording)
+        await performRecordingAction(intent, shouldStartRecording, startAuthorization)
         isPerformingRecordingAction = false
     }
 }

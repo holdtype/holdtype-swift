@@ -24,7 +24,7 @@ protocol VoicePromptFixCapturing: AnyObject {
     func finish() async throws -> VoicePromptFixInstruction
     func completeApplication()
     func failApplication()
-    func cancel()
+    func cancel() async
 }
 
 @MainActor
@@ -34,6 +34,7 @@ final class VoicePromptFixSession: VoicePromptFixCapturing {
     private enum Phase: Equatable {
         case idle
         case preparing
+        case cancelling
         case recording
         case processing
         case awaitingApplication
@@ -50,6 +51,7 @@ final class VoicePromptFixSession: VoicePromptFixCapturing {
     private let transcriptionIDGenerator: () -> UUID
     private let voiceWorkReservation: VoiceWorkReservation
 
+    private var generation = 0
     private var phase = Phase.idle
     private var settings: AppSettings?
     private var credential: OpenAICredential?
@@ -110,6 +112,8 @@ final class VoicePromptFixSession: VoicePromptFixCapturing {
               voiceWorkReservation.acquire(.voicePromptFix) else {
             throw VoicePromptFixSessionError.voiceWorkUnavailable
         }
+        generation += 1
+        let token = generation
         phase = .preparing
 
         do {
@@ -119,6 +123,7 @@ final class VoicePromptFixSession: VoicePromptFixCapturing {
                     message: permission.settingsDescription
                 )
             }
+            guard token == generation else { throw CancellationError() }
             try Task.checkCancellation()
 
             self.settings = settings
@@ -126,12 +131,18 @@ final class VoicePromptFixSession: VoicePromptFixCapturing {
             self.automaticCompletionStarted = automaticCompletionStarted
             self.automaticCompletion = automaticCompletion
             let lease = recorder.acceptsPreparedRecordingFileURL
-                ? try captureJournal.prepareCapture(
+                ? try await captureJournal.prepareCaptureForStart(
                     settings: settings,
                     maximumDuration: Self.maximumDuration
                 )
                 : nil
+            guard token == generation else {
+                if let lease { try? captureJournal.discardCapture(lease) }
+                throw CancellationError()
+            }
             captureLease = lease
+            guard phase == .preparing else { throw CancellationError() }
+            try Task.checkCancellation()
             recorder.setAutomaticStopHandler { [weak self] result in
                 self?.handleAutomaticStop(result)
             }
@@ -139,10 +150,17 @@ final class VoicePromptFixSession: VoicePromptFixCapturing {
                 maximumDuration: Self.maximumDuration,
                 outputFileURL: lease?.audioFileURL
             )
+            guard token == generation else { throw CancellationError() }
+            guard phase == .preparing, !Task.isCancelled else {
+                await recorder.cancelRecording()
+                throw CancellationError()
+            }
             phase = .recording
         } catch {
-            discardPreparedCapture()
-            resetSession()
+            if token == generation, phase != .cancelling {
+                discardPreparedCapture()
+                resetSession()
+            }
             throw error
         }
     }
@@ -178,20 +196,22 @@ final class VoicePromptFixSession: VoicePromptFixCapturing {
         resetSession()
     }
 
-    func cancel() {
+    func cancel() async {
+        generation += 1
         automaticTask?.cancel()
         transcriptionService.cancelActiveTranscription()
         transcriptPipeline.cancelActivePostProcessing()
         switch phase {
-        case .preparing:
-            discardPreparedCapture()
-        case .recording:
-            recorder.cancelRecording()
+        case .preparing, .recording:
+            phase = .cancelling
+            await recorder.cancelRecording()
             discardPreparedCapture()
         case .processing, .awaitingApplication:
             if let recoveryAttemptID {
                 try? recoveryStore.removeFailedAttempt(id: recoveryAttemptID)
             }
+        case .cancelling:
+            return
         case .idle:
             break
         }

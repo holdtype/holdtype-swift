@@ -1953,7 +1953,7 @@ struct DictationSessionControllerTests {
             stopTailSleeper.sleepCalls == [2]
         }
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
         await stopTask.value
 
         #expect(controller.status == .idle)
@@ -2765,7 +2765,7 @@ struct DictationSessionControllerTests {
         #expect(transcriptOutput.calls.isEmpty)
     }
 
-    @Test func cancelRecordingReturnsToIdleAndSkipsTranscription() {
+    @Test func cancelRecordingReturnsToIdleAndSkipsTranscription() async {
         let recorder = FakeAudioRecorderService(currentStatus: .recording)
         let transcriptionService = FakeControllerTranscriptionService()
         let transcriptOutput = FakeTranscriptOutput()
@@ -2782,7 +2782,7 @@ struct DictationSessionControllerTests {
             outputStatusText: "Previous output status"
         )
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
 
         #expect(controller.status == .idle)
         #expect(controller.lastTranscriptText == "previous transcript")
@@ -2795,7 +2795,7 @@ struct DictationSessionControllerTests {
         #expect(attemptStageFailureEvents(in: eventLogger.events).isEmpty)
     }
 
-    @Test func cancelRecordingSurfacesRecorderCleanupFailure() {
+    @Test func cancelRecordingSurfacesRecorderCleanupFailure() async {
         let recorder = FakeAudioRecorderService(
             currentStatus: .recording,
             cancelStatus: .failed(message: "Could not remove the canceled recording.")
@@ -2809,7 +2809,7 @@ struct DictationSessionControllerTests {
             initialStatus: .recording
         )
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
 
         #expect(controller.status == .failure(message: "Could not remove the canceled recording."))
         #expect(recorder.cancelCount == 1)
@@ -2817,7 +2817,7 @@ struct DictationSessionControllerTests {
         #expect(transcriptOutput.calls.isEmpty)
     }
 
-    @Test func cancelRecordingIsIgnoredOutsideActiveRecording() {
+    @Test func cancelRecordingIsIgnoredOutsideActiveRecording() async {
         let recorder = FakeAudioRecorderService()
         let transcriptionService = FakeControllerTranscriptionService()
         let transcriptOutput = FakeTranscriptOutput()
@@ -2828,7 +2828,7 @@ struct DictationSessionControllerTests {
             initialStatus: .success(transcript: "previous")
         )
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
 
         #expect(controller.status == .success(transcript: "previous"))
         #expect(recorder.cancelCount == 0)
@@ -2868,7 +2868,7 @@ struct DictationSessionControllerTests {
             controller.status == .transcribing && transcriptionService.calls.count == 1
         }
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
 
         #expect(controller.status == .idle)
         #expect(controller.lastTranscriptText == "previous accepted transcript")
@@ -2919,7 +2919,7 @@ struct DictationSessionControllerTests {
             usageRecorder.calls.count == 1 && textCorrectionService.calls.count == 1
         }
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
 
         #expect(controller.status == .idle)
         #expect(usageRecorder.calls.count == 1)
@@ -2971,7 +2971,7 @@ struct DictationSessionControllerTests {
             usageRecorder.calls.count == 1 && translationService.calls.count == 1
         }
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
 
         #expect(controller.status == .idle)
         #expect(controller.lastTranscriptText == "previous accepted transcript")
@@ -3425,7 +3425,7 @@ struct DictationSessionControllerTests {
         ))
         #expect(cuePlayer.playedCues.last == .recordingLimitWarning(.red))
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
         #expect(controller.recordingCountdown == nil)
         #expect(monitor.stopCount == 1)
     }
@@ -3465,8 +3465,8 @@ struct DictationSessionControllerTests {
             ),
         ])
 
-        controller.cancelRecording()
-        controller.cancelRecording()
+        await controller.cancelRecording()
+        await controller.cancelRecording()
 
         #expect(publishedCountdowns == [
             VoiceSessionCountdown(
@@ -3551,7 +3551,7 @@ struct DictationSessionControllerTests {
         await controller.performRecordingAction()
         #expect(recorder.requestedMaximumDurations == [60, 900])
         #expect(monitor.requestedMaximumDurations == [60, 900])
-        controller.cancelRecording()
+        await controller.cancelRecording()
     }
 
     @Test func oneMinuteWatchdogFinishesExactlyOnce() async {
@@ -4171,7 +4171,7 @@ struct DictationSessionControllerTests {
             controller.status == .transcribing && transcriptionService.calls.count == 1
         }
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
 
         #expect(controller.status == .idle)
         #expect(transcriptionService.cancelCount == 1)
@@ -4238,7 +4238,7 @@ struct DictationSessionControllerTests {
                 && transcriptionService.calls.count == 1
         }
 
-        controller.cancelRecording()
+        await controller.cancelRecording()
 
         #expect(controller.status == .idle)
         let interruptedAttempt = try #require(recoveryStore.failedAttempts.first)

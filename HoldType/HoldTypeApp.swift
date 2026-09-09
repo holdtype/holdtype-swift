@@ -79,6 +79,10 @@ private enum HoldTypeDebugEntryPoint {
     @MainActor
     static func main() {
         let environment = ProcessInfo.processInfo.environment
+        if DictationStartQAAutomation.mode != nil {
+            DictationStartQAApplication.main()
+            return
+        }
         DevVlogsPhase0BStorageTestHostLaunch.startApplication(
             environment: environment,
             startStorageApplication: { DevVlogsPhase0BStorageTestHostApplication.main() },
@@ -358,9 +362,16 @@ final class HoldTypeAppDelegate: NSObject, NSApplicationDelegate {
             startRuntimeComponentsOverride()
         } else {
             floatingIndicatorCoordinator.start()
-            specialClipboardHotkeyCoordinator.start()
-            dictationRuntime.startHotkeyListening()
-            fixesRuntime.startHotkeyListening()
+            #if DEBUG
+            let isStartQA = DictationStartQAAutomation.mode != nil
+            #else
+            let isStartQA = false
+            #endif
+            if !isStartQA {
+                specialClipboardHotkeyCoordinator.start()
+                dictationRuntime.startHotkeyListening()
+                fixesRuntime.startHotkeyListening()
+            }
         }
 
         #if DEBUG

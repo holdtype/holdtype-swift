@@ -98,6 +98,30 @@ struct DevVlogsCaptureCoordinatorTests {
         ))
     }
 
+    @Test func disablingBeforeDeferredStartPreventsCameraCapture() async throws {
+        let fixture = try DevVlogsCaptureFixture()
+        let begin = fixture.coordinator.prepareStart(audioStartedAt: 99)
+        fixture.settings.setEnabled(false)
+        fixture.coordinator.featureDidDisable()
+        await begin()
+        #expect(fixture.camera.startCameraIDs.isEmpty)
+        #expect(fixture.coordinator.state == .skipped(
+            attemptID: DevVlogsCaptureFixture.attemptID, reason: .disabled))
+    }
+
+    @Test func deferredStartFreezesTriggerCameraAndAudioOriginBeforeScheduling() async throws {
+        let fixture = try DevVlogsCaptureFixture()
+        let begin = fixture.coordinator.prepareStart(audioStartedAt: 99)
+        fixture.settings.setPreferredCamera(.init(id: "later-camera", label: "Later"))
+        fixture.trigger.application = .init(bundleIdentifier: "com.example.later", displayName: "Later")
+        await begin()
+        await fixture.coordinator.finishAttempt(audioArtifact: audioArtifact)
+        await fixture.waitForTerminalState()
+        #expect(fixture.camera.startCameraIDs == [DevVlogsCaptureFixture.preferredCamera.id])
+        #expect(fixture.archive.publishSnapshots.first?.triggerApplication == DevVlogsCaptureFixture.triggerApplication)
+        #expect(fixture.finalizer.callCount == 1)
+    }
+
     @Test func frozenSnapshotPublishesOnceAndReleasesTheAudioLeaseOnce() async throws {
         let fixture = try DevVlogsCaptureFixture()
         await fixture.coordinator.beginAttempt()

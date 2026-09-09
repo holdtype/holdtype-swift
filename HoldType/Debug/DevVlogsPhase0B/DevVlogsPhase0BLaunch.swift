@@ -161,7 +161,7 @@ final class DevVlogsPhase0BHarness {
                 )
             )
         } catch {
-            audioRecorder.cancelRecording()
+            await audioRecorder.cancelRecording()
             return fail(
                 .cameraStart(DevVlogsPhase0BCameraCaptureError.redactedCategory(for: error)),
                 attemptID: attemptID
@@ -171,7 +171,7 @@ final class DevVlogsPhase0BHarness {
             try await sleep(.seconds(configuration.duration))
         } catch {
             await cameraCapture.cancelCapture()
-            audioRecorder.cancelRecording()
+            await audioRecorder.cancelRecording()
             return fail(.captureStop, attemptID: attemptID, result: .cancelled)
         }
         let cameraArtifact: DevVlogsPhase0BCameraCaptureArtifact
@@ -182,7 +182,7 @@ final class DevVlogsPhase0BHarness {
             (cameraArtifact, audioArtifact) = try await (stoppedCamera, stoppedAudio)
         } catch {
             await cameraCapture.cancelCapture()
-            audioRecorder.cancelRecording()
+            await audioRecorder.cancelRecording()
             let failure = (error as? DevVlogsPhase0BCameraCaptureError)
                 .map { DevVlogsPhase0BHarnessFailure.cameraStart($0.redactedCategory) } ?? .captureStop
             return fail(failure, attemptID: attemptID)

@@ -67,12 +67,12 @@ struct AudioInputPreferenceTests {
             recorderFactory: factory,
             makeRecordingFileURL: { temporaryRecordingURL() }
         )
-        defer { recorder.cancelRecording() }
 
         try await recorder.startRecording()
 
         #expect(factory.inputPreference == preference)
         #expect(recorder.currentStatus == .recording)
+        await recorder.cancelRecording()
     }
 
     @Test func unavailablePinnedMicrophoneFailsBeforeRecordingBegins() async {

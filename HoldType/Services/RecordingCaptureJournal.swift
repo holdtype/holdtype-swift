@@ -6,7 +6,7 @@
 import Foundation
 import HoldTypeDomain
 
-struct RecordingCaptureLease: Equatable {
+nonisolated struct RecordingCaptureLease: Equatable, Sendable {
     let id: UUID
     let createdAt: Date
     let audioFileURL: URL
@@ -51,6 +51,7 @@ protocol RecordingCaptureJournaling: AnyObject {
         settings: AppSettings,
         maximumDuration: TimeInterval
     ) throws -> RecordingCaptureLease
+    func prepareCaptureForStart(settings: AppSettings, maximumDuration: TimeInterval) async throws -> RecordingCaptureLease
     func releaseCapture(
         _ lease: RecordingCaptureLease,
         artifact: AudioRecordingArtifact,
@@ -71,6 +72,12 @@ protocol RecordingCaptureJournaling: AnyObject {
     ) -> Int
 }
 
+extension RecordingCaptureJournaling {
+    func prepareCaptureForStart(settings: AppSettings, maximumDuration: TimeInterval) async throws -> RecordingCaptureLease {
+        try prepareCapture(settings: settings, maximumDuration: maximumDuration)
+    }
+}
+
 @MainActor
 final class RecordingCaptureJournal: RecordingCaptureJournaling {
     static let shared = RecordingCaptureJournal()
@@ -82,8 +89,8 @@ final class RecordingCaptureJournal: RecordingCaptureJournaling {
     private let directoryURL: URL
     private let releasedDirectoryURL: URL
     private let fileManager: FileManager
-    private let now: () -> Date
-    private let uuidProvider: () -> UUID
+    private let now: () -> Date, uuidProvider: () -> UUID
+    private var isCaptureDirectoryPrepared = false
 
     init(
         directoryURL: URL? = nil,
@@ -108,37 +115,31 @@ final class RecordingCaptureJournal: RecordingCaptureJournaling {
         settings: AppSettings,
         maximumDuration: TimeInterval
     ) throws -> RecordingCaptureLease {
-        do {
-            try fileManager.createDirectory(
-                at: directoryURL,
-                withIntermediateDirectories: true
-            )
-        } catch {
-            throw RecordingCaptureJournalError.directoryUnavailable
-        }
-        var resourceValues = URLResourceValues()
-        resourceValues.isExcludedFromBackup = true
-        var activeDirectoryURL = directoryURL
-        try? activeDirectoryURL.setResourceValues(resourceValues)
-
-        let id = uuidProvider()
-        let createdAt = now()
-        let fileName = Self.captureAudioFileName(id: id, createdAt: createdAt)
-        let lease = RecordingCaptureLease(
-            id: id,
-            createdAt: createdAt,
-            audioFileURL: directoryURL.appendingPathComponent(fileName, isDirectory: false),
-            transcriptionModel: settings.resolvedTranscriptionModel,
-            languageCode: settings.resolvedLanguageCode,
-            maximumDuration: maximumDuration
-        )
-
-        do {
-            try persist(PersistedRecordingCapture(lease))
-        } catch {
-            throw RecordingCaptureJournalError.journalWriteFailed
-        }
+        let lease = makeLease(settings: settings, maximumDuration: maximumDuration)
+        try RecordingCapturePreparation.persist(lease, in: directoryURL, prepareDirectory: !isCaptureDirectoryPrepared, fileManager: fileManager)
+        isCaptureDirectoryPrepared = true
         return lease
+    }
+
+    func prepareCaptureForStart(settings: AppSettings, maximumDuration: TimeInterval) async throws -> RecordingCaptureLease {
+        let lease = makeLease(settings: settings, maximumDuration: maximumDuration)
+        let directory = directoryURL, prepareDirectory = !isCaptureDirectoryPrepared
+        let manager = fileManager
+        try await Task.detached(priority: .userInitiated) {
+            try RecordingCapturePreparation.persist(lease, in: directory, prepareDirectory: prepareDirectory, fileManager: manager)
+        }.value
+        isCaptureDirectoryPrepared = true
+        return lease
+    }
+
+    private func makeLease(settings: AppSettings, maximumDuration: TimeInterval) -> RecordingCaptureLease {
+        let id = uuidProvider(), createdAt = now()
+        return RecordingCaptureLease(
+            id: id, createdAt: createdAt,
+            audioFileURL: directoryURL.appendingPathComponent(Self.captureAudioFileName(id: id, createdAt: createdAt)),
+            transcriptionModel: settings.resolvedTranscriptionModel,
+            languageCode: settings.resolvedLanguageCode, maximumDuration: maximumDuration
+        )
     }
 
     func releaseCapture(
@@ -549,48 +550,6 @@ final class RecordingCaptureJournal: RecordingCaptureJournaling {
 private struct RecordingCaptureCandidate {
     let lease: RecordingCaptureLease
     let transferredRecoveryAttemptID: FailedTranscriptionAttempt.ID?
-}
-
-private struct PersistedRecordingCapture: Codable {
-    let schemaVersion: Int
-    let id: UUID
-    let createdAt: Date
-    let audioFileName: String
-    let transcriptionModel: String
-    let languageCode: String?
-    let maximumDuration: TimeInterval
-    let transferredRecoveryAttemptID: UUID?
-
-    init(
-        _ lease: RecordingCaptureLease,
-        transferredRecoveryAttemptID: UUID? = nil
-    ) {
-        schemaVersion = 1
-        id = lease.id
-        createdAt = lease.createdAt
-        audioFileName = lease.audioFileURL.lastPathComponent
-        transcriptionModel = lease.transcriptionModel
-        languageCode = lease.languageCode
-        maximumDuration = lease.maximumDuration
-        self.transferredRecoveryAttemptID = transferredRecoveryAttemptID
-    }
-
-    func lease(in directoryURL: URL) -> RecordingCaptureLease? {
-        guard schemaVersion == 1,
-              audioFileName == URL(fileURLWithPath: audioFileName).lastPathComponent,
-              maximumDuration.isFinite,
-              maximumDuration > 0 else {
-            return nil
-        }
-        return RecordingCaptureLease(
-            id: id,
-            createdAt: createdAt,
-            audioFileURL: directoryURL.appendingPathComponent(audioFileName, isDirectory: false),
-            transcriptionModel: transcriptionModel,
-            languageCode: languageCode,
-            maximumDuration: maximumDuration
-        )
-    }
 }
 
 private extension JSONDecoder {

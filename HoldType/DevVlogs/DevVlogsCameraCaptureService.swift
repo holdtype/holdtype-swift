@@ -95,7 +95,7 @@ final class AVFoundationDevVlogsCameraCaptureService: DevVlogsCameraCapturing {
             )
             return id
         } catch {
-            activeCapture = nil
+            if activeCapture?.id == id { activeCapture = nil }
             throw error
         }
     }

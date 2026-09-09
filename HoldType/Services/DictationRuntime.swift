@@ -48,7 +48,14 @@ final class DictationRuntime: ObservableObject {
         transcriptClipboardStore: (any TranscriptClipboardStoring)? = nil,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) {
-        let resolvedController = controller
+        #if DEBUG
+        let qaController = DictationStartQAAutomation.controller()
+        let qaPreflight = DictationStartQAAutomation.preflight()
+        #else
+        let qaController: DictationSessionController? = nil
+        let qaPreflight: RecordingSetupPreflight? = nil
+        #endif
+        let resolvedController = controller ?? qaController
             ?? DevVlogsFinalQAAutomation.makeControllerIfEnabled(environment: environment)
             ?? DictationSessionController()
         let resolvedHotkeyService = hotkeyService ?? CGEventGlobalHotkeyService()
@@ -57,7 +64,7 @@ final class DictationRuntime: ObservableObject {
 
         self.controller = resolvedController
         self.appSettingsStore = resolvedAppSettingsStore
-        self.recordingSetupPreflight = recordingSetupPreflight
+        self.recordingSetupPreflight = recordingSetupPreflight ?? qaPreflight
             ?? DevVlogsFinalQAAutomation.makeRecordingSetupPreflightIfEnabled(
                 environment: environment
             )
@@ -147,10 +154,11 @@ final class DictationRuntime: ObservableObject {
             statusProvider: { [weak self] in
                 self?.status ?? .idle
             },
-            performRecordingAction: { [weak self] intent, shouldStartRecording in
+            performRecordingAction: { [weak self] intent, shouldStartRecording, authorization in
                 await self?.performRecordingAction(
                     intent: intent,
-                    shouldStartRecording: shouldStartRecording
+                    shouldStartRecording: shouldStartRecording,
+                    authorization: authorization
                 )
             }
         )
@@ -189,11 +197,17 @@ final class DictationRuntime: ObservableObject {
 
     func performRecordingAction(
         intent: DictationOutputIntent = .standard,
-        shouldStartRecording: @escaping @MainActor () -> Bool = { true }
+        shouldStartRecording: @escaping @MainActor () -> Bool = { true },
+        authorization: RecordingStartAuthorization? = nil
     ) async {
         var credential: OpenAICredential?
         if shouldValidateSetupBeforeRecording {
+            DictationStartTiming.mark("request")
+            #if DEBUG
+            let settings = DictationStartQAAutomation.mode == nil ? appSettingsStore.load() : DictationStartQAAutomation.settings
+            #else
             let settings = appSettingsStore.load()
+            #endif
             if intent == .translate,
                let translationIssue = settings.translationConfigurationIssue {
                 let message = Self.userFacingMessage(for: translationIssue)
@@ -242,7 +256,8 @@ final class DictationRuntime: ObservableObject {
             }
         }
 
-        await controller.performRecordingAction(intent: intent, credential: credential)
+        DictationStartTiming.mark("preflight_complete")
+        await controller.performRecordingAction(intent: intent, credential: credential, authorization: authorization)
         syncFromController()
         if case .failure = status,
            intent == .translate,

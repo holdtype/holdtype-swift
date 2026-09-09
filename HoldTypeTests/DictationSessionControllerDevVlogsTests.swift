@@ -24,6 +24,7 @@ struct DictationSessionControllerDevVlogsTests {
         )
 
         await controller.performRecordingAction()
+        for _ in 0..<20 { await Task.yield() }
         await controller.performRecordingAction()
 
         #expect(vlog.beginCount == 1)
@@ -55,7 +56,7 @@ struct DictationSessionControllerDevVlogsTests {
 
         await controller.performRecordingAction()
 
-        #expect(vlog.beginCount == 1)
+        #expect(vlog.beginCount == 0)
         #expect(vlog.didStartCount == 0)
         #expect(vlog.finishCount == 0)
         #expect(vlog.endReasons == [.dictationDidNotComplete])

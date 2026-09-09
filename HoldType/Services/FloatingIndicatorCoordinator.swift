@@ -50,10 +50,8 @@ final class FloatingIndicatorCoordinator {
         appSettings = appSettingsStore.load()
 
         dictationRuntime.$status
-            .sink { [weak self] _ in
-                Task { @MainActor in
-                    self?.update()
-                }
+            .sink { [weak self] status in
+                self?.update(status: status)
             }
             .store(in: &cancellables)
 
@@ -93,9 +91,9 @@ final class FloatingIndicatorCoordinator {
         presenter.hide()
     }
 
-    private func update() {
+    private func update(status: DictationStatus? = nil) {
         let presentation = FloatingIndicatorPresentation.presentation(
-            for: dictationRuntime.status,
+            for: status ?? dictationRuntime.status,
             settings: appSettings,
             recordingCountdown: dictationRuntime.recordingCountdown
         )
@@ -106,5 +104,6 @@ final class FloatingIndicatorCoordinator {
         hasDeliveredPresentation = true
         lastDeliveredPresentation = presentation
         presenter.update(with: presentation)
+        if presentation?.phase == .recording { DictationStartTiming.mark("indicator_presented") }
     }
 }

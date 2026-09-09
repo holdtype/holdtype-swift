@@ -241,7 +241,7 @@ struct DictationHotkeyCoordinatorTests {
             statusProvider: {
                 recordingAction.status
             },
-            performRecordingAction: { intent, shouldStartRecording in
+            performRecordingAction: { intent, shouldStartRecording, _ in
                 await recordingAction.perform(
                     intent: intent,
                     shouldStartRecording: shouldStartRecording
