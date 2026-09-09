@@ -5,9 +5,9 @@
 - Domain ID: `holdtype.macos.dev-vlogs`
 - Status: Active
 - Stability: Evolving
-- Release baseline: explicitly excluded from HoldType `1.0.11`; post-release
+- Release baseline: explicitly excluded from HoldType `1.0.11` and `1.0.12`; post-release
   development entry restored for local testing
-- Contract revision: `holdtype.macos.dev-vlogs@DV-ACTIVE-7`
+- Contract revision: `holdtype.macos.dev-vlogs@DV-ACTIVE-8`
 - Read when: Dev Vlogs setup, eligibility, capture, archive, Publish, Build, Share, acceptance, or release visibility is in scope.
 - Do not read when: ordinary dictation or an unrelated release is in scope.
 - Maximum size: 100 physical lines.

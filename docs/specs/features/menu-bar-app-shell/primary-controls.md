@@ -5,7 +5,7 @@
 - Domain ID: `holdtype.macos.menu-bar-shell`
 - Status: Active
 - Stability: Released
-- Contract revision: `holdtype.macos.menu-bar-shell.controls@1`
+- Contract revision: `holdtype.macos.menu-bar-shell.controls@2`
 - Read when: menu commands, ordering, shortcut hints, availability, or setup routing is in scope.
 - Do not read when: only process/Dock lifecycle or compact error status is in scope.
 - Maximum size: 100 physical lines.
@@ -37,10 +37,11 @@
   the menu,
   activates HoldType as needed, and opens the normal SwiftUI Dev Vlogs window
   without requesting Camera, starting preview, or starting capture.
-- `DV-MENU-1A`: HoldType `1.0.11` does not expose `Dev Vlogs…`, independently
+- `DV-MENU-1A`: HoldType `1.0.11` and `1.0.12` do not expose `Dev Vlogs…`, independently
   of Dev Vlogs acceptance. Its post-release restoration in development source
   does not authorize a later public shipping claim; that remains an explicit
-  release decision.
+  release decision. Revision 2 preserves this boundary for the user-requested
+  responsiveness release on 2026-09-09.
 - `DV-MENU-2`: The item preserves compactness, existing commands, shortcut
   hints, disabled states, ordering, and recovery. Camera, destination,
   app-policy, library, and build controls remain in the dedicated window.

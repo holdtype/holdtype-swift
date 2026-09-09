@@ -2,13 +2,13 @@
 
 - Node type: leaf
 - Status: Active
-- Parent contract: `holdtype.macos.dev-vlogs@DV-ACTIVE-6`
+- Parent contract: `holdtype.macos.dev-vlogs@DV-ACTIVE-8`
 - Clauses: `DV-ACC-*`, `DV-FINAL-QA`
 - Read when: claiming implementation readiness, acceptance, release, or selecting the next capability.
 - Do not read when: only contract meaning is needed without a capability claim.
 - Maximum size: 100 physical lines.
 
-- Setup/UI remains Debug development and excluded from `1.0.11`; product tests
+- Setup/UI remains Debug development and excluded from `1.0.11` and `1.0.12`; product tests
   and Computer Use remain future-shipping evidence. Incomplete `DV-FINAL-QA`
   cannot block a release excluding the feature.
 - Capture is ready under ACTIVE-3 but acceptance needs product bundle-ID policy,
