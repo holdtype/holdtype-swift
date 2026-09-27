@@ -22,12 +22,14 @@ jobs:
       - name: OpenAI package regression tests
         run: swift test --package-path Packages/HoldTypeOpenAI --scratch-path "$RUNNER_TEMP/openai-tests"
       - name: Build and test macOS application
+        if: success() || failure()
         run: |
           xcodebuild -project HoldType.xcodeproj -scheme HoldType \
             -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/holdtype-build" \
             -resultBundlePath "$RUNNER_TEMP/HoldType.xcresult" \
             CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= build test
       - name: Package tested app for local smoke
+        if: success() || failure()
         run: |
           ditto -c -k --sequesterRsrc --keepParent \
             "$RUNNER_TEMP/holdtype-build/Build/Products/Debug/HoldType.app" \

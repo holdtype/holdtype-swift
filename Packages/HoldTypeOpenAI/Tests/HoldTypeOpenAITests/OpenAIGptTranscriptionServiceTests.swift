@@ -17,7 +17,7 @@ struct OpenAIGptTranscriptionServiceTests {
         defer { try? FileManager.default.removeItem(at: audioDirectory) }
 
         let audioURL = audioDirectory.appendingPathComponent("recording.m4a")
-        try Data([1, 2, 3]).write(to: audioURL)
+        try TranscriptionTestAudio.wav.write(to: audioURL)
         let configuration = TranscriptionConfiguration(
             model: TranscriptionConfiguration.defaultModel
         )

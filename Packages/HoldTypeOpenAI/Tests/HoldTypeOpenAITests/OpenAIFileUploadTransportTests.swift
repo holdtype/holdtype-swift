@@ -289,7 +289,7 @@ struct OpenAIFileUploadTransportTests {
     }
 
     @Test func totalServiceDeadlineCancelsManualRedirectReplayAndKeepsTimeoutResult() async throws {
-        let sourceURL = try makeTemporaryAudio(data: Data("redirect-timeout-audio".utf8))
+        let sourceURL = try makeTemporaryAudio(data: TranscriptionTestAudio.wav)
         let scratchDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "holdtype-redirect-timeout-\(UUID().uuidString)",
             isDirectory: true
@@ -343,7 +343,7 @@ struct OpenAIFileUploadTransportTests {
         #expect(observations.map(\.url.path) == ["/start", "/final"])
         #expect(observations.allSatisfy { $0.authorization == "Bearer private-test-key" })
         #expect(observations.first?.body == observations.last?.body)
-        #expect(try Data(contentsOf: sourceURL) == Data("redirect-timeout-audio".utf8))
+        #expect(try Data(contentsOf: sourceURL) == TranscriptionTestAudio.wav)
     }
 
     @Test func cancellationAndTimeoutDuringBlockedPreadReturnBeforeDescriptorRead() async throws {
@@ -351,7 +351,7 @@ struct OpenAIFileUploadTransportTests {
             OpenAITranscriptionServiceError.cancelled,
             .timedOut,
         ] {
-            let sourceData = Data(repeating: 0x51, count: 96 * 1024)
+            let sourceData = TranscriptionTestAudio.wav
             let sourceURL = try makeTemporaryAudio(data: sourceData)
             let scratchDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(
                 "holdtype-blocked-pread-\(UUID().uuidString)",
