@@ -11,6 +11,7 @@ let expectedAppSettingsPersistedKeys = Set(
         "enabledEmojiCommandSetIDs",
         "customEmojiCommands",
         "useActiveTextContext",
+        "writingContextMode",
         "textCorrectionEnabled",
         "textCorrectionModelPreset",
         "customTextCorrectionModel",
