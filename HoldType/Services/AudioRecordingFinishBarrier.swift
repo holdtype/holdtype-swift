@@ -9,7 +9,7 @@ nonisolated final class AudioRecordingFinishBarrier: @unchecked Sendable {
     func wait(timeout: TimeInterval, stop: @escaping @Sendable () -> Void) async throws {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                let previous = lock.withLock {
+                let previous: Result<Void, Error>? = lock.withLock {
                     if let result { return result }
                     self.continuation = continuation
                     return nil as Result<Void, Error>?

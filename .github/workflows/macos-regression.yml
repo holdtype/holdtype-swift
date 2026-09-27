@@ -2,6 +2,11 @@ name: macOS Regression
 
 on:
   workflow_dispatch:
+    inputs:
+      test_provider_package:
+        description: Run provider tests (requires native file protection; otherwise run locally)
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -20,6 +25,7 @@ jobs:
           python3 scripts/check_swift_structure.py
           git diff --check
       - name: OpenAI package regression tests
+        if: inputs.test_provider_package
         run: swift test --package-path Packages/HoldTypeOpenAI --scratch-path "$RUNNER_TEMP/openai-tests"
       - name: Build and test macOS application
         if: success() || failure()
