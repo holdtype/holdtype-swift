@@ -416,11 +416,9 @@ final class DictationRuntime: ObservableObject {
         do {
             let audioFileURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("HoldTypeDebugFailedTranscription-\(UUID().uuidString)")
-                .appendingPathExtension("m4a")
-            try Data("debug transcription failure audio fixture".utf8).write(
-                to: audioFileURL,
-                options: .atomic
-            )
+                .appendingPathExtension("wav")
+            try DebugTranscriptionAudioFixture.write(to: audioFileURL)
+            defer { try? FileManager.default.removeItem(at: audioFileURL) }
 
             var settings = appSettingsStore.load()
             settings.saveTranscriptHistory = true

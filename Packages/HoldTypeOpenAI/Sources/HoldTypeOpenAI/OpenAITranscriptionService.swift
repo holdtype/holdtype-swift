@@ -126,6 +126,7 @@ public struct OpenAITranscriptionService:
                     cleanupRegistration: cleanupRegistration
                 )
                 defer { cleanupRegistration.requestCleanup() }
+                try TranscriptionAudioValidation.validate(transcriptionRequest.audioFileURL)
                 let preparedUpload = try await preparation.prepareRequest()
                 var request = preparedUpload.request
                 request.timeoutInterval = requestTimeout
@@ -252,7 +253,7 @@ public struct OpenAITranscriptionService:
         case 429:
             throw OpenAITranscriptionServiceError.rateLimited
         case 400, 404, 413, 415, 422:
-            throw OpenAITranscriptionServiceError.badRequest
+            throw OpenAITranscriptionServiceError.providerRejected(statusCode: httpResponse.statusCode)
         case 500..<600:
             throw OpenAITranscriptionServiceError.providerUnavailable
         default:

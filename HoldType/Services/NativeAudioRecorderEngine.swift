@@ -5,8 +5,16 @@ nonisolated protocol NativeAudioRecorderEngine: AnyObject {
     var currentTime: TimeInterval { get }
     func record(forDuration duration: TimeInterval) -> Bool
     func stop()
+    func stop(completion: @escaping @Sendable () -> Void)
     @discardableResult func deleteRecording() -> Bool
     func setRecordingFinishedHandler(_ handler: ((Bool) -> Void)?)
+}
+
+nonisolated extension NativeAudioRecorderEngine {
+    func stop(completion: @escaping @Sendable () -> Void) {
+        stop()
+        completion()
+    }
 }
 
 nonisolated final class AVFoundationAudioRecorderEngine: NSObject, NativeAudioRecorderEngine, AVAudioRecorderDelegate, @unchecked Sendable {
@@ -59,6 +67,9 @@ nonisolated final class AVCaptureAudioRecorderEngine: NSObject, NativeAudioRecor
     private var disconnectObserver: NSObjectProtocol?
     private var deleteWhenFinished = false
     private var retainedWhileFinishing: AVCaptureAudioRecorderEngine?
+    private var finishWaiters: [@Sendable () -> Void] = []
+    private var hasStarted = false
+    private var hasFinished = false
 
     init(
         device: AVCaptureDevice,
@@ -125,6 +136,7 @@ nonisolated final class AVCaptureAudioRecorderEngine: NSObject, NativeAudioRecor
             preferredTimescale: 600
         )
         retainedWhileFinishing = self
+        hasStarted = true
         audioOutput.startRecording(
             to: outputFileURL,
             outputFileType: .m4a,
@@ -132,6 +144,7 @@ nonisolated final class AVCaptureAudioRecorderEngine: NSObject, NativeAudioRecor
         )
         guard audioOutput.isRecording else {
             retainedWhileFinishing = nil
+            hasStarted = false
             return false
         }
         return true
@@ -142,6 +155,17 @@ nonisolated final class AVCaptureAudioRecorderEngine: NSObject, NativeAudioRecor
             return
         }
         audioOutput.stopRecording()
+    }
+
+    func stop(completion: @escaping @Sendable () -> Void) {
+        guard hasStarted, !hasFinished else {
+            completion()
+            return
+        }
+        // isRecording can already be false while the M4A container is still
+        // being finalized. Only didFinishRecording makes it safe to copy.
+        finishWaiters.append(completion)
+        stop()
     }
 
     func deleteRecording() -> Bool {
@@ -183,6 +207,7 @@ nonisolated extension AVCaptureAudioRecorderEngine: AVCaptureFileOutputRecording
     ) {
         callbackQueue.async { [self] in
             captureSession.stopRunning()
+            hasFinished = true
             if deleteWhenFinished {
                 _ = removeOutputFileIfPresent()
             }
@@ -190,6 +215,9 @@ nonisolated extension AVCaptureAudioRecorderEngine: AVCaptureFileOutputRecording
             let recordedSuccessfully = error.map {
                 ($0 as NSError).userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool ?? false
             } ?? true
+            let waiters = finishWaiters
+            finishWaiters.removeAll()
+            waiters.forEach { $0() }
             recordingFinishedHandler?(recordedSuccessfully)
             retainedWhileFinishing = nil
         }

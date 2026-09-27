@@ -59,8 +59,14 @@ public nonisolated enum OpenAITranscriptionServiceError: Error, Equatable, Local
             return "OpenAI is unavailable. Try again later."
         case .badRequest:
             return "Transcription settings or recording format need attention."
-        case .providerRejected:
-            return "OpenAI rejected the transcription request."
+        case .providerRejected(let statusCode):
+            switch statusCode {
+            case 404: return "The transcription model or endpoint is unavailable. Check Transcription settings."
+            case 413: return "OpenAI rejected the recording because it is too large."
+            case 415: return "OpenAI could not accept the recording format."
+            case 400, 422: return "OpenAI rejected the transcription settings or audio (HTTP \(statusCode))."
+            default: return "OpenAI rejected the transcription request (HTTP \(statusCode))."
+            }
         case .invalidResponse:
             return "OpenAI returned an unreadable transcription response."
         case .emptyTranscript:

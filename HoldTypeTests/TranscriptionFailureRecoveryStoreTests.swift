@@ -278,10 +278,10 @@ struct TranscriptionFailureRecoveryStoreTests {
             id: symlinkID
         )
         try FileManager.default.createSymbolicLink(at: symlinkURL, withDestinationURL: outsideURL)
-        try Data("audio".utf8).write(
+        try TranscriptionTestAudio.wav.write(
             to: fixture.recoveryURL.appendingPathComponent("Recording-manual.m4a")
         )
-        try Data("audio".utf8).write(
+        try TranscriptionTestAudio.wav.write(
             to: fixture.recoveryURL.appendingPathComponent("notes.m4a")
         )
 
@@ -1402,7 +1402,7 @@ struct TranscriptionFailureRecoveryStoreTests {
 
     private func makeAudioFile(in directoryURL: URL, named fileName: String) throws -> URL {
         let fileURL = directoryURL.appendingPathComponent(fileName)
-        try Data("audio".utf8).write(to: fileURL)
+        try TranscriptionTestAudio.wav.write(to: fileURL)
         return fileURL
     }
 
@@ -1413,7 +1413,7 @@ struct TranscriptionFailureRecoveryStoreTests {
     ) throws -> URL {
         try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         let fileURL = recoveryAudioURL(in: directoryURL, timestamp: timestamp, id: id)
-        try Data("audio".utf8).write(to: fileURL)
+        try TranscriptionTestAudio.wav.write(to: fileURL)
         return fileURL
     }
 

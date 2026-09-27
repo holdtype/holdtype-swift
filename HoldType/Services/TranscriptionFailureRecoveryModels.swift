@@ -182,8 +182,8 @@ enum FailedTranscriptionReason: Codable, Equatable {
             return "OpenAI is unavailable. Retry later."
         case .badRequest:
             return "Transcription settings or recording format need attention."
-        case .providerRejected:
-            return "OpenAI rejected the transcription request."
+        case .providerRejected(let statusCode):
+            return OpenAITranscriptionServiceError.providerRejected(statusCode: statusCode).userFacingMessage
         case .invalidResponse:
             return "OpenAI returned an unreadable response. You can retry this recording."
         case .emptyTranscript:
@@ -219,6 +219,8 @@ enum FailedTranscriptionReason: Codable, Equatable {
             return .openAI
         case .invalidRequest, .badRequest, .dictionaryEcho, .contextEcho:
             return .transcription
+        case .providerRejected(let statusCode):
+            return [400, 404, 413, 415, 422].contains(statusCode) ? .transcription : nil
         case .invalidRecording,
              .timedOut,
              .networkUnavailable,
@@ -226,7 +228,6 @@ enum FailedTranscriptionReason: Codable, Equatable {
              .cancelled,
              .rateLimited,
              .providerUnavailable,
-             .providerRejected,
              .invalidResponse,
              .emptyTranscript,
              .processingInterrupted,

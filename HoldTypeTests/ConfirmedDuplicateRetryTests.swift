@@ -11,7 +11,7 @@ struct ConfirmedDuplicateRetryTests {
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
 
         let audioURL = rootURL.appendingPathComponent("recording.m4a")
-        try Data("audio".utf8).write(to: audioURL)
+        try TranscriptionTestAudio.wav.write(to: audioURL)
         let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
         let store = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
         let checkpoint = try store.recordProcessingCheckpoint(

@@ -75,12 +75,26 @@ struct AppSettingsStore {
         self.userDefaults = userDefaults
     }
 
+    private func loadTranscriptionModel() -> String {
+        let migrationKey = Self.migrationKeyPrefix + "gptTranscribeDefault"
+        let saved = userDefaults.string(forKey: Key.transcriptionModel)
+        guard !userDefaults.bool(forKey: migrationKey) else {
+            return saved ?? AppSettings.defaultTranscriptionModel
+        }
+        var model = saved ?? AppSettings.defaultTranscriptionModel
+        if model.trimmingCharacters(in: .whitespacesAndNewlines) == "gpt-4o-transcribe" {
+            model = AppSettings.defaultTranscriptionModel
+            userDefaults.set(model, forKey: Key.transcriptionModel)
+        }
+        userDefaults.set(true, forKey: migrationKey)
+        return model
+    }
+
     func load() -> AppSettings {
         let defaultSettings = AppSettings.defaults
 
         return AppSettings(
-            transcriptionModel: userDefaults.string(forKey: Key.transcriptionModel)
-                ?? defaultSettings.transcriptionModel,
+            transcriptionModel: loadTranscriptionModel(),
             language: loadLanguage(defaultValue: defaultSettings.language),
             customLanguageCode: userDefaults.string(forKey: Key.customLanguageCode)
                 ?? defaultSettings.customLanguageCode,

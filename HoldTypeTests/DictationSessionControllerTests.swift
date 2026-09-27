@@ -216,7 +216,7 @@ struct DictationSessionControllerTests {
         try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: rootURL) }
         let originalURL = cacheURL.appendingPathComponent("HoldType-max.m4a")
-        try Data("maximum recording".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
             duration: 300.4,
@@ -289,7 +289,7 @@ struct DictationSessionControllerTests {
         try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: rootURL) }
         let originalURL = cacheURL.appendingPathComponent("HoldType-manual-max-race.m4a")
-        try Data("near-boundary recording".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
             duration: 300,
@@ -365,7 +365,7 @@ struct DictationSessionControllerTests {
         try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: rootURL) }
         let originalURL = cacheURL.appendingPathComponent("HoldType-zero-duration-race.m4a")
-        try Data("positive audio with unavailable duration".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
             duration: 0,
@@ -434,7 +434,7 @@ struct DictationSessionControllerTests {
         try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: rootURL) }
         let originalURL = cacheURL.appendingPathComponent("HoldType-max-save-failure.m4a")
-        try Data("maximum recording".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let metadataURL = recoveryURL.appendingPathComponent("Recovery.json")
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
@@ -576,7 +576,7 @@ struct DictationSessionControllerTests {
             withIntermediateDirectories: false
         )
         let originalURL = cacheURL.appendingPathComponent("checkpoint-emergency.m4a")
-        try Data("checkpoint emergency recording".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
             duration: 300,
@@ -654,7 +654,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let originalURL = rootURL.appendingPathComponent("unowned-emergency.m4a")
-        try Data("unowned emergency recording".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(
             directoryURL: recoveryURL
         )
@@ -737,7 +737,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let originalURL = rootURL.appendingPathComponent("still-unowned.m4a")
-        try Data("still unowned recording".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let unusableRecoveryURL = rootURL.appendingPathComponent("Recovery")
         try Data("not a directory".utf8).write(to: unusableRecoveryURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(
@@ -789,7 +789,7 @@ struct DictationSessionControllerTests {
 
         let attemptID = UUID(uuidString: "D9C6D531-C23C-4D7C-A0C0-976A9E289ED2")!
         let originalURL = rootURL.appendingPathComponent("dual-write-emergency.m4a")
-        try Data("dual write emergency recording".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(
             directoryURL: recoveryURL,
             uuidProvider: { attemptID }
@@ -872,7 +872,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let sourceURL = rootURL.appendingPathComponent("dispatch-seal.m4a")
-        try Data("dispatch seal recording".utf8).write(to: sourceURL)
+        try TranscriptionTestAudio.wav.write(to: sourceURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(
             directoryURL: recoveryURL
         )
@@ -946,7 +946,7 @@ struct DictationSessionControllerTests {
             "SavedStateRepair-\(attemptID.uuidString.lowercased()).json"
         )
         let originalURL = cacheURL.appendingPathComponent("dual-write.m4a")
-        try Data("dual write recording".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
             duration: 300,
@@ -1042,7 +1042,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let originalURL = cacheURL.appendingPathComponent("translation-failure.m4a")
-        try Data("maximum translation failure".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
             duration: 300,
@@ -1163,7 +1163,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let originalURL = cacheURL.appendingPathComponent("translation-failure.m4a")
-        try Data("standard translation failure".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
             duration: 19,
@@ -1266,7 +1266,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let sourceURL = rootURL.appendingPathComponent("retry-source.m4a")
-        try Data("standard retry recording".utf8).write(to: sourceURL)
+        try TranscriptionTestAudio.wav.write(to: sourceURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(
             directoryURL: recoveryURL
         )
@@ -1345,7 +1345,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let sourceURL = rootURL.appendingPathComponent("standard-success.m4a")
-        try Data("standard successful recording".utf8).write(to: sourceURL)
+        try TranscriptionTestAudio.wav.write(to: sourceURL)
         let artifact = AudioRecordingArtifact(
             fileURL: sourceURL,
             duration: 21,
@@ -1401,7 +1401,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let sourceURL = rootURL.appendingPathComponent("invalid-request.m4a")
-        try Data("locally invalid request recording".utf8).write(to: sourceURL)
+        try TranscriptionTestAudio.wav.write(to: sourceURL)
         let artifact = AudioRecordingArtifact(
             fileURL: sourceURL,
             duration: 17,
@@ -1464,7 +1464,7 @@ struct DictationSessionControllerTests {
             withIntermediateDirectories: false
         )
         let sourceURL = rootURL.appendingPathComponent("checkpoint-relaunch-source.m4a")
-        try Data("checkpoint relaunch recording".utf8).write(to: sourceURL)
+        try TranscriptionTestAudio.wav.write(to: sourceURL)
         let attemptID = UUID(uuidString: "D9C6D531-C23C-4D7C-A0C0-976A9E289ED2")!
         try FileManager.default.createDirectory(
             at: recoveryURL.appendingPathComponent(
@@ -1534,7 +1534,7 @@ struct DictationSessionControllerTests {
         try FileManager.default.createDirectory(at: cacheURL, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: rootURL) }
         let originalURL = cacheURL.appendingPathComponent("HoldType-max-retry.m4a")
-        try Data("maximum retry recording".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
             duration: 300,
@@ -1803,7 +1803,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let originalURL = cacheURL.appendingPathComponent("false-at-limit.m4a")
-        try Data("five minute callback anomaly".utf8).write(to: originalURL)
+        try TranscriptionTestAudio.wav.write(to: originalURL)
         let artifact = AudioRecordingArtifact(
             fileURL: originalURL,
             duration: 300,
@@ -2316,7 +2316,7 @@ struct DictationSessionControllerTests {
         let rootURL = try makeTemporaryControllerDirectory(prefix: "history-append-failure")
         defer { try? FileManager.default.removeItem(at: rootURL) }
         let sourceURL = rootURL.appendingPathComponent("accepted-source.m4a")
-        try Data("accepted audio remains recoverable".utf8).write(to: sourceURL)
+        try TranscriptionTestAudio.wav.write(to: sourceURL)
         let artifact = AudioRecordingArtifact(
             fileURL: sourceURL,
             duration: 1.2,
@@ -3018,7 +3018,7 @@ struct DictationSessionControllerTests {
         let activeURL = rootURL.appendingPathComponent("Active", isDirectory: true)
         let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
         let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
-        let contents = Data("microphone wrote before start failed".utf8)
+        let contents = TranscriptionTestAudio.wav
         let recorder = PreparedCaptureRecorder(
             contents: contents,
             startErrorAfterWrite: .startFailed
@@ -3054,7 +3054,7 @@ struct DictationSessionControllerTests {
         let activeURL = rootURL.appendingPathComponent("Active", isDirectory: true)
         let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
         let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
-        let contents = Data("finalization failed after useful audio".utf8)
+        let contents = TranscriptionTestAudio.wav
         let recorder = PreparedCaptureRecorder(
             contents: contents,
             stopError: .stopFailed
@@ -3091,7 +3091,7 @@ struct DictationSessionControllerTests {
         let activeURL = rootURL.appendingPathComponent("Active", isDirectory: true)
         let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
         let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
-        let contents = Data("checkpoint persistence failure audio".utf8)
+        let contents = TranscriptionTestAudio.wav
         let recorder = PreparedCaptureRecorder(contents: contents)
         let recoveryStore = CheckpointPersistenceFailureRecovery(
             directoryURL: recoveryURL
@@ -3127,7 +3127,7 @@ struct DictationSessionControllerTests {
         let activeURL = rootURL.appendingPathComponent("Active", isDirectory: true)
         let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
         let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
-        let contents = Data("start failure checkpoint fallback audio".utf8)
+        let contents = TranscriptionTestAudio.wav
         let recorder = PreparedCaptureRecorder(
             contents: contents,
             startErrorAfterWrite: .startFailed
@@ -3166,7 +3166,7 @@ struct DictationSessionControllerTests {
         let activeURL = rootURL.appendingPathComponent("Active", isDirectory: true)
         let cacheURL = rootURL.appendingPathComponent("Cache", isDirectory: true)
         let recoveryURL = rootURL.appendingPathComponent("Recovery", isDirectory: true)
-        let contents = Data("quit while recording".utf8)
+        let contents = TranscriptionTestAudio.wav
         let recorder = PreparedCaptureRecorder(contents: contents)
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
         let transcriptionService = FakeControllerTranscriptionService()
@@ -3216,7 +3216,7 @@ struct DictationSessionControllerTests {
             settings: .defaults,
             maximumDuration: 300
         )
-        try Data("launch repair audio".utf8).write(to: lease.audioFileURL)
+        try TranscriptionTestAudio.wav.write(to: lease.audioFileURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
         let eventLogger = FakeDictationEventLogger()
         let controller = makeController(
@@ -3248,7 +3248,7 @@ struct DictationSessionControllerTests {
         let rootURL = try makeTemporaryControllerDirectory(prefix: "termination-dispatch")
         defer { try? FileManager.default.removeItem(at: rootURL) }
         let sourceURL = rootURL.appendingPathComponent("dispatched.m4a")
-        let contents = Data("already dispatched audio".utf8)
+        let contents = TranscriptionTestAudio.wav
         try contents.write(to: sourceURL)
         let artifact = AudioRecordingArtifact(
             fileURL: sourceURL,
@@ -3307,7 +3307,7 @@ struct DictationSessionControllerTests {
         let rootURL = try makeTemporaryControllerDirectory(prefix: "transport-uncertain")
         defer { try? FileManager.default.removeItem(at: rootURL) }
         let sourceURL = rootURL.appendingPathComponent("transport-failure.m4a")
-        let contents = Data("ambiguous transport response".utf8)
+        let contents = TranscriptionTestAudio.wav
         try contents.write(to: sourceURL)
         let artifact = AudioRecordingArtifact(
             fileURL: sourceURL,
@@ -4201,7 +4201,7 @@ struct DictationSessionControllerTests {
         defer { try? FileManager.default.removeItem(at: rootURL) }
 
         let sourceURL = rootURL.appendingPathComponent("cancelled-retry.m4a")
-        try Data("cancelled retry recording".utf8).write(to: sourceURL)
+        try TranscriptionTestAudio.wav.write(to: sourceURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(
             directoryURL: recoveryURL
         )

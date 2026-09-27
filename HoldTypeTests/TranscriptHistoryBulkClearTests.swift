@@ -94,7 +94,7 @@ struct TranscriptHistoryBulkClearTests {
 
     private func makeAudioFile(in directoryURL: URL, named name: String) throws -> URL {
         let fileURL = directoryURL.appendingPathComponent(name)
-        try Data([0x01]).write(to: fileURL)
+        try TranscriptionTestAudio.wav.write(to: fileURL)
         return fileURL
     }
 }

@@ -12,6 +12,11 @@ final class QueuedAudioRecorderEngine: AudioRecorderEngine {
         worker = AudioRecorderWorker(url: outputFileURL, settings: settings, preference: inputPreference)
     }
 
+    init(makeEngine: @escaping @Sendable () throws -> any NativeAudioRecorderEngine,
+         stopTimeout: TimeInterval = 5) {
+        worker = AudioRecorderWorker(makeEngine: makeEngine, stopTimeout: stopTimeout)
+    }
+
     var currentTime: TimeInterval {
         get async { await worker.duration() }
     }
@@ -26,7 +31,7 @@ final class QueuedAudioRecorderEngine: AudioRecorderEngine {
         }
     }
 
-    func stop() async { await worker.stop() }
+    func stop() async throws { try await worker.stop() }
     func deleteRecording() async -> Bool { await worker.delete() }
     func setRecordingFinishedHandler(_ handler: ((Bool) -> Void)?) { finished = handler }
 }
@@ -37,11 +42,24 @@ nonisolated private final class AudioRecorderWorker: @unchecked Sendable {
     private let settings: [String: Any]
     private let preference: AudioInputPreference
     private var engine: (any NativeAudioRecorderEngine)?
+    private let engineFactory: (@Sendable () throws -> any NativeAudioRecorderEngine)?
+    private let stopTimeout: TimeInterval
 
     init(url: URL, settings: [String: Any], preference: AudioInputPreference) {
         self.url = url
         self.settings = settings
         self.preference = preference
+        engineFactory = nil
+        stopTimeout = 5
+    }
+
+    init(makeEngine: @escaping @Sendable () throws -> any NativeAudioRecorderEngine,
+         stopTimeout: TimeInterval) {
+        url = URL(fileURLWithPath: "/unused")
+        settings = [:]
+        preference = .systemDefault
+        engineFactory = makeEngine
+        self.stopTimeout = stopTimeout
     }
 
     func start(duration: TimeInterval, authorization: RecordingStartAuthorization?, finished: @escaping @Sendable (Bool) -> Void) async throws -> Bool {
@@ -71,9 +89,13 @@ nonisolated private final class AudioRecorderWorker: @unchecked Sendable {
         }
     }
 
-    func stop() async {
-        await withCheckedContinuation { continuation in
-            queue.async { self.engine?.stop(); continuation.resume() }
+    func stop() async throws {
+        let barrier = AudioRecordingFinishBarrier()
+        try await barrier.wait(timeout: stopTimeout) { [self] in
+            queue.async {
+                guard let engine = self.engine else { barrier.finish(); return }
+                engine.stop { barrier.finish() }
+            }
         }
     }
 
@@ -84,6 +106,7 @@ nonisolated private final class AudioRecorderWorker: @unchecked Sendable {
     }
 
     private func makeEngine() throws -> any NativeAudioRecorderEngine {
+        if let engineFactory { return try engineFactory() }
         if let deviceID = preference.deviceID {
             let discovery = AVCaptureDevice.DiscoverySession(
                 deviceTypes: [.microphone], mediaType: .audio, position: .unspecified

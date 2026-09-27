@@ -427,11 +427,11 @@ struct OpenAITranscriptionServiceTests {
             (403, .invalidAPIKey),
             (408, .timedOut),
             (429, .rateLimited),
-            (400, .badRequest),
-            (404, .badRequest),
-            (413, .badRequest),
-            (415, .badRequest),
-            (422, .badRequest),
+            (400, .providerRejected(statusCode: 400)),
+            (404, .providerRejected(statusCode: 404)),
+            (413, .providerRejected(statusCode: 413)),
+            (415, .providerRejected(statusCode: 415)),
+            (422, .providerRejected(statusCode: 422)),
             (500, .providerUnavailable),
             (503, .providerUnavailable),
             (418, .providerRejected(statusCode: 418)),
@@ -815,7 +815,7 @@ struct OpenAITranscriptionServiceTests {
         stage: BlockingPreparationPOSIXCalls.Stage,
         expectedError: OpenAITranscriptionServiceError
     ) async throws {
-        let sourceData = Data(repeating: 0x41, count: 128 * 1024)
+        let sourceData = TranscriptionTestAudio.wav
         let audioFileURL = try makeTemporaryAudioFile(contents: sourceData)
         let scratchDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "holdtype-blocked-preparation-\(UUID().uuidString)",
@@ -905,7 +905,7 @@ struct OpenAITranscriptionServiceTests {
 
     private func makeTemporaryAudioFile(
         named fileName: String = "recording.m4a",
-        contents: Data = Data("fake audio bytes".utf8)
+        contents: Data = TranscriptionTestAudio.wav
     ) throws -> URL {
         let directoryURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("holdtype-transcription-service-\(UUID().uuidString)", isDirectory: true)

@@ -6,7 +6,7 @@ protocol AudioRecorderEngine: AnyObject {
 
     func record(forDuration duration: TimeInterval) async throws -> Bool
     func record(forDuration duration: TimeInterval, authorization: RecordingStartAuthorization?) async throws -> Bool
-    func stop() async
+    func stop() async throws
     @discardableResult func deleteRecording() async -> Bool
     func setRecordingFinishedHandler(_ handler: ((Bool) -> Void)?)
 }

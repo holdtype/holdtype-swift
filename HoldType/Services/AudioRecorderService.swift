@@ -183,13 +183,13 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
             throw CancellationError()
         } catch let error as AudioRecorderServiceError {
             guard activeAttemptID == attemptID || activeRecorder == nil else { throw error }
-            await activeRecorder?.stop()
+            try? await activeRecorder?.stop()
             if let id = activeAttemptID { clearActiveRecording(ifAttemptID: id) }
             fail(with: error)
             throw error
         } catch {
             guard activeAttemptID == attemptID || activeRecorder == nil else { throw error }
-            await activeRecorder?.stop()
+            try? await activeRecorder?.stop()
             if let id = activeAttemptID { clearActiveRecording(ifAttemptID: id) }
             let serviceError = AudioRecorderServiceError.recordingUnavailable
             fail(with: serviceError)
@@ -248,7 +248,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         recorder.setRecordingFinishedHandler(nil)
         let task = Task { @MainActor in
             let duration = AudioRecordingArtifactFinalizer.normalizedDuration(await recorder.currentTime) ?? 0
-            await recorder.stop()
+            try await recorder.stop()
             return try await self.artifactFinalizer.makeFinalizationTask(
                 outputFileURL: outputFileURL, fallbackDuration: duration
             ).value
@@ -277,7 +277,7 @@ final class AVFoundationAudioRecorderService: AudioRecorderService {
         activeRecordingStartTime = nil
         activeMaximumRecordingDuration = nil
         recorder?.setRecordingFinishedHandler(nil)
-        await recorder?.stop()
+        try? await recorder?.stop()
         await recorder?.deleteRecording()
         activeRecorder = nil
         activeFileURL = nil

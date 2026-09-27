@@ -5,7 +5,7 @@
 - Domain ID: `holdtype.shared.openai-transcription`
 - Status: Active
 - Stability: Accepted
-- Contract revision: `holdtype.shared.openai-transcription.request@1`
+- Contract revision: `holdtype.shared.openai-transcription.request@2`
 - Read when: model, language, file eligibility, multipart field order, or response-size limits are in scope.
 - Do not read when: only prompt composition, transport cleanup, or recovery UI is in scope.
 - Maximum size: 100 physical lines.
@@ -13,7 +13,9 @@
 ## Settings and file eligibility
 
 - Default model is local setting `gpt-transcribe`. Blank/missing/fresh values
-  use the current default; a non-blank saved value is never rewritten. Provider
+  use the current default. macOS performs one migration of the previous standard
+  `gpt-4o-transcribe` value to `gpt-transcribe`; other saved values and subsequent
+  explicit model choices are preserved. iOS saved values remain unchanged. Provider
   model rejection is a settings error, not silent provider substitution.
 - MVP source is an existing regular `m4a` or `wav`, non-empty and strictly less
   than 25,000,000 bytes.
@@ -43,3 +45,9 @@
 ## Dependencies
 
 - [OpenAI transcription](../openai-transcription.md) — shared provider invariants.
+
+## Contract delta — 2026-09-27
+
+User approved the critical recording fix and one-time macOS standard-model
+migration. Only the previous standard value changes; credentials, audio,
+language, custom models, iOS preferences, and subsequent choices are protected.

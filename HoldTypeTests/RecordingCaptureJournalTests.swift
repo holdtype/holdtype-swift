@@ -59,7 +59,7 @@ struct RecordingCaptureJournalTests {
             settings: .defaults,
             maximumDuration: 300
         )
-        let contents = Data("playable recording".utf8)
+        let contents = TranscriptionTestAudio.wav
         try contents.write(to: lease.audioFileURL)
 
         let released = try journal.releaseCapture(
@@ -94,7 +94,7 @@ struct RecordingCaptureJournalTests {
             settings: settings,
             maximumDuration: 900
         )
-        let contents = Data("interrupted but playable".utf8)
+        let contents = TranscriptionTestAudio.wav
         try contents.write(to: lease.audioFileURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
 
@@ -145,7 +145,7 @@ struct RecordingCaptureJournalTests {
         let orphanURL = cacheURL.appendingPathComponent(
             "HoldType-Capture-20260717-120000-\(captureID.uuidString.lowercased()).m4a"
         )
-        let contents = Data("orphaned capture".utf8)
+        let contents = TranscriptionTestAudio.wav
         try contents.write(to: orphanURL)
         let journal = makeJournal(directoryURL: cacheURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
@@ -174,7 +174,7 @@ struct RecordingCaptureJournalTests {
             settings: .defaults,
             maximumDuration: 300
         )
-        try Data("one durable owner only".utf8).write(to: lease.audioFileURL)
+        try TranscriptionTestAudio.wav.write(to: lease.audioFileURL)
         let recoveryStore = TranscriptionFailureRecoveryStore(directoryURL: recoveryURL)
         fileManager.failsAudioRemoval = true
 
@@ -209,7 +209,7 @@ struct RecordingCaptureJournalTests {
             settings: .defaults,
             maximumDuration: 300
         )
-        try Data("separately owned audio".utf8).write(to: lease.audioFileURL)
+        try TranscriptionTestAudio.wav.write(to: lease.audioFileURL)
         let markerURL = markerURL(in: activeURL)
         try FileManager.default.removeItem(at: markerURL)
         try FileManager.default.createDirectory(

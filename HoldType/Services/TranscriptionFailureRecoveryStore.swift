@@ -88,7 +88,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         audioDuration: TimeInterval?,
         completionKind: TranscriptionRecoveryCompletionKind
     ) throws -> FailedTranscriptionAttempt {
-        try validateNonemptyAudio(at: audioFileURL)
+        try RecoveryAudioValidation.validate(at: audioFileURL)
         let id = uuidProvider()
         let createdAt = now()
         let recoveryAudioURL = try copyAudioForRecovery(
@@ -156,7 +156,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             forKey: sourcePath
         ),
             pendingAttempt.completionKind == completionKind,
-            (try? validateNonemptyAudio(at: pendingAttempt.audioFileURL)) != nil {
+            (try? RecoveryAudioValidation.validate(at: pendingAttempt.audioFileURL)) != nil {
             pendingAttempt.state = .failed
             pendingAttempt.reason = reason
             pendingAttempt.updatedAt = now()
@@ -169,7 +169,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
                 .sorted { $0.updatedAt > $1.updatedAt }
             return pendingAttempt
         }
-        guard (try? validateNonemptyAudio(at: audioFileURL)) != nil else {
+        guard (try? RecoveryAudioValidation.validate(at: audioFileURL)) != nil else {
             return nil
         }
         let attempt = FailedTranscriptionAttempt(
@@ -346,7 +346,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
               ArtifactFormat.recoveryFileIdentity(
                   fileName: failedAttempts[index].audioFileURL.lastPathComponent
               ) == id,
-              (try? validateNonemptyAudio(at: failedAttempts[index].audioFileURL)) != nil else {
+              ArtifactFormat.regularNonemptyFile(at: failedAttempts[index].audioFileURL, fileManager: fileManager) != nil else {
             return
         }
         var failClosedAttempts = failedAttempts
@@ -546,11 +546,6 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
         failedAttempts = retainedAttempts
         return true
     }
-    private func validateNonemptyAudio(at fileURL: URL) throws {
-        guard ArtifactFormat.regularNonemptyFile(at: fileURL, fileManager: fileManager) != nil else {
-            throw TranscriptionFailureRecoveryError.audioUnavailable
-        }
-    }
     private func copyAudioForRecovery(sourceURL: URL, id: UUID, createdAt: Date,
                                       completionKind: TranscriptionRecoveryCompletionKind) throws -> URL {
         do {
@@ -578,6 +573,7 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             #else
             try fileManager.copyItem(at: sourceURL, to: destinationURL)
             #endif
+            try RecoveryAudioValidation.validate(at: destinationURL)
             return destinationURL
         } catch {
             throw TranscriptionFailureRecoveryError.saveFailed
@@ -948,10 +944,10 @@ final class TranscriptionFailureRecoveryStore: ObservableObject, TranscriptionFa
             try? decoder.decode([PersistedRecoveryAttempt].self, from: $0)
         }
         let records = decodedRecords ?? []
-        let ownedAudioFiles = ownedRecoveryAudioFiles(
-            in: directoryURL,
-            fileManager: fileManager
-        )
+        let ownedAudioFiles = ownedRecoveryAudioFiles(in: directoryURL, fileManager: fileManager).filter { audio in
+            records.contains { $0.audioFileName == audio.url.lastPathComponent && $0.acceptedTranscriptText != nil }
+                || (try? RecoveryAudioValidation.validate(at: audio.url)) != nil
+        }
         let ownedAudioByName = Dictionary(
             uniqueKeysWithValues: ownedAudioFiles.map { ($0.url.lastPathComponent, $0) }
         )

@@ -19,6 +19,12 @@ off; max 5 minutes; System Default mic; login/Dock off; History on; completed
 recording retention off (enabled count 10); update checks on/downloads off.
 API key has no default/UserDefaults value.
 
+On first load after the September 2026 migration, macOS replaces a saved
+`gpt-4o-transcribe` (ignoring surrounding whitespace) with `gpt-transcribe` and
+records completion. Other models, unrelated settings, and later explicit model
+choices are preserved. This user-approved change follows transcription request
+contract revision 2; it does not migrate iOS preferences.
+
 ## Storage boundary
 
 - UserDefaults may store every non-secret listed behavior/transcription/
